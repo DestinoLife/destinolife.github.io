@@ -2,7 +2,7 @@
 
 Jeu de simulation de vie en 2D (PEGI 18). Chaque choix fait évoluer le personnage, son décor et son destin.
 
-Version actuelle : **v0.4.2**. Voir [CHANGELOG.md](CHANGELOG.md). Les versions suivent le format v0.x, comme un vrai jeu en accès anticipé : chaque mise à jour a son tag Git et ses notes dans `src/data/changelog.js`.
+Version actuelle : **v0.5**. Voir [CHANGELOG.md](CHANGELOG.md). Les versions suivent le format v0.x, comme un vrai jeu en accès anticipé : chaque mise à jour a son tag Git et ses notes dans `src/data/changelog.js`.
 
 ## Lancer le jeu
 
@@ -11,6 +11,7 @@ npm install
 npm run dev      # http://localhost:5173  (ajoute ?dev pour le compteur de FPS)
 npm run build    # version de production dans dist/
 npm run sim      # simule 300 vies au hasard pour détecter les bugs
+node scripts/tax-check.mjs   # montants d’impôts sur des profils types
 ```
 
 ## Structure

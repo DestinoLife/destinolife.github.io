@@ -42,7 +42,7 @@ export function messagesHTML(S, o, back) {
 }
 
 // ---------- Instapic : vraies images, commentaires ----------
-const POST_BG = { selfie: ['#ff9a8b', '#ff6a88'], sport: ['#43cea2', '#185a9d'], soiree: ['#7b2ff7', '#f107a3'], voyage: ['#56ccf2', '#f2c94c'], voiture: ['#232526', '#d7263d'], clip: ['#0f0c29', '#ff00cc'], business: ['#1d2b64', '#f8cdda'], luxe: ['#3a2f0b', '#f5d76e'] };
+const POST_BG = { selfie: ['#ff9a8b', '#ff6a88'], sport: ['#43cea2', '#185a9d'], soiree: ['#7b2ff7', '#f107a3'], voyage: ['#56ccf2', '#f2c94c'], voiture: ['#232526', '#d7263d'], clip: ['#0f0c29', '#ff00cc'], business: ['#1d2b64', '#f8cdda'], luxe: ['#3a2f0b', '#f5d76e'], repas: ['#f6d365', '#fda085'], coucher: ['#ff7e5f', '#6a3093'], plage: ['#74ebd5', '#9face6'], montagne: ['#a1c4fd', '#c2e9fb'], animal: ['#fbc2eb', '#a6c1ee'], concert: ['#141e30', '#7f00ff'], cafe: ['#d7b89a', '#8d6e63'], gaming: ['#0f2027', '#2c5364'] };
 export function postArt(type, look, genre, uid) {
   const [a, b] = POST_BG[type] || POST_BG.selfie;
   const g = `pg${uid}`;
@@ -51,7 +51,15 @@ export function postArt(type, look, genre, uid) {
   const deco = {
     selfie: face,
     sport: `<rect x="20" y="56" width="80" height="8" rx="3" fill="#fff" opacity=".9"/><rect x="14" y="44" width="12" height="32" rx="3" fill="#fff"/><rect x="94" y="44" width="12" height="32" rx="3" fill="#fff"/>`,
-    soiree: `${[20, 50, 80, 100].map((x, i) => `<circle cx="${x}" cy="${20 + i * 7}" r="${6 + i}" fill="#fff" opacity=".5"/>`).join('')}${face}`,
+    soiree: `${[20, 50, 80, 100].map((x, i) => `<circle cx="${x}" cy="${20 + i * 7}" r="${6 + i}" fill="#fff" opacity=".5"/>`).join('')}<path d="M30 0 L10 70 M90 0 L110 70" stroke="#ffe66d" stroke-width="10" opacity=".25"/>${[14, 34, 54, 74, 94, 110].map((x, i) => `<circle cx="${x}" cy="${92 + (i % 3) * 4}" r="10" fill="#1b0f2e"/><rect x="${x - 12}" y="${98 + (i % 3) * 4}" width="24" height="30" rx="9" fill="#1b0f2e"/>`).join('')}<path d="M40 88 l6 -14 M82 86 l-4 -16" stroke="#1b0f2e" stroke-width="5" stroke-linecap="round"/>`,
+    repas: `<circle cx="60" cy="62" r="40" fill="#fff"/><circle cx="60" cy="62" r="30" fill="#f4f1ea"/><circle cx="50" cy="56" r="11" fill="#e85d3a"/><circle cx="68" cy="52" r="8" fill="#8bc34a"/><path d="M48 72 Q62 82 76 70" stroke="#f2c14e" stroke-width="7" fill="none" stroke-linecap="round"/><rect x="104" y="24" width="4" height="70" rx="2" fill="#eee"/><rect x="12" y="24" width="4" height="70" rx="2" fill="#eee"/>`,
+    coucher: `<circle cx="60" cy="74" r="26" fill="#ffd36e"/><rect y="74" width="120" height="46" fill="#2b1840" opacity=".55"/>${[[4, 60, 16], [22, 48, 14], [38, 66, 12], [52, 40, 16], [70, 56, 14], [86, 44, 12], [100, 62, 18]].map(([x, y, w]) => `<rect x="${x}" y="${y}" width="${w}" height="${120 - y}" fill="#1c1030"/>`).join('')}`,
+    plage: `<circle cx="92" cy="26" r="12" fill="#fff6c2"/><path d="M0 64 Q30 58 60 64 T120 62 V120 H0Z" fill="#1fa2c4"/><path d="M0 88 Q60 78 120 88 V120 H0Z" fill="#f4dca6"/><path d="M34 96 L44 50" stroke="#fff" stroke-width="3"/><path d="M20 56 Q44 30 68 50 Z" fill="#ff5e62"/><rect x="66" y="98" width="30" height="8" rx="3" fill="#ff9f43"/>`,
+    montagne: `<circle cx="94" cy="24" r="10" fill="#fff"/><path d="M-10 110 L40 40 L70 80 L90 56 L130 110Z" fill="#5b6c8f"/><path d="M40 40 L30 54 L38 52 L44 58 L50 50Z M90 56 L84 64 L92 63Z" fill="#fff"/><path d="M0 120 L0 100 Q60 86 120 100 V120Z" fill="#3e7d4f"/>`,
+    animal: `<path d="M34 46 L38 18 L56 38Z M86 46 L82 18 L64 38Z" fill="#f4a261"/><ellipse cx="60" cy="112" rx="34" ry="30" fill="#f4a261"/><ellipse cx="60" cy="62" rx="32" ry="28" fill="#f4a261"/><circle cx="48" cy="58" r="5" fill="#1d1d1d"/><circle cx="72" cy="58" r="5" fill="#1d1d1d"/><path d="M56 70 L64 70 L60 75Z" fill="#e76f51"/><path d="M40 72 H22 M40 76 H24 M80 72 H98 M80 76 H96" stroke="#fff" stroke-width="1.5"/>`,
+    concert: `<path d="M20 0 L0 60 L40 60Z M100 0 L80 60 L120 60Z M60 0 L44 60 L76 60Z" fill="#ff4fd8" opacity=".25"/><rect x="18" y="58" width="84" height="8" fill="#2a2a40"/><rect x="56" y="38" width="8" height="20" rx="4" fill="#fff"/>${[8, 26, 44, 62, 80, 98, 114].map((x, i) => `<circle cx="${x}" cy="${98 + (i % 3) * 4}" r="10" fill="#05050c"/><rect x="${x - 12}" y="${104 + (i % 3) * 4}" width="24" height="30" rx="9" fill="#05050c"/>`).join('')}<path d="M30 94 l-4 -16 M90 92 l5 -16" stroke="#05050c" stroke-width="4" stroke-linecap="round"/><rect x="92" y="70" width="7" height="11" rx="1" fill="#9ad0ff"/>`,
+    cafe: `<rect y="82" width="120" height="38" fill="#6d4c41"/><rect x="58" y="44" width="52" height="34" rx="3" fill="#cfd8dc"/><rect x="62" y="48" width="44" height="26" fill="#37474f"/><rect x="52" y="78" width="64" height="5" rx="2" fill="#b0bec5"/><path d="M14 64 H44 V86 Q44 96 34 96 H24 Q14 96 14 86Z" fill="#fff"/><path d="M44 70 Q54 72 44 82" stroke="#fff" stroke-width="3" fill="none"/><ellipse cx="29" cy="65" rx="14" ry="3" fill="#5d4037"/><path d="M24 56 Q20 48 26 42 M34 56 Q30 46 36 38" stroke="#fff" stroke-width="2" fill="none" opacity=".7"/>`,
+    gaming: `<rect x="14" y="20" width="92" height="54" rx="4" fill="#0b0f14" stroke="#00e5ff" stroke-width="2"/><path d="M22 62 L40 40 L52 52 L70 30 L98 58" stroke="#ff2e88" stroke-width="3" fill="none"/><rect x="54" y="74" width="12" height="10" fill="#222"/><path d="M34 100 Q34 88 46 88 H74 Q86 88 86 100 Q86 112 76 110 L68 104 H52 L44 110 Q34 112 34 100Z" fill="#e0e0e0"/><circle cx="74" cy="97" r="3" fill="#ff2e88"/><path d="M44 97 H52 M48 93 V101" stroke="#333" stroke-width="2.5"/>`,
     voyage: `<circle cx="86" cy="30" r="14" fill="#fff6c2"/><path d="M0 80 Q30 70 60 80 T120 78 V120 H0Z" fill="#1a8fb5"/><path d="M0 98 Q60 88 120 98 V120 H0Z" fill="#f4dca6"/>`,
     voiture: `<g transform="translate(60 92) scale(.5)"><path d="M-100 -12 Q-100 -30 -80 -34 L-40 -54 Q-20 -62 20 -60 Q56 -58 84 -38 L102 -32 Q110 -28 108 -12 L-100 -12Z" fill="#d7263d"/><circle cx="-60" cy="-8" r="15" fill="#111"/><circle cx="64" cy="-8" r="15" fill="#111"/></g>`,
     clip: `<rect x="52" y="22" width="16" height="34" rx="8" fill="#fff"/><path d="M60 56 V80 M46 84 H74" stroke="#fff" stroke-width="4"/><path d="M10 100 H110" stroke="#ff00cc" stroke-width="3"/>`,
@@ -85,7 +93,7 @@ export function actusHTML(S, back) {
 }
 
 // ---------- Blackjack ----------
-const cardHTML = (c, hide) => `<span class="card ${hide ? 'back' : ['♥', '♦'].includes(c.s) ? 'red' : ''}">${hide ? '' : `${c.v}<i>${c.s}</i>`}</span>`;
+const cardHTML = (c, hide) => `<span class="pcard ${hide ? 'back' : ['♥', '♦'].includes(c.s) ? 'red' : ''}">${hide ? '' : `${c.v}<i>${c.s}</i>`}</span>`;
 export function blackjackHTML(S, o) {
   const b = o.bj;
   if (!b) return `<p class="hint">Approche-toi le plus possible de 21 sans dépasser. Le croupier tire jusqu’à 17. Blackjack ×2,5.</p>`;

@@ -10,9 +10,9 @@ import { CAREERS, canApply } from '../data/careers.js';
 import { HOUSING } from '../data/housing.js';
 import { MILIEUX, TRAITS, TALENTS } from '../data/identity.js';
 import { randomLook } from '../data/look.js';
-import { worldTick, migrate } from './economy.js';
+import { worldTick, migrate, patrimoine } from './economy.js';
 import { life2Tick, migrate3, DISEASES, friendService } from './life2.js';
-import { messagesTick } from './messages.js';
+import { messagesTick, runPlan } from './messages.js';
 const DISEASE_NOM = new Proxy({}, { get: (_, k) => DISEASES[k]?.nom || 'Maladie' });
 
 export const busy = (s) => !!(s.current || s.result);
@@ -92,6 +92,7 @@ function baseTmp(s) {
 
 export function presentNext(s) {
   if (busy(s) || !s.vivant) return;
+  if (!s.queue.length && s.plans?.length && s.plans[0].at <= s.t) runPlan(s);
   while (s.queue.length) {
     const id = s.queue.shift();
     const ev = EV[id];
@@ -169,6 +170,7 @@ export function continueResult(s) {
 // ---------- Passage d'une année ----------
 export function ageUp(s) {
   if (!s.vivant || busy(s) || s.queue.length) return null;
+  if (s.plans?.length) { runPlan(s); presentNext(s); return null; }
   if (s.voyage?.id === 'jour') s.voyage = null;
   const rep = { revenus: 0, depenses: 0 };
   s.age++;
@@ -280,12 +282,50 @@ export function impot(revenu) {
 }
 export const legalIncome = (s) => yearlyIncome(s) + (s.business || []).reduce((t, b) => t + Math.max(0, b.benef || 0), 0);
 
+// Fiscalité complète : dépend du revenu, de la famille, des entreprises, de la propriété et de la fortune.
+export function fiscalite(s) {
+  const z = { revenu: 0, societes: 0, fonciere: 0, fortune: 0, parts: 1, total: 0, fortuneNette: 0, regime: 'normal' };
+  if (s.age < 18 || inPrison(s)) return z;
+  const marie = s.relations.some((r) => r.vivant && r.lien === 'conjoint');
+  const kids = childrenOf(s).filter((k) => k.vivant && k.age < 18).length;
+  z.parts = 1 + (marie ? 1 : 0) + Math.min(kids, 2) * 0.5 + Math.max(0, kids - 2);
+  z.revenu = Math.round(impot(yearlyIncome(s) / z.parts) * z.parts);
+  z.societes = Math.round((s.business || []).reduce((t, b) => { const bf = Math.max(0, b.benef || 0); return t + Math.min(bf, 42500) * 0.15 + Math.max(0, bf - 42500) * 0.25; }, 0));
+  const h = HOUSING[s.logement];
+  const immo = s.proprio && h?.achat ? h.achat : 0;
+  z.fonciere = Math.round(immo * 0.005);
+  z.fortuneNette = Math.max(0, s.money) + patrimoine(s) + immo;
+  if (z.fortuneNette > 1300000) {
+    const T = [[800000, 0], [1300000, 0.005], [2570000, 0.007], [5000000, 0.01], [10000000, 0.0125], [Infinity, 0.015]];
+    let prev = 0;
+    for (const [lim, taux] of T) { z.fortune += Math.max(0, Math.min(z.fortuneNette, lim) - prev) * taux; prev = lim; if (z.fortuneNette <= lim) break; }
+    z.fortune = Math.round(z.fortune);
+  }
+  if (s.flags.exil_fiscal) { z.regime = 'exil'; z.revenu = Math.round(z.revenu * 0.2); z.fortune = 0; z.fonciere = Math.round(z.fonciere * 0.5); }
+  else if (s.flags.offshore) { z.regime = 'offshore'; z.revenu = Math.round(z.revenu * 0.4); z.fortune = Math.round(z.fortune * 0.3); z.societes = Math.round(z.societes * 0.4); }
+  else if (s.flags.optimisation) { z.regime = 'optimise'; z.revenu = Math.round(z.revenu * 0.8); z.fortune = Math.round(z.fortune * 0.75); z.societes = Math.round(z.societes * 0.85); }
+  z.total = z.revenu + z.societes + z.fonciere + z.fortune;
+  return z;
+}
+
 function finances(s, rep) {
   const inc = yearlyIncome(s);
   const dep = yearlyCosts(s);
   let poche = 0;
   if (s.chezParents && s.age >= 12 && s.age < 18) poche = MILIEUX[s.milieu].poche;
-  const tax = s.age >= 18 ? impot(legalIncome(s)) : 0;
+  const fz = fiscalite(s);
+  const tax = fz.total;
+  rep.impots = tax;
+  s.mem.impotsAvant = s.mem.impotsAn || 0;
+  s.mem.impotsAn = tax;
+  s.mem.fraudeCumul = s.flags.offshore ? (s.mem.fraudeCumul || 0) + Math.round(tax * 1.2) : 0;
+  // Avis d'imposition : seulement la 1re fois, ou quand la facture change nettement (pas chaque année)
+  if (tax >= 500 && (!s.flags.avis_impot || tax > (s.mem.impotsAvant || 0) * 1.6 || (fz.fortune && !s.flags.avis_ifi))) {
+    s.flags.avis_impot = true;
+    if (fz.fortune) s.flags.avis_ifi = true;
+    const det = [fz.revenu && `revenu ${euros(fz.revenu)}`, fz.societes && `sociétés ${euros(fz.societes)}`, fz.fonciere && `foncière ${euros(fz.fonciere)}`, fz.fortune && `fortune ${euros(fz.fortune)}`].filter(Boolean).join(', ');
+    s.phone.msgs.push({ from: 'Impôts.gouv', txt: `Ton avis d’imposition est disponible : ${euros(tax)} à payer cette année (${det}). Détail dans l’onglet Biens.`, age: s.age, t: s.t, read: true });
+  }
   // Gains illégaux : variables, selon ton rang et ton activité de l'année (argent sale)
   let sale = 0;
   if (isCrime(s) && !inPrison(s)) {
@@ -297,7 +337,7 @@ function finances(s, rep) {
   s.money += inc - dep + poche - tax + sale - ado;
   rep.revenus = inc + poche + sale;
   rep.depenses = dep + tax + ado;
-  if (inc || dep || sale) addLog(s, `Bilan : ${euros(inc + poche)} de revenus${sale ? `, ${euros(sale)} d’argent sale` : ''}, ${euros(dep)} de dépenses${tax ? `, ${euros(tax)} d’impôts` : ''}.`);
+  if (inc || dep || sale) addLog(s, `Bilan : ${euros(inc + poche)} de revenus${sale ? `, ${euros(sale)} d’argent sale` : ''}, ${euros(dep)} de dépenses${tax ? `, ${euros(tax)} d’impôts (${[fz.revenu && `revenu ${euros(fz.revenu)}`, fz.societes && `sociétés ${euros(fz.societes)}`, fz.fonciere && `foncière ${euros(fz.fonciere)}`, fz.fortune && `fortune ${euros(fz.fortune)}`].filter(Boolean).join(', ')})` : ''}.`);
   if (s.money < -4000 && !s.chezParents && !['rue', 'bidonville', 'pays'].includes(s.logement) && !inPrison(s)) s.queue.unshift('expulsion');
 }
 

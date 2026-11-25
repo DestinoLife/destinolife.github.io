@@ -14,7 +14,7 @@ import {
   continueAsChild, currentScene, outfitOf, busy, inPrison, canDo, yearlyCosts, yearlyIncome, presentNext, ACTIVITIES, CAREERS,
 } from './engine/flow.js';
 import { canApply, DIPLOME_NOM } from './data/careers.js';
-import { impot, legalIncome } from './engine/flow.js';
+import { impot, legalIncome, fiscalite } from './engine/flow.js';
 import { ROLES } from './data/world.js';
 import { HOUSING, SCENE_NOM } from './data/housing.js';
 import { ORIGINES, VILLES, MILIEUX, TRAITS, TALENTS, STATUTS } from './data/identity.js';
@@ -22,7 +22,7 @@ import { SKINS, HAIR_COLORS, EYES, HAIRSTYLES, BEARDS, BUILDS, STYLES, ACCS, FOU
 import { save, load, clearSave } from './engine/save.js';
 import { migrate, buyAsset, sellAsset, createBusiness, businessAction, networkAction, travel, flee, roulette, slots, moveCity, readAll, bestCar, ASSETS } from './engine/economy.js';
 import { phoneHTML, pcHTML, casinoHTML, travelHTML, biensHTML, crimeHubHTML } from './ui/overlays.js';
-import { answer, writeTo } from './engine/messages.js';
+import { answer, writeTo, nextPlan, quand } from './engine/messages.js';
 import { instaComment } from './engine/life2.js';
 import { VERSION, CHANGELOG } from './data/changelog.js';
 import { nameFor } from './data/identity.js';
@@ -280,7 +280,7 @@ function updateGame() {
   const blocked = busy(S) || !S.vivant;
   document.getElementById('dock').innerHTML = tabs.map(([k, t, i]) => `<button class="tab ${tab === k ? 'on' : ''} ${k === 'crime' ? 'crime' : ''}" data-a="tab" data-v="${k}" aria-label="${t}">${icon(i, 22)}${t}</button>`).join('') +
     `<button class="tab phone-tab ${OV?.t === 'phone' ? 'on' : ''}" data-a="phone" data-v="home" aria-label="Téléphone">${icon('phone', 22)}Téléphone${S.phone.unread ? `<em>${S.phone.unread}</em>` : ''}</button>` +
-    `<button class="age-btn ${blocked ? 'off' : ''}" data-a="age" aria-label="Avancer d’un an">${icon('forward', 20)}<span>Vieillir<small>+1 an · ${S.age} → ${S.age + 1}</small></span></button>`;
+    (nextPlan(S) ? `<button class="age-btn plan ${blocked ? 'off' : ''}" data-a="age" aria-label="Avancer jusqu’au prochain rendez-vous" title="${esc(S.plans.map((p) => `${quand(S, p.at)} : ${p.label}`).join(' · '))}">${icon('forward', 20)}<span>Avancer<small>${esc(quand(S, nextPlan(S).at))} · ${esc(nextPlan(S).label)}</small></span></button>` : `<button class="age-btn ${blocked ? 'off' : ''}" data-a="age" aria-label="Avancer d’un an">${icon('forward', 20)}<span>Vieillir<small>+1 an · ${S.age} → ${S.age + 1}</small></span></button>`);
   const keep = (sel) => document.querySelector(sel)?.scrollTop || 0;
   const sbTop = keep('#sheet .sheet-b'), phTop = keep('.ph-screen'), ovTop = keep('#overlay .sheet-b');
   const sameSheet = lastSheet === tab, sameOv = lastOvKey === (OV ? `${OV.t}|${OV.app}|${OV.conv}|${OV.itab}` : '');
@@ -381,7 +381,11 @@ function sheetHTML() {
   if (tab === 'rel') return head('Relations', partnerOf(S) ? `En couple avec ${esc(partnerOf(S).prenom)}` : 'Célibataire') + `<div class="sheet-b">${relHTML()}</div>`;
   if (tab === 'biens') {
     const inc = yearlyIncome(S), dep = yearlyCosts(S);
-    const housing = `<div class="sec"><h3>Budget annuel estimé</h3><dl class="kv"><dt>Revenus</dt><dd style="color:var(--good)">${euros(inc)}</dd><dt>Dépenses (logement, vie, enfants)</dt><dd style="color:var(--bad)">${euros(dep)}</dd><dt>Impôt sur le revenu</dt><dd style="color:var(--bad)">${euros(S.age >= 18 ? impot(legalIncome(S)) : 0)}</dd><dt>Bilan</dt><dd>${euros(inc - dep - (S.age >= 18 ? impot(legalIncome(S)) : 0))}</dd></dl></div>
+    const fz = fiscalite(S);
+    const taux = inc + fz.fortuneNette > 0 && fz.total ? Math.round((fz.total / Math.max(1, legalIncome(S))) * 100) : 0;
+    const REG = { normal: '', optimise: 'Optimisation fiscale légale : −20 % environ', offshore: 'Montage offshore : tu paies peu… tant que le fisc ne regarde pas', exil: 'Exil fiscal : presque plus d’impôts en France' };
+    const housing = `<div class="sec"><h3>Budget annuel estimé</h3><dl class="kv"><dt>Revenus</dt><dd style="color:var(--good)">${euros(inc)}</dd><dt>Dépenses (logement, vie, enfants)</dt><dd style="color:var(--bad)">${euros(dep)}</dd><dt>Impôts</dt><dd style="color:var(--bad)">${euros(fz.total)}</dd><dt>Bilan</dt><dd>${euros(inc - dep - fz.total)}</dd></dl></div>
+      <div class="sec"><h3>Tes impôts</h3>${S.age < 18 ? '<div class="note">Pas d’impôts avant 18 ans.</div>' : `<dl class="kv"><dt>Impôt sur le revenu · ${String(fz.parts).replace('.', ',')} part${fz.parts > 1 ? 's' : ''}</dt><dd>${euros(fz.revenu)}</dd>${fz.societes ? `<dt>Impôt sur les sociétés</dt><dd>${euros(fz.societes)}</dd>` : ''}${fz.fonciere ? `<dt>Taxe foncière</dt><dd>${euros(fz.fonciere)}</dd>` : ''}${fz.fortune ? `<dt>Impôt sur la fortune · ${euros(fz.fortuneNette)} de patrimoine</dt><dd>${euros(fz.fortune)}</dd>` : ''}<dt><b>Total</b>${taux ? ` · ${taux} % de tes revenus légaux` : ''}</dt><dd><b>${euros(fz.total)}</b></dd></dl>${REG[fz.regime] ? `<div class="note warn">${REG[fz.regime]}</div>` : ''}<p class="hint">Se marier et avoir des enfants donne des parts en plus. Au-delà de 1,3 M€ de patrimoine, l’impôt sur la fortune s’applique. L’argent sale n’est pas déclaré… mais un train de vie trop élevé attire le fisc.</p>`}</div>
       <div class="sec"><h3>Logement actuel</h3><div class="note">${S.chezParents ? 'Tu vis chez tes parents (gratuit).' : `${HOUSING[S.logement]?.nom}${S.proprio ? ' · propriétaire' : ''}`}</div></div>
       <div class="sec"><h3>Déménager</h3><div class="list">${housingOptions(S).map((h) => `<div class="li ${h.ok ? '' : 'off'}"><div class="grow"><b>${h.nom}</b><small>${h.ok ? [h.loyer ? `Loyer ${euros(h.loyer)}/an` : h.achat ? '' : 'Gratuit', h.achat ? `Achat ${euros(h.achat)}` : ''].filter(Boolean).join(' · ') : esc(h.why)}</small></div>
         ${h.ok && (h.loyer || !h.achat) ? `<button class="btn sm" data-a="move" data-v="${h.id}">${h.loyer ? 'Louer' : 'Y aller'}</button>` : ''}${h.ok && h.achat ? `<button class="btn sm ${S.money >= h.achat ? '' : 'off'}" data-a="buy" data-v="${h.id}">Acheter</button>` : ''}</div>`).join('')}</div></div>`;
@@ -501,11 +505,7 @@ function handle(a, v, el) {
       return showChangelog();
     case 'answer': {
       const r = answer(S, Number(v), Number(el.dataset.x));
-      if (r?.plan) {
-        OV = null;
-        presentNext(S);
-        toast(r.r, 'good');
-      }
+      if (r?.plan) toast(r.r, 'good');
       return updateGame();
     }
     case 'write': {
@@ -513,11 +513,7 @@ function handle(a, v, el) {
       if (!rel) return;
       const r = writeTo(S, rel, v);
       if (r.err) toast(r.r, 'err');
-      if (r.plan) {
-        OV = null;
-        presentNext(S);
-        toast(`Rendez-vous avec ${rel.prenom} !`, 'good');
-      }
+      if (r.plan) toast(`Prévu avec ${rel.prenom}. Appuie sur « Avancer » pour y aller.`, 'good');
       return updateGame();
     }
     case 'comment': {
@@ -536,7 +532,7 @@ function handle(a, v, el) {
     case 'age': {
       if (busy(S) || !S.vivant) return;
       const rep = ageUp(S);
-      if (rep) toast(`${S.age} ans${rep.revenus || rep.depenses ? ` · ${euros(rep.revenus - rep.depenses)} sur l’année` : ''}`, rep.revenus - rep.depenses >= 0 ? 'good' : 'err');
+      if (rep) toast(`${S.age} ans${rep.revenus || rep.depenses ? ` · ${euros(rep.revenus - rep.depenses)} sur l’année` : ''}${rep.impots ? ` · dont ${euros(rep.impots)} d’impôts` : ''}`, rep.revenus - rep.depenses >= 0 ? 'good' : 'err');
       return updateGame();
     }
     case 'choose':
@@ -738,6 +734,11 @@ app.addEventListener('click', (e) => {
   if (!el || el.disabled) return;
   const stop = e.target.closest('[data-stop]');
   if (stop && el.contains(stop)) return;
+  // Le téléphone ne se ferme que si on clique franchement à côté (pas dans ses coins arrondis ou juste sous lui)
+  if (el.dataset.a === 'phoneclose') {
+    const r = el.querySelector('.phone')?.getBoundingClientRect(), m = 40;
+    if (r && e.clientX > r.left - m && e.clientX < r.right + m && e.clientY > r.top - m && e.clientY < r.bottom + m) return;
+  }
   handle(el.dataset.a, el.dataset.v, el);
 });
 app.addEventListener('input', (e) => {

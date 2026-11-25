@@ -1,7 +1,17 @@
 // Notes de mise à jour affichées dans le jeu (même contenu que CHANGELOG.md).
-export const VERSION = 'v0.4.2';
+export const VERSION = 'v0.5';
 
 export const CHANGELOG = [
+  { v: 'v0.5', titre: 'La mise à jour « Agenda et fisc »', items: [
+    'Agenda : ce que tu prévois par message (dîner, soirée, livraison, arrivage, parloir, interview…) a une vraie date',
+    'Le bouton « Vieillir » devient « Avancer » : il saute de quelques jours jusqu’au prochain rendez-vous au lieu d’une année',
+    'Impôts selon ta situation : revenu avec parts (mariage, enfants), sociétés, taxe foncière, impôt sur la fortune au-delà de 1,3 M€',
+    'Détail de tes impôts dans l’onglet Biens, avis d’imposition par message quand la facture change',
+    'Conseiller fiscal : optimisation légale, montage offshore (risque de redressement) ou exil fiscal',
+    'Instapic : 8 nouveaux types de photos (repas, plage, rando, concert, animal, café, gaming, coucher de soleil)',
+    'Correction : l’écran de fin de vie s’affichait mal (après une overdose notamment)',
+    'Correction : le téléphone ne se ferme plus quand on touche son bas ou ses coins',
+  ] },
   { v: 'v0.4.2', titre: 'Correctif « Notifications » 2', items: [
     'Les messages reçus pendant un choix s’affichent sur la carte du choix, plus par-dessus',
     'Un événement qui arrive par message n’est plus affiché en double',

@@ -2,6 +2,7 @@
 // relations qui pèsent sur les choix (ami avocat, ami flic, ultimatum du couple).
 import { rnd, pick } from '../engine/rng.js';
 import { CAREERS } from './careers.js';
+import { salary } from '../engine/core.js';
 
 const st = (s, k) => s.stats[k];
 const cat = (s) => (s.carriere ? CAREERS[s.carriere.id].cat : null);
@@ -79,5 +80,53 @@ export const EVENTS4 = [
   { id: 'ami_heberge', forced: 1, cat: 'Amitié', pre: (s) => (s.tmp.f = s.relations.filter((r) => r.vivant && r.lien === 'ami').sort((a, b) => (b.conf ?? 0) - (a.conf ?? 0))[0]?.prenom), txt: '{f} a appris que tu dormais dehors. Il débarque : « Tu viens chez moi. Pas de discussion. »', ch: [
     { t: 'Accepter', fx: { logement: 'hlm', bonheur: 12, confiance: { lien: 'ami', d: 10 } }, r: 'Un canapé, un toit, un ami. Tu te relèves.' },
     { t: 'Refuser par fierté', fx: { bonheur: -3 }, r: '« La porte reste ouverte. »' },
+  ] },
+  // ---- Fiscalité
+  { id: 'conseiller_fiscal', cat: 'Argent', age: [22, 90], once: true, w: 2.5, cond: (s) => (s.mem.impotsAn || 0) >= 25000 && !s.flags.optimisation && !s.flags.offshore && !s.flags.exil_fiscal,
+    txt: (s) => `Ton banquier a vu ton avis d'imposition : ${(s.mem.impotsAn || 0).toLocaleString('fr-FR')} € cette année. Il te présente un conseiller fiscal.`,
+    ch: [
+      { t: 'Optimisation légale (dons, placements, frais)', h: 'Impôts ▼ un peu · sans risque', fx: (s) => ({ money: -Math.round((s.mem.impotsAn || 0) * 0.1), flag: 'optimisation' }), r: 'Tout est dans les règles. Tu paieras un peu moins chaque année.' },
+      { t: 'Montage offshore', h: 'Impôts ▼▼ · risque de redressement', fx: (s) => ({ money: -Math.round((s.mem.impotsAn || 0) * 0.3), flag: 'offshore', karma: -4 }), r: 'Une société au Panama, une autre au Delaware. Ça va très vite te coûter beaucoup moins… sur le papier.' },
+      { t: 'Partir en exil fiscal', h: 'Impôts ▼▼▼ · tu quittes ta vie ici', fx: (s) => ({ money: -Math.round(Math.max(0, s.money) * 0.08), flag: 'exil_fiscal', bonheur: -6, reputation: -6, rel: { lien: 'mere', d: -8 } }), r: 'Résidence en Suisse, 183 jours par an hors de France. Ta famille te voit moins. Les journaux parlent de toi.', days: 30 },
+      { t: 'Payer plein pot', h: 'Karma ▲', fx: { karma: 4, reputation: 2 }, r: 'Tu paies ce que tu dois. Tu dors tranquille.' },
+    ] },
+  { id: 'redressement', cat: 'Justice', age: [22, 95], w: 1.6, cond: (s) => s.flags.offshore && (s.mem.fraudeCumul || 0) > 30000,
+    txt: (s) => `Contrôle fiscal. Les enquêteurs ont remonté ton montage offshore. Ils réclament ${Math.round((s.mem.fraudeCumul || 0) * 1.4).toLocaleString('fr-FR')} € (impôts dus + pénalités).`,
+    ch: [
+      { t: 'Payer le redressement', h: 'Argent ▼▼', fx: (s) => ({ money: -Math.round((s.mem.fraudeCumul || 0) * 1.4), unflag: 'offshore', reputation: -4 }), r: 'Tu paies. Le montage est fermé, la presse en parle quelques jours.' },
+      { t: 'Contester avec un avocat fiscaliste', h: 'Risque de prison', out: [
+        { p: 0.45, fx: (s) => ({ money: -60000, unflag: 'offshore' }), r: 'Vice de procédure. Tu ne paies que ton avocat.' },
+        { p: 1, fx: (s) => ({ money: -Math.round((s.mem.fraudeCumul || 0) * 2), unflag: 'offshore', arrest: { motif: 'Fraude fiscale', peine: [1, 3] } }), r: 'Le juge n’a pas aimé tes sociétés écrans.' } ] },
+    ] },
+  { id: 'exil_retour', cat: 'Famille', age: [25, 95], w: 1, once: true, cond: (s) => s.flags.exil_fiscal && s.age % 3 === 0,
+    txt: 'La vie en exil fiscal te pèse. Ta famille te manque, tes amis ne viennent plus te voir.',
+    ch: [
+      { t: 'Rentrer en France', h: 'Impôts ▲ · Bonheur ▲', fx: { unflag: 'exil_fiscal', bonheur: 10, reputation: 3 }, r: 'Retour au pays. Tu repaies tes impôts, mais tu revois les tiens.' },
+      { t: 'Rester', h: 'Argent ▲', fx: { bonheur: -5 }, r: 'Tu restes. Le compte en banque sourit, toi un peu moins.' },
+    ] },
+  // ---- Agenda : ce qui était prévu par message
+  { id: 'livraison_soir', forced: 1, cat: 'Rue · 22 h', txt: 'Derrière le Lidl. Un scooter t’attend, le sac est lourd. Une voiture banalisée tourne dans le quartier.', ch: [
+    { t: 'Faire la livraison', h: 'Argent sale ▲ · risque', out: [
+      { p: 0.85, fx: { money: 800, sale: 800, crime: 2, reputation: 4, perf: 10 }, r: 'Livré. 800 € cash et le grand te respecte un peu plus.' },
+      { p: 1, fx: { arrest: { motif: 'Transport de stupéfiants', peine: [1, 3] } }, r: 'Contrôle. Le sac était sous le siège.' } ] },
+    { t: 'Faire demi-tour', h: 'Réputation ▼', fx: { reputation: -6, perf: -8 }, r: 'Tu rentres. Le grand ne te le pardonnera pas facilement.' },
+  ] },
+  { id: 'arrivage', forced: 1, cat: 'Réseau · jeudi soir', cond: (s) => !!s.reseau, txt: 'Jeudi, 23 h. La camionnette du fournisseur arrive au parking. Double stock, comme prévu.', ch: [
+    { t: 'Vérifier la marchandise', h: 'Sûr', fx: (s) => { s.reseau.boost = 1.35; return { crime: 1 }; }, r: 'Tout est là, et de bonne qualité. Tes points vont tourner fort cette année.' },
+    { t: 'Faire confiance et décharger vite', h: 'Rapide · risqué', out: [
+      { p: 0.7, fx: (s) => { s.reseau.boost = 1.4; return { reputation: 2 }; }, r: 'Rapide et propre. Personne n’a rien vu.' },
+      { p: 1, fx: (s) => { s.reseau.chaleur = Math.min(100, s.reseau.chaleur + 20); return { recherche: 1, motif: 'Trafic de stupéfiants' }; }, r: 'Un voisin a filmé la camionnette. La BAC va s’intéresser au parking.' } ] },
+  ] },
+  { id: 'weekend_boss', forced: 1, cat: 'Travail · samedi', txt: 'Samedi matin, l’open space est vide. Ton boss t’attend avec deux cafés.', ch: [
+    { t: 'Tout donner', fx: (s) => ({ money: Math.round(salary(s) * 0.25), perf: 10, bonheur: -3 }), r: 'Le dossier est bouclé. Ton boss le notera à ton entretien.', days: 1 },
+    { t: 'Faire le minimum et partir tôt', fx: { perf: 2, bonheur: 1 }, r: 'Tu es venu{e}, c’est déjà ça.' },
+  ] },
+  { id: 'interview_media', forced: 1, cat: 'Politique · interview', txt: 'Plateau télé, 8 h. Le journaliste ouvre un dossier sur ton passé.', ch: [
+    { t: 'Répondre franchement', out: [{ p: (s) => 0.55 + s.stats.charisme / 400, fx: { notoriete: 7, reputation: 3 }, r: 'Ta franchise plaît. Les sondages montent.' }, { p: 1, fx: { notoriete: -6 }, r: 'L’extrait tourne en boucle sur les réseaux. Mauvaise journée.' }] },
+    { t: 'Botter en touche', fx: { notoriete: -1 }, r: 'Langue de bois. Personne ne retiendra l’interview.' },
+  ] },
+  { id: 'parloir', forced: 1, cat: 'Prison · parloir', where: 'prison', cond: (s) => s.justice.prison > 0, txt: 'Samedi, parloir. Ta mère est là, derrière la vitre, les yeux rouges.', ch: [
+    { t: 'La rassurer', fx: { bonheur: 6, rel: { lien: 'mere', d: 6 } }, r: 'Tu lui promets de tenir. Elle repart un peu soulagée.' },
+    { t: 'Lui demander de l’argent pour la cantine', fx: { money: 300, rel: { lien: 'mere', d: -2 } }, r: 'Elle dépose 300 € sur ton compte cantine.' },
   ] },
 ];

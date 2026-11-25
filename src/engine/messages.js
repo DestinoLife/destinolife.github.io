@@ -3,6 +3,41 @@
 // Un message laissé sans réponse expire à l'anniversaire suivant, avec une petite conséquence.
 import { rnd, pick, chance, clamp, euros, weighted } from './rng.js';
 import { apply, addLog, tpl, career, salary } from './core.js';
+import { DAY, HOUR, birthdayAt, setHour, rollMeteo } from './time.js';
+
+// ---------- Agenda : ce qu'on prévoit par message a une vraie date. Le bouton « Avancer » saute jusqu'à là.
+const JOURS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+export function quand(s, at) {
+  const n = Math.floor(at / DAY) - Math.floor(s.t / DAY);
+  return n <= 0 ? (new Date(at).getUTCHours() >= 18 ? 'ce soir' : 'aujourd’hui') : n === 1 ? 'demain' : n < 7 ? JOURS[new Date(at).getUTCDay()] : `dans ${n} jours`;
+}
+export function addPlan(s, id, when = {}, label = '', who = null) {
+  s.plans ??= [];
+  const cur = new Date(s.t).getUTCDay();
+  const days = when.dow != null ? ((when.dow - cur + 7) % 7) || 7 : Array.isArray(when.days) ? rnd(when.days[0], when.days[1]) : when.days ?? 1;
+  let at = setHour(s.t + days * DAY, when.hour ?? 19, 0);
+  if (at <= s.t) at = s.t + 2 * HOUR;
+  at = Math.min(at, birthdayAt(s.birthT, s.age + 1) - 3 * HOUR);
+  if (s.mem.rdv === undefined || who) s.mem.rdv = who;
+  s.plans.push({ id, at, label: tpl(label, s), who });
+  s.plans.sort((a, b) => a.at - b.at);
+  return quand(s, at);
+}
+export const nextPlan = (s) => (s.plans || [])[0] || null;
+// Avance l'horloge jusqu'au prochain plan et le met dans la file des événements.
+export function runPlan(s) {
+  s.plans ??= [];
+  let p = s.plans.shift();
+  while (p && s.justice.prison > 0 && p.id !== 'parloir') p = s.plans.shift();
+  if (!p) return null;
+  if (p.at > s.t) {
+    s.t = p.at;
+    s.meteo = rollMeteo(s.t, s.id.ville);
+  }
+  if (p.who) s.mem.rdv = p.who;
+  s.queue.unshift(p.id);
+  return p;
+}
 
 const one = (s, ...l) => s.relations.filter((r) => r.vivant && l.includes(r.lien)).sort((a, b) => b.rel - a.rel)[0];
 const relFx = (r, d, c = 0) => (s) => {
@@ -15,7 +50,7 @@ const relFx = (r, d, c = 0) => (s) => {
 const TEMPLATES = [
   { id: 'mere_dimanche', w: 1, who: (s) => s.age >= 11 && !s.chezParents && one(s, 'mere'),
     txt: 'Tu viens manger dimanche ? J’ai fait ton plat préféré.', ch: [
-      { t: 'J’arrive !', fx: (s, r) => relFx(r, 6, 2)(s), rep: 'Super, je mets une assiette de plus ❤️', plan: 'rdv_famille' },
+      { t: 'J’arrive !', fx: (s, r) => relFx(r, 6, 2)(s), rep: 'Super, je mets une assiette de plus ❤️', plan: 'rdv_famille', when: { dow: 0, hour: 12 }, label: 'Repas chez ta mère' },
       { t: 'Pas ce week-end', fx: (s, r) => relFx(r, -6, -2)(s), rep: 'Comme d’habitude… 😔' }] },
   { id: 'mere_aide', w: 2, who: (s) => s.age >= 18 && s.money < 0 && one(s, 'mere', 'pere'),
     txt: 'Je sais que c’est dur en ce moment. Tu veux que je t’aide un peu ?', ch: [
@@ -23,11 +58,11 @@ const TEMPLATES = [
       { t: 'Non, je m’en sors', fx: (s, r) => { apply(s, { karma: 2 }); relFx(r, 2, 6)(s); }, rep: 'Je suis fière de toi. Mais n’hésite pas.' }] },
   { id: 'pere_parler', w: 1, who: (s) => s.age >= 15 && (one(s, 'pere')?.rel ?? 100) < 45 && one(s, 'pere'),
     txt: 'On devrait parler, toi et moi. Ça fait trop longtemps.', ch: [
-      { t: 'D’accord, on se voit', fx: (s, r) => relFx(r, 12, 6)(s), rep: 'Merci. Samedi, au café du coin ?', plan: 'rdv_famille' },
+      { t: 'D’accord, on se voit', fx: (s, r) => relFx(r, 12, 6)(s), rep: 'Merci. Samedi, au café du coin ?', plan: 'rdv_famille', when: { dow: 6, hour: 15 }, label: 'Café avec ton père' },
       { t: 'Y’a rien à dire', fx: (s, r) => relFx(r, -10, -6)(s), rep: '…' }] },
   { id: 'ami_soiree', w: 1.4, who: (s) => s.age >= 13 && s.age <= 35 && one(s, 'ami'),
     txt: (s) => (s.age < 18 ? 'Soirée chez moi samedi, mes parents sont pas là. Tu viens ?' : 'Grosse soirée samedi, tout le monde sera là. Tu viens ?'), ch: [
-      { t: 'Grave, j’arrive', fx: (s, r) => relFx(r, 5, 2)(s), rep: 'Trop bien, ramène du monde 🔥', plan: 'rdv_ami' },
+      { t: 'Grave, j’arrive', fx: (s, r) => relFx(r, 5, 2)(s), rep: 'Trop bien, ramène du monde 🔥', plan: 'rdv_ami', when: { dow: 6, hour: 22 }, label: 'Soirée chez {ami}' },
       { t: 'Je peux pas', fx: (s, r) => relFx(r, -4)(s), rep: 'T’es jamais là en ce moment…' }] },
   { id: 'ami_pret', w: 1.2, who: (s) => s.age >= 18 && s.money > 600 && s.relations.find((r) => r.vivant && r.lien === 'ami' && (r.destin === 'galere' || chance(0.3))),
     txt: 'Je suis vraiment dans la galère… tu peux me prêter 500 € ? Je te rembourse vite, promis.', ch: [
@@ -35,7 +70,7 @@ const TEMPLATES = [
       { t: 'Désolé, pas possible', fx: (s, r) => relFx(r, -8, -4)(s), rep: 'Ok… je pensais pouvoir compter sur toi.' }] },
   { id: 'couple_diner', w: 1.4, who: (s) => s.age >= 16 && one(s, 'partenaire', 'conjoint'),
     txt: 'Dîner ce soir, juste nous deux ? J’ai envie de te voir ❤️', ch: [
-      { t: 'Avec plaisir', fx: (s, r) => relFx(r, 6, 3)(s), rep: '20 h, je réserve 😍', plan: 'rdv_couple' },
+      { t: 'Avec plaisir', fx: (s, r) => relFx(r, 6, 3)(s), rep: '20 h, je réserve 😍', plan: 'rdv_couple', when: { days: 0, hour: 20 }, label: 'Dîner en amoureux' },
       { t: 'Je suis occupé{|e}', fx: (s, r) => relFx(r, -8, -3)(s), rep: 'T’es toujours occupé{|e}…' }] },
   { id: 'couple_jaloux', w: 1.5, who: (s) => { const p = one(s, 'partenaire', 'conjoint'); return p && (p.conf ?? 50) < 45 && p; },
     txt: 'Tu étais où hier soir ? Ton téléphone était éteint.', ch: [
@@ -47,7 +82,7 @@ const TEMPLATES = [
       { t: 'Révisez, bande de flemmards', fx: (s) => apply(s, { intel: 2, reputation: -2 }), rep: 'Bouffon 😂' }] },
   { id: 'boss_rush', w: 1.2, who: (s) => s.carriere && career(s).cat === 'classique' && 'Ton boss',
     txt: 'Grosse charge ce week-end. Tu peux venir ? Payé double.', ch: [
-      { t: 'Je viens', fx: (s) => apply(s, { money: Math.round(salary(s) * 0.25), perf: 8, bonheur: -3 }), rep: 'Merci, je m’en souviendrai à ton entretien annuel.' },
+      { t: 'Je viens', fx: () => {}, rep: 'Merci, je m’en souviendrai à ton entretien annuel.', plan: 'weekend_boss', when: { dow: 6, hour: 9 }, label: 'Week-end au boulot (payé double)' },
       { t: 'Non, c’est mon week-end', fx: (s) => apply(s, { perf: -6, bonheur: 3 }), rep: 'Dommage. Noté.' }] },
   { id: 'manager_marque', w: 1.3, who: (s) => s.carriere && ['artiste', 'sport'].includes(career(s).cat) && s.carriere.niveau >= 1 && (career(s).cat === 'sport' ? 'Ton agent' : 'Ton manager'),
     txt: (s) => `Une marque veut te sponsoriser : ${euros((s.carriere.niveau + 1) * 20000)}, mais tu portes leurs fringues partout pendant un an.`, ch: [
@@ -63,11 +98,11 @@ const TEMPLATES = [
       { t: 'On continue, c’est rien', fx: (s) => { s.reseau.chaleur = clamp(s.reseau.chaleur + 10); apply(s, { money: 6000, sale: 6000 }); if (chance(0.25)) apply(s, { recherche: 1, motif: 'Trafic de stupéfiants', log: 'Un de tes vendeurs se fait serrer. Ton nom circule.' }); }, rep: 'Ok patron, on reste ouverts.' }] },
   { id: 'reseau_livraison', w: 1.5, who: (s) => s.carriere?.id === 'reseau' && !s.reseau && 'Le grand du quartier',
     txt: 'J’ai besoin de toi ce soir pour une livraison. 800 € cash.', ch: [
-      { t: 'J’y vais', fx: (s) => (chance(0.12) ? apply(s, { arrest: { motif: 'Transport de stupéfiants', peine: [1, 3] } }) : apply(s, { money: 800, sale: 800, crime: 2, reputation: 4, perf: 10 })), rep: 'Bien. 22 h derrière le Lidl.' },
+      { t: 'J’y vais', fx: () => {}, rep: 'Bien. 22 h derrière le Lidl.', plan: 'livraison_soir', when: { days: 0, hour: 22 }, label: 'Livraison derrière le Lidl' },
       { t: 'Pas ce soir', fx: (s) => apply(s, { reputation: -5, perf: -10 }), rep: 'T’es sûr ? Faut pas trop me dire non.' }] },
   { id: 'fournisseur_arrivage', w: 1, who: (s) => s.reseau && s.relations.find((r) => r.vivant && r.id === s.reseau.fournisseur),
     txt: 'Arrivage de qualité. Prix spécial si tu prends le double cette fois.', ch: [
-      { t: 'Je prends le double', fx: (s, r) => { apply(s, { money: -20000 }); s.reseau.boost = 1.35; relFx(r, 6, 5)(s); }, rep: 'Livraison jeudi. Tu vas pas regretter.' },
+      { t: 'Je prends le double', fx: (s, r) => { apply(s, { money: -20000 }); relFx(r, 6, 5)(s); }, rep: 'Livraison jeudi. Tu vas pas regretter.', plan: 'arrivage', when: { dow: 4, hour: 23 }, label: 'Arrivage de marchandise' },
       { t: 'Pas besoin', fx: (s, r) => relFx(r, -2)(s), rep: 'Comme tu veux.' }] },
   { id: 'insta_marque', w: 1.5, who: (s) => s.insta && s.insta.followers >= 8000 && 'Instapic · Partenariats',
     txt: (s) => `Une marque de sneakers propose ${euros(Math.round(Math.sqrt(s.insta.followers) * 25))} pour un post sponsorisé.`, ch: [
@@ -75,11 +110,11 @@ const TEMPLATES = [
       { t: 'Refuser, ça fait pub', fx: (s) => (s.insta.followers = Math.round(s.insta.followers * 1.03)), rep: 'Dommage, une prochaine fois peut-être.' }] },
   { id: 'conseiller_interview', w: 1.2, who: (s) => s.carriere && career(s).cat === 'politique' && 'Ton conseiller',
     txt: 'Un grand média demande une interview demain. Ils vont parler de ton passé.', ch: [
-      { t: 'Y aller franchement', fx: (s) => apply(s, chance(0.6 + s.stats.charisme / 400) ? { notoriete: 6 } : { notoriete: -6 }), rep: 'Prépare-toi bien, je t’envoie les fiches.' },
+      { t: 'Y aller franchement', fx: () => {}, rep: 'Prépare-toi bien, je t’envoie les fiches.', plan: 'interview_media', when: { days: 1, hour: 8 }, label: 'Interview sur un grand média' },
       { t: 'Refuser', fx: (s) => apply(s, { notoriete: -2 }), rep: 'Ok, mais ils vont dire que tu fuis.' }] },
   { id: 'prison_mere', w: 2, who: (s) => s.justice.prison > 0 && s.flags.tel_prison && one(s, 'mere'),
     txt: 'Tiens bon. Je viendrai au parloir samedi. Tu as besoin de quelque chose ?', ch: [
-      { t: 'Juste de te voir', fx: (s, r) => { relFx(r, 8, 5)(s); apply(s, { bonheur: 6 }); }, rep: 'Je serai là. Je t’aime.' },
+      { t: 'Juste de te voir', fx: (s, r) => relFx(r, 4, 3)(s), rep: 'Je serai là. Je t’aime.', plan: 'parloir', when: { dow: 6, hour: 14 }, label: 'Parloir avec ta mère' },
       { t: 'Envoie de l’argent pour la cantine', fx: (s, r) => { apply(s, { money: 300 }); relFx(r, -2)(s); }, rep: 'Je fais ce que je peux…' }] },
 ];
 const T = Object.fromEntries(TEMPLATES.map((t) => [t.id, t]));
@@ -132,9 +167,9 @@ export function answer(s, msgId, i) {
   if (c.rep) s.phone.msgs.push({ from: m.from, txt: tpl(c.rep, s), age: s.age, t: s.t, read: true });
   refreshUnread(s);
   if (c.plan && s.vivant) {
-    s.mem.rdv = m.from;
-    s.queue.unshift(c.plan);
-    return { plan: true, r: `Rendez-vous avec ${m.from}.` };
+    s.tmp = { ...(s.tmp || {}), ami: m.from };
+    const q = addPlan(s, c.plan, c.when, c.label || `Rendez-vous avec ${m.from}`, m.from);
+    return { plan: true, r: `Prévu ${q} : ${tpl(c.label || 'rendez-vous avec ' + m.from, s)}. Appuie sur « Avancer » pour y aller.` };
   }
   return { r: '' };
 }
@@ -187,9 +222,7 @@ export function writeTo(s, r, topic) {
     rep = r.destin ? 'Dis-moi ce dont tu as besoin, je vois ce que je peux faire. (Demande-le-moi depuis tes relations.)' : 'Je peux pas grand-chose pour toi pour l’instant.';
   }
   s.phone.msgs.push({ from: r.prenom, txt: rep, age: s.age, t: s.t, read: true });
-  if (plan) {
-    s.mem.rdv = r.prenom;
-    s.queue.unshift(plan);
-  }
-  return { r: rep, plan: !!plan };
+  let q = '';
+  if (plan) q = addPlan(s, plan, { days: [1, 4], hour: topic === 'diner' ? 20 : 19 }, plan === 'rdv_couple' ? `Dîner avec ${r.prenom}` : plan === 'rdv_famille' ? `Visite chez ${r.prenom}` : `Sortie avec ${r.prenom}`, r.prenom);
+  return { r: plan ? `${rep} (prévu ${q})` : rep, plan: !!plan };
 }

@@ -108,6 +108,8 @@ for (let i = 0; i < N; i++) {
     if (s.carriere?.cat === 'politique') stats.pol = (stats.pol || 0) + 1;
     if (Math.max(...Object.values(s.addic)) > 50) stats.add = (stats.add || 0) + 1;
     if (s.maladies.length) stats.mal = (stats.mal || 0) + 1;
+    let g2 = 0;
+    while (s.vivant && s.plans?.length && g2++ < 10) { ageUp(s); resolve(s); }
     ageUp(s);
   }
   stats.vies++;

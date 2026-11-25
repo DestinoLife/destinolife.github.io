@@ -178,7 +178,17 @@ export const POST_TYPES = {
   clip: { nom: 'Extrait de ton clip', base: 2, cond: (s) => s.carriere?.id === 'rappeur' },
   business: { nom: 'Ton business', base: 1.3, cond: (s) => s.business.length > 0 },
   luxe: { nom: 'Montre et billets', base: 1.4, cond: (s) => s.money > 200000 },
+  repas: { nom: 'Ton assiette', base: 0.8 },
+  coucher: { nom: 'Coucher de soleil', base: 0.9 },
+  plage: { nom: 'Journée plage', base: 1.2, cond: (s) => s.age >= 14 },
+  montagne: { nom: 'Rando', base: 1, cond: (s) => s.stats.forme >= 35 },
+  animal: { nom: 'Photo d’animal', base: 1.3 },
+  concert: { nom: 'Concert', base: 1.1, cond: (s) => s.age >= 15 },
+  cafe: { nom: 'Café et boulot', base: 0.8, cond: (s) => s.age >= 16 },
+  gaming: { nom: 'Setup gaming', base: 1 },
 };
+// Posts des proches : légende et image cohérentes
+const FEED = [['Vacances 🌴', 'plage'], ['Soirée de folie', 'soiree'], ['Dimanche en famille', 'repas'], ['Leg day 💪', 'sport'], ['Nouvelle coupe', 'selfie'], ['Concert hier soir 🎶', 'concert'], ['Coucher de soleil 🌇', 'coucher'], ['Rando au sommet ⛰️', 'montagne'], ['Mon chat a encore frappé 🐈', 'animal'], ['Café + boulot ☕', 'cafe'], ['Brunch du dimanche 🥞', 'repas'], ['Nuit de gaming 🎮', 'gaming']];
 export function instaPost(s, type, legende) {
   if (!s.insta) return { r: 'Il faut avoir 12 ans.', err: true };
   if (s.annee.posts >= 3) return { r: 'Tu as déjà posté 3 fois cette année. Poster plus ne sert à rien : l’algorithme te pénalise.', err: true };
@@ -215,8 +225,9 @@ export function instaFeed(s) {
   const people = s.relations.filter((r) => r.vivant && ['ami', 'fratrie', 'partenaire', 'conjoint', 'contact', 'ex'].includes(r.lien) && r.age >= 12).slice(0, 10);
   const seed = s.age * 7;
   return people.map((r, i) => {
-    const t = r.destin === 'artiste' ? 'Nouveau son dispo, lien en bio 🔥' : r.destin === 'dealer' ? 'Nouvelle montre 💸' : r.destin === 'medecin' ? 'Garde de nuit terminée 😴' : r.lien === 'ex' ? 'Nouveau départ ✨' : ['Vacances 🌴', 'Soirée de folie', 'Dimanche en famille', 'Leg day 💪', 'Nouvelle coupe', 'Concert hier soir 🎶'][(seed + i) % 6];
-    const type = r.destin === 'artiste' ? 'clip' : r.destin === 'dealer' ? 'luxe' : r.destin === 'medecin' ? 'selfie' : ['voyage', 'soiree', 'selfie', 'sport', 'voyage', 'soiree'][(seed + i) % 6];
+    const [ft, fty] = FEED[((Math.imul((r.id || i) + 1, 2654435761) ^ Math.imul(seed + 3, 40503)) >>> 0) % FEED.length];
+    const t = r.destin === 'artiste' ? 'Nouveau son dispo, lien en bio 🔥' : r.destin === 'dealer' ? 'Nouvelle montre 💸' : r.destin === 'medecin' ? 'Garde de nuit terminée 😴' : r.lien === 'ex' ? 'Nouveau départ ✨' : ft;
+    const type = r.destin === 'artiste' ? 'clip' : r.destin === 'dealer' ? 'luxe' : r.destin === 'medecin' ? 'cafe' : r.lien === 'ex' ? 'coucher' : fty;
     return { who: r.prenom, txt: t, type, likes: 20 + ((seed * (i + 3)) % 400), look: r.look, genre: r.genre };
   });
 }
