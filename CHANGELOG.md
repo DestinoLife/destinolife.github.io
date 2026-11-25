@@ -1,6 +1,13 @@
 # Notes de mise à jour de Destino
 
-Version actuelle : **v0.9.1**. Ces notes sont aussi visibles dans le jeu (écran titre, « Notes de mise à jour »).
+Version actuelle : **v0.9.2**. Ces notes sont aussi visibles dans le jeu (écran titre, « Notes de mise à jour »).
+
+## v0.9.2 · Création de perso
+
+- Création de perso repensée : tu choisis d’abord Homme ou Femme, puis tu pars d’une base neutre à personnaliser (plus de perso aléatoire imposé)
+- Corrigé : en modifiant ton perso, un deuxième personnage s’empilait devant l’ancien (le foulard ou la corpulence semblaient ne pas changer)
+- Changer de genre garde ta peau, tes yeux et ta corpulence, et remet une coiffure de base (le foulard n’est plus proposé aux hommes)
+- Le talent caché doit être choisi avant de commencer ta vie (le dé reste là pour tout tirer au hasard)
 
 ## v0.9.1 · Corrections visuelles
 

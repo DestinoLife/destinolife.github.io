@@ -1,7 +1,13 @@
 // Notes de mise à jour affichées dans le jeu (même contenu que CHANGELOG.md).
-export const VERSION = 'v0.9.1';
+export const VERSION = 'v0.9.2';
 
 export const CHANGELOG = [
+  { v: 'v0.9.2', titre: 'Création de perso', items: [
+    'Création de perso repensée : tu choisis d’abord Homme ou Femme, puis tu pars d’une base neutre à personnaliser (plus de perso aléatoire imposé)',
+    'Corrigé : en modifiant ton perso, un deuxième personnage s’empilait devant l’ancien (le foulard ou la corpulence semblaient ne pas changer)',
+    'Changer de genre garde ta peau, tes yeux et ta corpulence, et remet une coiffure de base (le foulard n’est plus proposé aux hommes)',
+    'Le talent caché doit être choisi avant de commencer ta vie (le dé reste là pour tout tirer au hasard)',
+  ] },
   { v: 'v0.9.1', titre: 'Corrections visuelles', items: [
     'La pluie tombe derrière les personnages au lieu de passer devant eux',
     'Les voitures qui passent roulent sur la chaussée au lieu de flotter, et l’ombre des voitures est sous les roues',

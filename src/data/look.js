@@ -39,6 +39,12 @@ export const OUTFITS = {
   bebe: { type: 'tshirt', top: '#8fc7ff', bas: 'jean', basC: '#6d87c9', shoes: '#ffffff' },
 };
 
+// Base neutre : on part de zéro, seul le genre change la coiffure de départ
+export const baseHair = (genre) => (genre === 'f' ? 'long' : 'court');
+export function baseLook(genre) {
+  return { peau: SKINS[2], coiffure: baseHair(genre), cheveuxC: '#2b1b11', foulardC: FOULARDS[0], yeux: '#3b2414', barbe: 'none', corpulence: 'normal', style: 'casual', acc: [] };
+}
+
 const FEMALE_HAIR = ['long', 'queue', 'tresses', 'chignon', 'boucles', 'afro', 'court', 'foulard'];
 const MALE_HAIR = ['court', 'fade', 'boucles', 'afro', 'rase', 'tresses', 'court', 'fade'];
 

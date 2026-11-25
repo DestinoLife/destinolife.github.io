@@ -6,7 +6,7 @@ import { icon, logo, logoMark } from './ui/icons.js';
 import { sceneSVG } from './render/scene.js';
 import { avatarSVG, miniAvatarSVG } from './render/avatar.js';
 import { createLife, tpl, jobTitle, salary, career, partnerOf, lienNom, childrenOf, g } from './engine/core.js';
-import { randomConfig } from './engine/random.js';
+import { randomConfig, baseConfig } from './engine/random.js';
 import { euros, pick } from './engine/rng.js';
 import { fmtDate, fmtHeure, tod, saison } from './engine/time.js';
 import {
@@ -29,7 +29,7 @@ import { TAB_AGE, UNLOCKS, energieMax } from './data/unlocks.js';
 import { instaComment } from './engine/life2.js';
 import { VERSION, CHANGELOG } from './data/changelog.js';
 import { nameFor } from './data/identity.js';
-import { randomLook } from './data/look.js';
+import { randomLook, baseLook, baseHair } from './data/look.js';
 import { introHTML, healthHTML, footHTML, expatHTML, destinLabel } from './ui/overlays3.js';
 import { migrate3, giveParentJobs, instaPost, sendMessage, bjStart, bjHit, bjStand, expatriate } from './engine/life2.js';
 import { carSVG } from './render/scene.js';
@@ -172,11 +172,21 @@ function showChangelog() {
 
 // ---------- Créateur ----------
 const creatorScene = () => (C.statut !== 'ne_france' ? originScene(C.origine) : HOUSING[MILIEUX[C.milieu].logement].scene);
+function renderGenrePick() {
+  const card = (g, t) => `<button class="gpick" data-a="cgenre" data-v="${g}"><svg viewBox="-85 -318 170 332" aria-hidden="true">${avatarSVG({ look: baseLook(g), genre: g, age: 24, outfit: 'casual' }, 'gp' + g)}</svg><b>${t}</b></button>`;
+  app.innerHTML = `<div class="creator">
+    <div class="preview">${worldHTML(HOUSING[MILIEUX.moyenne.logement].scene, { tod: 'soir', meteo: 'soleil' }, null, 'cr', false)}<div class="logo-wrap">${logo(34)}</div></div>
+    <div class="panel"><div class="form gstep"><h2>Qui veux-tu incarner ?</h2><p class="hint">Tu pars d’une base neutre, puis tu personnalises tout : apparence, origines, caractère.</p>
+      <div class="gpicks">${card('h', 'Homme')}${card('f', 'Femme')}</div></div>
+      <div class="panel-foot"><button class="btn" data-a="back">Retour</button><button class="btn" data-a="reroll" title="Tout aléatoire">${icon('dice', 18)} Aléatoire</button></div>
+    </div></div>`;
+}
 function renderCreator() {
+  if (C.step) return renderGenrePick();
   const sc = creatorScene();
   const av = { look: C.look, genre: C.genre, age: 24, outfit: C.look.style };
   app.innerHTML = `<div class="creator">
-    <div class="preview">${worldHTML(sc, { tod: 'soir', meteo: 'soleil' }, av, 'cr', false)}<div class="logo-wrap">${logo(34)}</div></div>
+    <div class="preview" data-sc="${sc}">${worldHTML(sc, { tod: 'soir', meteo: 'soleil' }, av, 'cr', false)}<div class="logo-wrap">${logo(34)}</div></div>
     <div class="panel">
       <div class="tabs">${[['identite', 'Identité'], ['origines', 'Origines'], ['apparence', 'Apparence'], ['perso', 'Personnalité']].map(([k, t]) => `<button class="${cTab === k ? 'on' : ''}" data-a="ctab" data-v="${k}">${t}</button>`).join('')}</div>
       <div class="form">${creatorForm()}</div>
@@ -203,7 +213,7 @@ function creatorForm() {
   }
   if (cTab === 'apparence')
     return `<div><span class="lbl">Peau</span><div class="chips">${SKINS.map((c) => sw('look.peau', c, C.look.peau === c)).join('')}</div></div>
-    <div><span class="lbl">Coiffure</span><div class="chips">${HAIRSTYLES.map(([k, t]) => chip('look.coiffure', k, t, C.look.coiffure === k)).join('')}</div></div>
+    <div><span class="lbl">Coiffure</span><div class="chips">${HAIRSTYLES.filter(([k]) => f || k !== 'foulard').map(([k, t]) => chip('look.coiffure', k, t, C.look.coiffure === k)).join('')}</div></div>
     ${C.look.coiffure === 'foulard' ? `<div><span class="lbl">Couleur du foulard</span><div class="chips">${FOULARDS.map((c) => sw('look.foulardC', c, C.look.foulardC === c)).join('')}</div></div>` : `<div><span class="lbl">Couleur des cheveux</span><div class="chips">${HAIR_COLORS.map(([c, t]) => sw('look.cheveuxC', c, C.look.cheveuxC === c, t)).join('')}</div></div>`}
     <div><span class="lbl">Yeux</span><div class="chips">${EYES.map(([c, t]) => sw('look.yeux', c, C.look.yeux === c, t)).join('')}</div></div>
     ${f ? '' : `<div><span class="lbl">Barbe</span><div class="chips">${BEARDS.map(([k, t]) => chip('look.barbe', k, t, C.look.barbe === k)).join('')}</div></div>`}
@@ -225,7 +235,7 @@ function creatorSet(k, v) {
   else C[k] = v;
   if (k === 'genre') {
     C.prenom = nameFor(C.origine, v);
-    C.look = { ...randomLook(v, C.origine), peau: C.look.peau, yeux: C.look.yeux };
+    C.look = { ...C.look, coiffure: baseHair(v), barbe: 'none', acc: C.look.acc.filter((a) => v === 'f' || a !== 'boucles') };
     C.attirance = v === 'f' ? 'h' : 'f';
   }
   if (k === 'origine') {
@@ -238,7 +248,10 @@ function refreshCreator() {
   const form = app.querySelector('.form');
   if (!form) return renderCreator();
   const top = form.scrollTop;
-  app.querySelector('.preview svg').outerHTML = worldHTML(creatorScene(), { tod: 'soir', meteo: 'soleil' }, { look: C.look, genre: C.genre, age: 24, outfit: C.look.style }, 'cr', false);
+  const pv = app.querySelector('.preview');
+  const sc = creatorScene();
+  if (pv.dataset.sc !== sc) { pv.querySelector('#bg').innerHTML = sceneSVG(sc, { tod: 'soir', meteo: 'soleil' }); pv.dataset.sc = sc; }
+  pv.querySelector('#pl').innerHTML = avatarSVG({ look: C.look, genre: C.genre, age: 24, outfit: C.look.style }, 'cr');
   form.innerHTML = creatorForm();
   form.scrollTop = top;
 }
@@ -507,8 +520,13 @@ function handle(a, v, el) {
   if (S && busy(S) && ['act', 'apply', 'enroll', 'move', 'buy', 'relact', 'travel', 'flee', 'buyasset', 'openbiz', 'biz', 'net', 'city', 'cplay'].includes(a)) return toast('Réponds d’abord à l’événement en cours.', 'err');
   switch (a) {
     case 'new':
-      C = randomConfig();
-      cTab = 'identite';
+      C = { step: 'genre' };
+      cTab = 'apparence';
+      screen = 'creator';
+      return renderCreator();
+    case 'cgenre':
+      C = baseConfig(v);
+      cTab = 'apparence';
       screen = 'creator';
       return renderCreator();
     case 'random':
@@ -534,6 +552,11 @@ function handle(a, v, el) {
         cTab = 'identite';
         renderCreator();
         return toast('Donne un prénom et un nom à ton personnage.', 'err');
+      }
+      if (!C.talent) {
+        cTab = 'perso';
+        renderCreator();
+        return toast('Choisis ton talent caché.', 'err');
       }
       return startLife({ ...C, prenom: C.prenom.trim(), nom: C.nom.trim() });
     case 'closeall':
