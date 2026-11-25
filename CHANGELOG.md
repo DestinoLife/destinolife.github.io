@@ -1,6 +1,12 @@
 # Notes de mise à jour de Destino
 
-Version actuelle : **v0.4**. Ces notes sont aussi visibles dans le jeu (écran titre, « Notes de mise à jour »).
+Version actuelle : **v0.4.1**. Ces notes sont aussi visibles dans le jeu (écran titre, « Notes de mise à jour »).
+
+## v0.4.1 · Correctif « Notifications »
+
+- Un nouveau message s’affiche en notification en bas à droite (en haut sur mobile), avec son texte
+- Cliquer sur la notification ouvre directement la conversation
+- Une conversation s’ouvre toujours sur le dernier message, plus besoin de descendre
 
 ## v0.4 · La mise à jour « Cohérence »
 

@@ -1,7 +1,12 @@
 // Notes de mise à jour affichées dans le jeu (même contenu que CHANGELOG.md).
-export const VERSION = 'v0.4';
+export const VERSION = 'v0.4.1';
 
 export const CHANGELOG = [
+  { v: 'v0.4.1', titre: 'Correctif « Notifications »', items: [
+    'Un nouveau message s’affiche en notification en bas à droite (en haut sur mobile), avec son texte',
+    'Cliquer sur la notification ouvre directement la conversation',
+    'Une conversation s’ouvre toujours sur le dernier message, plus besoin de descendre',
+  ] },
   { v: 'v0.4', titre: 'La mise à jour « Cohérence »', items: [
     'Messages repensés : 2 par an maximum, liés à ta vie, avec 2 réponses opposées et de vraies conséquences',
     'Un rendez-vous fixé par message se passe vraiment (dîner, soirée, repas de famille)',

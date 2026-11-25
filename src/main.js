@@ -223,11 +223,34 @@ function renderGameShell() {
   app.innerHTML = `<div class="game">
     <div class="stage">${worldHTML('rue', { tod: 'jour', meteo: 'soleil' }, null)}
       <div class="hud-tl glass" id="hudtl"></div><div class="hud-tr" id="hudtr"></div>
-      <div id="sheet"></div><div id="modal"></div><div id="overlay"></div><div class="toasts" id="toasts"></div><div id="death"></div>
+      <div id="sheet"></div><div id="modal"></div><div id="overlay"></div><div class="toasts" id="toasts"></div><div class="notifs" id="notifs"></div><div id="death"></div>
     </div>
     <nav class="bar">${logo(30)}<div class="dock" id="dock"></div></nav></div>${dev ? '<div id="fps"></div>' : ''}`;
   lastBg = lastAv = '';
+  seenMsgs = -1;
   updateGame();
+}
+
+// Notification façon iPhone en bas à droite quand un message arrive (clic = ouvre la conversation)
+let seenMsgs = -1, lastThread = '';
+function notifyNew() {
+  const msgs = S.phone.msgs;
+  if (seenMsgs < 0 || seenMsgs > msgs.length) seenMsgs = msgs.length;
+  const fresh = msgs.slice(seenMsgs).filter((m) => !m.mine && !(OV?.t === 'phone' && OV.conv === m.from));
+  seenMsgs = msgs.length;
+  const box = document.getElementById('notifs');
+  if (!box || !fresh.length || (inPrison(S) && !S.flags.tel_prison)) return;
+  fresh.slice(-2).forEach((m) => {
+    const el = document.createElement('button');
+    el.className = 'notif glass';
+    el.dataset.a = 'notif';
+    el.dataset.v = m.from;
+    el.innerHTML = `<span class="notif-app">${icon('phone', 13)} Messages<small>maintenant</small></span><span class="notif-b"><span class="ph-av sm">${esc(m.from[0])}</span><span><b>${esc(m.from)}</b><span>${esc(m.txt)}</span>${m.ch && !m.answered ? '<em>Attend ta réponse</em>' : ''}</span></span>`;
+    box.prepend(el);
+    setTimeout(() => el.classList.add('out'), 6000);
+    setTimeout(() => el.remove(), 6400);
+  });
+  while (box.children.length > 2) box.lastChild.remove();
 }
 
 function updateGame() {
@@ -262,6 +285,11 @@ function updateGame() {
   const put = (sel, v) => { const e = document.querySelector(sel); if (e) e.scrollTop = v; };
   if (sameSheet) put('#sheet .sheet-b', sbTop);
   if (sameOv) { put('.ph-screen', phTop); put('#overlay .sheet-b', ovTop); }
+  // Conversation : on arrive directement sur le dernier message (et on y reste quand un nouveau arrive)
+  const thread = OV?.t === 'phone' && OV.conv ? `${OV.conv}|${S.phone.msgs.length}|${OV.compose ? 1 : 0}` : '';
+  if (thread && thread !== lastThread) { const sc = document.querySelector('.ph-screen'); if (sc) sc.scrollTop = sc.scrollHeight; }
+  lastThread = thread;
+  notifyNew();
   const mk = S.current ? S.current.id : S.result ? 'r' : '';
   if (mk && mk === lastModal) document.querySelector('#modal .modal')?.classList.add('still');
   lastSheet = tab; lastOvKey = OV ? `${OV.t}|${OV.app}|${OV.conv}|${OV.itab}` : ''; lastModal = mk;
@@ -566,6 +594,13 @@ function handle(a, v, el) {
       tab = null;
       OV = { t: 'phone', app: v, itab: OV?.itab };
       if (v === 'messages') OV.conv = null;
+      return updateGame();
+    case 'notif':
+      el.remove();
+      if (!S.vivant) return;
+      tab = null;
+      OV = { t: 'phone', app: 'messages', conv: v, itab: OV?.itab };
+      readAll(S, v);
       return updateGame();
     case 'compose':
       OV.compose = true;
