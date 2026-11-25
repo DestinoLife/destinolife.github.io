@@ -1,0 +1,530 @@
+import { rnd, pick, chance, clamp, weighted, euros } from './rng.js';
+import { DAY, HOUR, birthdayAt, setHour, rollMeteo, pickHour, hourOf, isWeekday } from './time.js';
+import {
+  apply, tpl, addLog, die, arrest, career, salary, jobTitle, changeLevel, setCareer, giveDiploma, partnerOf,
+  parentsOf, childrenOf, ensureFriend, newPerson, createLife, partnerGenre, g,
+} from './core.js';
+import { EVENTS, EV } from '../data/events.js';
+import { ACTIVITIES, ACT } from '../data/activities.js';
+import { CAREERS, canApply } from '../data/careers.js';
+import { HOUSING } from '../data/housing.js';
+import { MILIEUX, TRAITS, TALENTS } from '../data/identity.js';
+import { randomLook } from '../data/look.js';
+
+export const busy = (s) => !!(s.current || s.result);
+export const inPrison = (s) => s.justice.prison > 0;
+
+// ---------- Temps ----------
+export function advanceTime(s, days, hourRange) {
+  const limit = birthdayAt(s.birthT, s.age + 1) - 2 * HOUR;
+  const prev = s.t;
+  let t = setHour(prev + days * DAY, pickHour(hourRange));
+  if (t <= prev) t = prev + rnd(1, 4) * HOUR;
+  s.t = Math.min(t, limit);
+  s.meteo = rollMeteo(s.t, s.id.ville);
+}
+
+// ---------- Scène courante ----------
+export function currentScene(s) {
+  if (!s.vivant) return 'rue';
+  if (inPrison(s)) return 'prison';
+  if (s.lieu) return s.lieu;
+  const h = hourOf(s.t);
+  const work = isWeekday(s.t) && h >= 9 && h < 18;
+  if (work && s.carriere && s.age >= 16) return career(s).scene;
+  if (work && s.age >= 3 && s.etudes.cursus && s.id.statut !== 'au_pays') return 'ecole';
+  return HOUSING[s.logement]?.scene || 'rue';
+}
+
+export function outfitOf(s) {
+  if (s.age < 3) return 'bebe';
+  if (inPrison(s)) return 'prison';
+  if (!s.chezParents && s.logement === 'rue') return 'sdf';
+  if (currentScene(s) === 'plage') return 'plage';
+  const c = career(s);
+  const sc = currentScene(s);
+  if (c && s.age >= 16 && sc === c.scene) return c.outfit;
+  if (c && ['rap', 'police', 'militaire'].includes(c.outfit) && sc !== 'plage') return c.outfit;
+  if (s.money > 600000 && s.look.style === 'chic') return 'luxe';
+  return s.look.style || 'casual';
+}
+
+// ---------- Événements ----------
+function eligible(s, e) {
+  if (e.chain || e.forced) return false;
+  if (e.once && s.seen[e.id]) return false;
+  if (e.where === 'prison' ? !inPrison(s) : inPrison(s) && e.where !== 'any') return false;
+  if (e.age && (s.age < e.age[0] || s.age > e.age[1])) return false;
+  try {
+    return !e.cond || !!e.cond(s);
+  } catch (err) {
+    console.warn('cond', e.id, err);
+    return false;
+  }
+}
+
+function pickYearEvents(s) {
+  const pool = EVENTS.filter((e) => eligible(s, e));
+  let n = s.age < 3 ? (chance(0.5) ? 1 : 0) : 1 + (chance(0.55) ? 1 : 0) + (chance(0.2) ? 1 : 0);
+  while (n-- > 0 && pool.length) {
+    const e = weighted(pool, (x) => {
+      const w = typeof x.w === 'function' ? x.w(s) : x.w ?? 1;
+      const recent = s.lastSeen[x.id] != null && s.age - s.lastSeen[x.id] < 4;
+      return recent ? w * 0.12 : w;
+    });
+    if (!e) break;
+    pool.splice(pool.indexOf(e), 1);
+    s.queue.push(e.id);
+  }
+}
+
+function baseTmp(s) {
+  const p = partnerOf(s);
+  return { ami: s.age >= 5 ? ensureFriend(s).prenom : 'ton voisin', partenaire: p?.prenom || '', pays: s.id.pays };
+}
+
+export function presentNext(s) {
+  if (busy(s) || !s.vivant) return;
+  while (s.queue.length) {
+    const id = s.queue.shift();
+    const ev = EV[id];
+    if (!ev) {
+      console.warn('Événement inconnu', id);
+      continue;
+    }
+    if (!ev.chain && !ev.forced && !eligible(s, ev)) continue;
+    s.tmp = ev.chain ? { ...s.tmp, ...baseTmp(s) } : baseTmp(s);
+    if (ev.pre) ev.pre(s);
+    s.seen[id] = true;
+    s.lastSeen[id] = s.age;
+    s.current = { id, txt: tpl(ev.txt, s), cat: tpl(ev.cat || 'Vie', s), major: ev.major || 0 };
+    return;
+  }
+}
+
+export function choicesView(s) {
+  if (!s.current) return [];
+  const ev = EV[s.current.id];
+  return ev.ch
+    .map((c, i) => ({ i, t: tpl(c.t, s), h: c.h ? tpl(c.h, s) : '', ok: !c.c || !!c.c(s), hide: c.hide && c.hide(s) }))
+    .filter((c) => !c.hide);
+}
+
+export function choose(s, i) {
+  if (!s.current) return;
+  const ev = EV[s.current.id];
+  const c = ev.ch[i];
+  if (!c || (c.c && !c.c(s))) return;
+  apply(s, c.fx);
+  let res = c;
+  if (c.out && s.vivant) {
+    for (let k = 0; k < c.out.length; k++) {
+      const o = c.out[k];
+      const p = typeof o.p === 'function' ? o.p(s) : o.p;
+      if (k === c.out.length - 1 || Math.random() < clamp(p, 0, 1)) {
+        res = o;
+        break;
+      }
+    }
+    if (res !== c) apply(s, res.fx);
+  }
+  const r = tpl(res.r ?? (res === c ? '' : c.r) ?? '', s);
+  const next = res.next !== undefined ? res.next : c.next;
+  const days = res.days ?? c.days ?? 0;
+  if (r) addLog(s, r);
+  if (days > 0 && s.vivant) advanceTime(s, days, res.hour || c.hour);
+  s.current = null;
+  if (next && s.vivant) s.queue.unshift(next);
+  s.result = r ? { txt: r, cat: tpl(ev.cat || 'Vie', s), dead: !s.vivant } : null;
+  if (!s.result) presentNext(s);
+}
+
+export function continueResult(s) {
+  s.result = null;
+  presentNext(s);
+}
+
+// ---------- Passage d'une année ----------
+export function ageUp(s) {
+  if (!s.vivant || busy(s) || s.queue.length) return null;
+  const rep = { revenus: 0, depenses: 0 };
+  s.age++;
+  s.t = setHour(birthdayAt(s.birthT, s.age), rnd(8, 21));
+  s.lieu = null;
+  s.energie = inPrison(s) ? 3 : 4;
+  s.relUsed = {};
+  s.meteo = rollMeteo(s.t, s.id.ville);
+  s.relations.forEach((r) => r.vivant && r.age++);
+
+  if (s.id.arrivee === s.age && s.id.statut === 'au_pays') s.queue.push('arrivee_france');
+  school(s);
+  careerTick(s);
+  finances(s, rep);
+  justiceTick(s);
+  health(s);
+  family(s);
+  if (s.vivant) pickYearEvents(s);
+  presentNext(s);
+  return rep;
+}
+
+function school(s) {
+  const e = s.etudes;
+  if (s.id.statut === 'au_pays' && s.age < 16) return;
+  if (s.age === 3 && e.cursus === 'ecole') addLog(s, 'Entrée en maternelle.');
+  if (s.age === 6 && e.cursus === 'ecole') addLog(s, 'Entrée au CP.');
+  if (s.age === 11 && e.cursus === 'ecole') addLog(s, 'Entrée au collège.');
+  if (e.cursus === 'ecole') {
+    s.stats.intel = clamp(s.stats.intel + rnd(0, 2));
+    if (s.age >= 15) s.queue.push('brevet', 'orientation');
+    return;
+  }
+  if (!e.cursus || inPrison(s)) return;
+  const fail = ['fac', 'bts', 'medecine', 'droit', 'master'].includes(e.cursus) && chance(clamp(0.32 - s.stats.intel / 260, 0.03, 0.3));
+  if (fail) {
+    addLog(s, 'Tu redoubles ton année.');
+    s.stats.bonheur = clamp(s.stats.bonheur - 5);
+    return;
+  }
+  e.reste--;
+  s.stats.intel = clamp(s.stats.intel + rnd(1, 3));
+  if (e.reste > 0) return;
+  const fin = { lycee: null, cap: 'cap', fac: 'licence', bts: 'bts', medecine: 'doctorat', droit: 'master', master: 'master', daeu: 'bac' }[e.cursus];
+  if (e.cursus === 'lycee') s.queue.push('bac');
+  else if (fin) {
+    giveDiploma(s, fin);
+    addLog(s, `Diplôme obtenu : ${fin === 'doctorat' ? 'doctorat de médecine' : fin.toUpperCase()}.`);
+    s.stats.bonheur = clamp(s.stats.bonheur + 8);
+  }
+  e.cursus = null;
+  e.reste = null;
+}
+
+function careerTick(s) {
+  const c = career(s);
+  if (!c) return;
+  if (inPrison(s)) return;
+  const k = s.carriere;
+  k.annees++;
+  if (c.fame) {
+    s.stats.notoriete = clamp(s.stats.notoriete - rnd(1, 5));
+    let lvl = 0;
+    c.fame.forEach((f, i) => s.stats.notoriete >= f && (lvl = i));
+    if (lvl !== k.niveau) changeLevel(s, lvl - k.niveau);
+  } else if (k.niveau < c.niveaux.length - 1) {
+    const p = (c.promo || 0.15) + (k.perf - 50) / 220 + (c.stat ? s.stats[c.stat] / 450 : 0) + (s.traits.includes('ambitieux') ? 0.06 : 0);
+    if (chance(p * (1 - 0.18 * k.niveau))) changeLevel(s, 1);
+  }
+  k.perf = Math.round(k.perf + (55 - k.perf) * 0.3);
+  if (c.retraite && s.age >= rnd(c.retraite[0], c.retraite[1])) s.queue.push('fin_carriere_sport');
+  if (['classique', 'police', 'business', 'militaire'].includes(c.cat) && s.age >= 64 && !s.seen.retraite) s.queue.push('retraite');
+  if (c.risque) {
+    const p = c.risque[k.niveau] * (1 - s.stats.crime / 260) * (s.traits.includes('mefiant') ? 0.75 : 1);
+    if (chance(p)) {
+      s.justice.recherche = clamp(s.justice.recherche + rnd(1, 2), 0, 5);
+      s.justice.motif = c.motif;
+    }
+    s.stats.crime = clamp(s.stats.crime + 2);
+  }
+}
+
+export function yearlyCosts(s) {
+  if (inPrison(s)) return 0;
+  const kids = childrenOf(s).filter((c) => c.vivant && c.age < 18).length * 3000;
+  if (s.chezParents) return kids;
+  const h = HOUSING[s.logement] || HOUSING.hlm;
+  return (h.vie || 7000) + (s.proprio ? h.entretien || 0 : h.loyer || 0) + kids;
+}
+export const yearlyIncome = (s) => (inPrison(s) ? 0 : salary(s) * 12 + s.pension * 12);
+
+function finances(s, rep) {
+  const inc = yearlyIncome(s);
+  const dep = yearlyCosts(s);
+  let poche = 0;
+  if (s.chezParents && s.age >= 12 && s.age < 18) poche = MILIEUX[s.milieu].poche;
+  s.money += inc - dep + poche;
+  rep.revenus = inc + poche;
+  rep.depenses = dep;
+  if (inc || dep) addLog(s, `Bilan de l’année : ${euros(inc + poche)} de revenus, ${euros(dep)} de dépenses.`);
+  if (s.money < -4000 && !s.chezParents && !['rue', 'bidonville', 'pays'].includes(s.logement) && !inPrison(s)) s.queue.unshift('expulsion');
+}
+
+function justiceTick(s) {
+  const j = s.justice;
+  if (j.prison > 0) {
+    j.prison--;
+    s.stats.bonheur = clamp(s.stats.bonheur - rnd(2, 6));
+    if (j.prison === 0) {
+      s.flags.exdetenu = true;
+      s.mem.peine = j.peineTotale;
+      s.queue.unshift('sortie_prison');
+      if (s.id.statut === 'sans_papiers') s.queue.push('oqtf');
+    }
+    return;
+  }
+  if (j.recherche > 0) {
+    if (chance(j.recherche * 0.11)) s.queue.unshift('interpellation');
+    else if (chance(0.45)) j.recherche--;
+  }
+}
+
+function health(s) {
+  const st = s.stats;
+  if (s.age > 30 && chance(0.5)) st.sante -= 1;
+  if (s.age > 50) st.sante -= rnd(0, 2);
+  if (s.age > 70) st.sante -= rnd(1, 4);
+  if (s.age < 50) st.sante += rnd(1, 4);
+  else if (s.age < 70) st.sante += rnd(0, 2);
+  if (s.flags.fumeur) st.sante -= 1;
+  st.sante = clamp(st.sante);
+  st.bonheur = clamp(st.bonheur + Math.round((55 - st.bonheur) * 0.12));
+  if (s.age > 35) st.forme = clamp(st.forme - rnd(0, 2));
+  if (st.sante <= 0) return die(s, 'Santé trop dégradée');
+  let p = s.age < 45 ? 0.0012 : s.age < 60 ? 0.006 : s.age < 70 ? 0.018 : s.age < 80 ? 0.05 : s.age < 90 ? 0.13 : 0.32;
+  if (st.sante < 25) p *= 3;
+  if (chance(p)) die(s, s.age >= 75 ? 'Mort paisible, de vieillesse' : pick(['Crise cardiaque', 'Accident vasculaire cérébral', 'Maladie foudroyante']));
+}
+
+function family(s) {
+  for (const r of s.relations) {
+    if (!r.vivant) continue;
+    const p = r.age < 55 ? 0.002 : r.age < 70 ? 0.012 : r.age < 80 ? 0.05 : r.age < 90 ? 0.14 : 0.35;
+    if (!chance(p)) continue;
+    r.vivant = false;
+    s.mem.deuil = `${r.prenom}`;
+    addLog(s, `Décès de ${r.prenom} (${r.age} ans).`);
+    s.stats.bonheur = clamp(s.stats.bonheur - (r.rel > 60 ? 15 : 6));
+    if (r.lien === 'mere' || r.lien === 'pere') {
+      const her = Math.round(MILIEUX[s.milieu].heritage * (0.6 + Math.random() * 0.8) / Math.max(1, parentsOf(s).length + 1));
+      if (her > 0 && s.age >= 18) {
+        s.money += her;
+        addLog(s, `Héritage reçu : ${euros(her)}.`);
+      }
+      if (s.chezParents && !parentsOf(s).length) s.chezParents = s.age < 18;
+    }
+    if (r.lien === 'partenaire' || r.lien === 'conjoint') r.lien = 'ex';
+    s.queue.push('deuil');
+  }
+  const p = partnerOf(s);
+  if (p) p.rel = clamp(p.rel - rnd(0, 5));
+  childrenOf(s).forEach((c) => c.vivant && c.age === 18 && addLog(s, `${c.prenom} fête ses 18 ans.`));
+}
+
+// ---------- Actions ----------
+export function canDo(s, a) {
+  if (!s.vivant) return 'Partie terminée.';
+  if (a.prison ? !inPrison(s) : inPrison(s)) return inPrison(s) ? 'Impossible en prison.' : 'Seulement en prison.';
+  if (a.age && (s.age < a.age[0] || s.age > a.age[1])) return a.age[0] > s.age ? `À partir de ${a.age[0]} ans.` : 'Plus de ton âge.';
+  if (a.cond) {
+    const r = a.cond(s);
+    if (r !== true) return r || 'Indisponible.';
+  }
+  const cost = typeof a.cost === 'function' ? a.cost(s) : a.cost || 0;
+  if (cost > 0 && s.money < cost) return `Il te faut ${euros(cost)}.`;
+  return true;
+}
+
+export function doActivity(s, id) {
+  const a = ACT[id];
+  if (!a || busy(s)) return { r: '' };
+  const ok = canDo(s, a);
+  if (ok !== true) return { r: ok, err: true };
+  if (!a.free && s.energie <= 0) return { r: 'Plus d’énergie cette année. Passe à l’année suivante.', err: true };
+  if (!a.free) s.energie--;
+  const cost = typeof a.cost === 'function' ? a.cost(s) : a.cost || 0;
+  s.money -= cost;
+  s.tmp = baseTmp(s);
+  const out = a.run(s) || {};
+  apply(s, out.fx);
+  if (s.vivant) {
+    if (a.days) advanceTime(s, rnd(a.days[0], a.days[1]), a.hour);
+    const lieu = typeof a.lieu === 'function' ? a.lieu(s) : a.lieu;
+    if (lieu !== undefined) s.lieu = lieu;
+    if (s.lieu === 'plage' && a.id !== 'courir') s.meteo = { type: 'soleil', temp: rnd(25, 32) };
+  }
+  if (out.queue) s.queue.push(...[].concat(out.queue));
+  const r = tpl(out.r || '', s);
+  if (r) addLog(s, r);
+  presentNext(s);
+  return { r, good: out.good };
+}
+
+export function applyJob(s, id) {
+  const ok = canApply(s, id);
+  if (ok !== true) return { r: ok, err: true };
+  if (s.energie <= 0) return { r: 'Plus d’énergie cette année.', err: true };
+  s.energie--;
+  advanceTime(s, rnd(3, 14));
+  const c = CAREERS[id];
+  let p = 0.5 + s.stats.intel / 300 + s.stats.charisme / 300 - (c.diplome === 'aucun' ? -0.15 : 0);
+  if (s.justice.casier.length) p -= 0.15;
+  if (chance(clamp(p, 0.1, 0.95))) {
+    setCareer(s, id);
+    if (s.etudes.cursus === 'ecole' || s.etudes.cursus === 'lycee') s.etudes.cursus = null;
+    return { r: tpl(`Embauché{e} : ${jobTitle(s)} (${euros(salary(s))}/mois).`, s), good: true };
+  }
+  if (s.id.origine !== 'france' && s.id.origine !== 'europe_est' && chance(0.3) && !s.seen.discrimination) s.queue.push('discrimination');
+  presentNext(s);
+  return { r: 'Candidature refusée. Réessaie ou améliore ton profil.', err: true };
+}
+
+export function enroll(s, cursus) {
+  const R = {
+    fac: { need: 'bac', reste: 3, nom: 'Licence à la fac' },
+    bts: { need: 'bac', reste: 2, nom: 'BTS' },
+    master: { need: 'licence', reste: 2, nom: 'Master' },
+    medecine: { need: 'bac', reste: 9, nom: 'Études de médecine', intel: 65 },
+    droit: { need: 'bac', reste: 5, nom: 'Droit (jusqu’au master)' },
+    daeu: { need: 'aucun', reste: 1, nom: 'DAEU (équivalent du bac)' },
+    cap: { need: 'aucun', reste: 2, nom: 'CAP' },
+  }[cursus];
+  if (!R) return { r: '', err: true };
+  if (s.etudes.cursus) return { r: 'Tu es déjà en études.', err: true };
+  if (inPrison(s)) return { r: 'Impossible en prison.', err: true };
+  if (R.intel && s.stats.intel < R.intel) return { r: `Intelligence ${R.intel} requise.`, err: true };
+  s.etudes.cursus = cursus;
+  s.etudes.reste = R.reste;
+  if (s.carriere && !['crime', 'artiste', 'sport'].includes(career(s).cat) && R.reste > 1) setCareer(s, null);
+  addLog(s, `Inscription : ${R.nom}.`);
+  return { r: tpl(`Inscrit{e} : ${R.nom}.`, s), good: true };
+}
+
+// ---------- Logement ----------
+export function housingOptions(s) {
+  const inc = salary(s) + s.pension;
+  return Object.entries(HOUSING)
+    .filter(([k]) => !['pays'].includes(k) || s.id.statut === 'au_pays')
+    .map(([k, h]) => {
+      let why = true;
+      if (s.age < 16) why = 'Trop jeune.';
+      else if (inPrison(s)) why = 'Impossible en prison.';
+      else if (s.logement === k && !s.chezParents) why = 'Tu y vis déjà.';
+      else if (k === 'foyer' && !['rue', 'bidonville'].includes(s.logement)) why = 'Réservé aux personnes sans logement.';
+      else if (k === 'pays' && s.id.statut !== 'au_pays') why = 'Indisponible.';
+      else if (s.id.statut === 'au_pays' && !['pays', 'rue'].includes(k)) why = 'Tu vis au pays.';
+      else if (h.revenu && inc < h.revenu && !(h.achat && s.money >= h.achat)) why = `Revenus de ${euros(h.revenu)}/mois requis.`;
+      else if (k === 'villa' && s.money < h.achat) why = `Prix : ${euros(h.achat)}.`;
+      else if (k === 'hlm' && s.id.statut === 'sans_papiers') why = 'Dossier HLM impossible sans papiers.';
+      return { id: k, ...h, ok: why === true, why };
+    });
+}
+
+export function moveTo(s, id, buy) {
+  const o = housingOptions(s).find((h) => h.id === id);
+  if (!o || !o.ok) return { r: o?.why || '', err: true };
+  if (s.proprio && HOUSING[s.logement]?.achat) {
+    const v = Math.round(HOUSING[s.logement].achat * 0.9);
+    s.money += v;
+    addLog(s, `Tu revends ton logement : ${euros(v)}.`);
+  }
+  if (buy && !o.achat) return { r: 'Ce logement se loue uniquement.', err: true };
+  if (!buy && !o.loyer && o.achat && o.id === 'villa') return { r: 'La villa s’achète uniquement.', err: true };
+  if (buy) {
+    if (s.money < o.achat) return { r: `Il te faut ${euros(o.achat)}.`, err: true };
+    s.money -= o.achat;
+  }
+  s.logement = id;
+  s.chezParents = false;
+  s.proprio = !!buy;
+  s.lieu = null;
+  advanceTime(s, rnd(5, 20));
+  addLog(s, `${buy ? 'Achat' : 'Emménagement'} : ${o.nom}.`);
+  return { r: `Bienvenue chez toi : ${o.nom}.`, good: true };
+}
+
+// ---------- Relations ----------
+export function relActions(s, r) {
+  if (!r.vivant) return [];
+  const used = (a) => s.relUsed[`${r.id}:${a}`];
+  const list = [['temps', 'Passer du temps']];
+  if (['mere', 'pere'].includes(r.lien)) list.push(['argent', 'Demander de l’argent']);
+  if (['partenaire', 'conjoint', 'ami', 'fratrie', 'mere', 'pere', 'enfant'].includes(r.lien) && s.age >= 12) list.push(['cadeau', 'Offrir un cadeau (150 €)']);
+  if (r.lien === 'partenaire' && s.age >= 18) list.push(['mariage', 'Demander en mariage']);
+  if (['partenaire', 'conjoint'].includes(r.lien) && s.age >= 18 && s.age <= 50) list.push(['enfant', 'Avoir un enfant']);
+  if (['partenaire', 'conjoint'].includes(r.lien)) list.push(['rompre', g(s, 'Rompre', 'Rompre')]);
+  list.push(['dispute', 'Se disputer']);
+  return list.map(([a, t]) => ({ a, t, ok: !used(a) && !inPrison(s) && !(a === 'cadeau' && s.money < 150) }));
+}
+
+export function relAction(s, rid, a) {
+  const r = s.relations.find((x) => x.id === rid);
+  if (!r || !r.vivant || busy(s)) return { r: '' };
+  s.relUsed[`${r.id}:${a}`] = true;
+  let out = '';
+  if (a === 'temps') {
+    r.rel = clamp(r.rel + rnd(4, 12));
+    s.stats.bonheur = clamp(s.stats.bonheur + rnd(1, 4));
+    out = `Bon moment avec ${r.prenom}.`;
+  } else if (a === 'argent') {
+    const base = { precaire: 50, modeste: 200, moyenne: 800, aisee: 3000, riche: 25000 }[s.milieu];
+    if (r.rel > 45 && chance(0.6)) {
+      const m = Math.round(base * (0.5 + Math.random()));
+      s.money += m;
+      r.rel = clamp(r.rel - 4);
+      out = `${r.prenom} te donne ${euros(m)}.`;
+    } else {
+      r.rel = clamp(r.rel - 6);
+      out = `${r.prenom} refuse sèchement.`;
+    }
+  } else if (a === 'cadeau') {
+    s.money -= 150;
+    r.rel = clamp(r.rel + rnd(8, 15));
+    out = `${r.prenom} adore ton cadeau.`;
+  } else if (a === 'dispute') {
+    r.rel = clamp(r.rel - rnd(10, 22));
+    s.stats.bonheur = clamp(s.stats.bonheur - 3);
+    out = `Grosse dispute avec ${r.prenom}.`;
+  } else if (a === 'mariage') {
+    if (chance(r.rel / 110)) {
+      apply(s, { marier: true, bonheur: 15, money: -6000 });
+      out = `${r.prenom} a dit oui ! Le mariage coûte 6 000 €.`;
+    } else {
+      r.rel = clamp(r.rel - 15);
+      out = `${r.prenom} n’est pas prêt${r.genre === 'f' ? 'e' : ''}.`;
+    }
+  } else if (a === 'enfant') {
+    if (childrenOf(s).length >= 6) out = 'Vous avez déjà une grande famille.';
+    else if (chance(0.65)) {
+      apply(s, { enfant: true, bonheur: 10 });
+      out = `Bienvenue à ${s.tmp.bebe} !`;
+    } else out = 'Pas de bébé cette année.';
+  } else if (a === 'rompre') {
+    apply(s, { rupture: true, bonheur: -8 });
+    out = `C’est fini avec ${r.prenom}.`;
+  }
+  addLog(s, out);
+  return { r: out };
+}
+
+// ---------- Héritage : continuer avec un enfant ----------
+export function continueAsChild(s, rid) {
+  const c = s.relations.find((x) => x.id === rid);
+  if (!c || !c.vivant) return null;
+  const heirs = childrenOf(s).filter((x) => x.vivant).length;
+  const part = Math.max(0, Math.round((s.money * 0.8) / heirs));
+  const milieu = part > 1000000 ? 'riche' : part > 150000 ? 'aisee' : part > 30000 ? 'moyenne' : part > 3000 ? 'modeste' : 'precaire';
+  const traits = Object.keys(TRAITS).sort(() => Math.random() - 0.5).slice(0, 2);
+  const ns = createLife({
+    prenom: c.prenom, nom: c.nom, genre: c.genre, attirance: c.genre === 'f' ? 'h' : 'f', origine: s.id.origine, pays: s.id.pays,
+    statut: 'ne_france', ville: s.id.statut === 'au_pays' ? s.id.villeCible : s.id.ville, milieu,
+    look: c.look || randomLook(c.genre, s.id.origine), traits, talent: pick(Object.keys(TALENTS)),
+  }, { age: Math.max(c.age, 1), t: s.t, gen: s.gen + 1, noFamily: true });
+  const other = partnerOf(s) || s.relations.find((r) => r.lien === 'ex' && r.vivant);
+  if (other) ns.relations.push({ ...other, lien: other.genre === 'f' ? 'mere' : 'pere', rel: rnd(50, 85) });
+  childrenOf(s).filter((x) => x.vivant && x.id !== rid).forEach((x) => ns.relations.push({ ...x, lien: 'fratrie', rel: rnd(40, 80) }));
+  ns.uid = Math.max(...ns.relations.map((r) => r.id), 0) + 1;
+  ns.money = part;
+  if (ns.age >= 18 && s.proprio) {
+    ns.logement = s.logement;
+    ns.proprio = true;
+    ns.chezParents = false;
+  } else if (ns.age >= 18) {
+    ns.chezParents = false;
+    ns.logement = milieu === 'precaire' ? 'hlm' : MILIEUX[milieu].logement;
+  }
+  ns.mem.parent = s.id.prenom;
+  addLog(ns, `Génération ${ns.gen}. ${g(s, 'Ton père', 'Ta mère')} ${s.id.prenom} est décédé${s.id.genre === 'f' ? 'e' : ''}. Tu hérites de ${euros(part)}.`);
+  return ns;
+}
+
+export { ACTIVITIES, CAREERS };

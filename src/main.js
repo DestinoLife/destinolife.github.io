@@ -1,0 +1,456 @@
+import './style.css';
+import { icon, logo, logoMark } from './ui/icons.js';
+import { sceneSVG, sceneFx } from './render/scene.js';
+import { avatarSVG } from './render/avatar.js';
+import { createLife, tpl, jobTitle, salary, career, partnerOf, lienNom, childrenOf, g } from './engine/core.js';
+import { randomConfig } from './engine/random.js';
+import { euros, pick } from './engine/rng.js';
+import { fmtDate, fmtHeure, tod, saison } from './engine/time.js';
+import {
+  ageUp, choose, choicesView, continueResult, doActivity, applyJob, enroll, relActions, relAction, housingOptions, moveTo,
+  continueAsChild, currentScene, outfitOf, busy, inPrison, canDo, yearlyCosts, yearlyIncome, presentNext, ACTIVITIES, CAREERS,
+} from './engine/flow.js';
+import { canApply, DIPLOME_NOM } from './data/careers.js';
+import { HOUSING, SCENE_NOM } from './data/housing.js';
+import { ORIGINES, VILLES, MILIEUX, TRAITS, TALENTS, STATUTS } from './data/identity.js';
+import { SKINS, HAIR_COLORS, EYES, HAIRSTYLES, BEARDS, BUILDS, STYLES, ACCS, FOULARDS } from './data/look.js';
+import { save, load, clearSave } from './engine/save.js';
+
+const app = document.getElementById('app');
+let S = null; // vie en cours
+let screen = 'title';
+let tab = null;
+let openRel = null;
+let C = null; // personnage en création
+let cTab = 'identite';
+const dev = location.search.includes('dev');
+
+// ---------- Monde (décor + perso) ----------
+const VB = '0 0 1000 560';
+function worldHTML(sceneKey, env, av, uid = 'pl', fade = true) {
+  return `<svg class="world" viewBox="${VB}" preserveAspectRatio="xMidYMax slice" role="img" aria-label="${SCENE_NOM[sceneKey] || 'Scène'}">
+    <g id="bg" class="${fade ? 'fade-in' : ''}">${sceneSVG(sceneKey, env)}</g>
+    <g id="pl" transform="translate(500 506)">${av ? avatarSVG(av, uid) : ''}</g>
+    <g id="fx">${sceneFx(env)}</g></svg>`;
+}
+let lastBg = '', lastAv = '';
+function updateWorld() {
+  const sc = currentScene(S);
+  const env = { tod: tod(S.t), meteo: S.meteo.type };
+  const av = { look: S.look, genre: S.id.genre, age: S.age, outfit: outfitOf(S) };
+  const bgKey = `${sc}|${env.tod}|${env.meteo}`;
+  const avKey = JSON.stringify([av.look, av.genre, Math.min(av.age, 80), av.outfit, av.age >= 56, av.age >= 72]);
+  const bg = document.getElementById('bg');
+  if (!bg) return;
+  if (bgKey !== lastBg) {
+    bg.classList.remove('fade-in');
+    void bg.getBoundingClientRect();
+    bg.innerHTML = sceneSVG(sc, env);
+    bg.classList.add('fade-in');
+    document.getElementById('fx').innerHTML = sceneFx(env);
+    lastBg = bgKey;
+  }
+  if (avKey !== lastAv) {
+    document.getElementById('pl').innerHTML = avatarSVG(av, 'pl');
+    lastAv = avKey;
+  }
+}
+
+const miniAv = (look, genre, id) =>
+  look ? `<svg viewBox="-56 -352 112 112" width="38" height="38">${avatarSVG({ look, genre, age: 30, outfit: 'casual' }, 'm' + id)}</svg>` : '';
+
+// ---------- Utilitaires UI ----------
+function toast(txt, kind = '') {
+  const box = document.getElementById('toasts');
+  if (!box || !txt) return;
+  const el = document.createElement('div');
+  el.className = `toast glass ${kind}`;
+  el.textContent = txt;
+  box.appendChild(el);
+  while (box.children.length > 3) box.firstChild.remove();
+  setTimeout(() => el.remove(), 3300);
+}
+const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+const bar = (label, v, color) => `<div class="bar-s"><div class="t">${label}<span>${Math.round(v)}</span></div><div class="tr"><i style="width:${Math.max(2, v)}%;background:${color}"></i></div></div>`;
+const gF = (s, h, f) => (s.id.genre === 'f' ? f : h);
+
+// ---------- Écran titre ----------
+function renderTitle() {
+  const cfg = randomConfig();
+  const saved = load();
+  const env = { tod: pick(['soir', 'nuit']), meteo: 'soleil' };
+  app.innerHTML = `<div class="title">${worldHTML(pick(['rue', 'appart', 'cite']), env, { look: cfg.look, genre: cfg.genre, age: 26, outfit: cfg.look.style }, 'tt')}
+    <div class="title-box">${logo(54)}
+      <p class="tagline">Une vie. <b>Mille destins.</b><br>Chaque choix te mène quelque part : la villa, la rue, la gloire ou la cellule.</p>
+      <div class="menu">
+        ${saved && saved.vivant ? `<button class="btn primary" data-a="continue">${icon('play', 18)} Continuer la vie de ${esc(saved.id.prenom)}</button>` : ''}
+        <button class="btn ${saved && saved.vivant ? '' : 'primary'}" data-a="new">${icon('user', 18)} Créer mon personnage</button>
+        <button class="btn" data-a="random">${icon('dice', 18)} Vie aléatoire</button>
+      </div>
+      <div class="badge18"><b>18+</b> Violence, drogue, crime. Contenu destiné aux adultes.</div>
+    </div></div>`;
+}
+
+// ---------- Créateur ----------
+function renderCreator() {
+  const sc = HOUSING[MILIEUX[C.milieu].logement].scene;
+  const av = { look: C.look, genre: C.genre, age: 24, outfit: C.look.style };
+  app.innerHTML = `<div class="creator">
+    <div class="preview">${worldHTML(sc, { tod: 'soir', meteo: 'soleil' }, av, 'cr', false)}<div class="logo-wrap">${logo(34)}</div></div>
+    <div class="panel">
+      <div class="tabs">${[['identite', 'Identité'], ['origines', 'Origines'], ['apparence', 'Apparence'], ['perso', 'Personnalité']].map(([k, t]) => `<button class="${cTab === k ? 'on' : ''}" data-a="ctab" data-v="${k}">${t}</button>`).join('')}</div>
+      <div class="form">${creatorForm()}</div>
+      <div class="panel-foot"><button class="btn" data-a="back">Retour</button><button class="btn" data-a="reroll" title="Tout aléatoire">${icon('dice', 18)}</button><button class="btn primary" data-a="start">Commencer ma vie ${icon('chevron', 16)}</button></div>
+    </div></div>`;
+}
+const chip = (k, v, label, on, off) => `<button class="chip ${on ? 'on' : ''} ${off ? 'off' : ''}" data-a="cset" data-k="${k}" data-v="${esc(v)}" ${off ? 'disabled' : ''}>${label}</button>`;
+const sw = (k, color, on, title) => `<button class="sw ${on ? 'on' : ''}" style="background:${color}" data-a="cset" data-k="${k}" data-v="${color}" title="${title || ''}" aria-label="${title || color}"></button>`;
+function creatorForm() {
+  const f = C.genre === 'f';
+  if (cTab === 'identite')
+    return `<div class="row2"><div class="field"><label>Prénom</label><input data-k="prenom" value="${esc(C.prenom)}" maxlength="20"></div><div class="field"><label>Nom</label><input data-k="nom" value="${esc(C.nom)}" maxlength="24"></div></div>
+    <div><span class="lbl">Genre</span><div class="chips">${chip('genre', 'h', 'Homme', !f)}${chip('genre', 'f', 'Femme', f)}</div></div>
+    <div><span class="lbl">Attirance</span><div class="chips">${chip('attirance', 'h', 'Hommes', C.attirance === 'h')}${chip('attirance', 'f', 'Femmes', C.attirance === 'f')}${chip('attirance', 'hf', 'Les deux', C.attirance === 'hf')}</div></div>
+    <div class="field"><label>Ville</label><select data-k="ville">${VILLES.map((v) => `<option ${v === C.ville ? 'selected' : ''}>${v}</option>`).join('')}</select></div>
+    <div><span class="lbl">Milieu social</span><div class="chips">${Object.entries(MILIEUX).map(([k, m]) => chip('milieu', k, m.nom, C.milieu === k)).join('')}</div><p class="hint">Détermine ton logement de départ, l’argent de poche et l’héritage.</p></div>`;
+  if (cTab === 'origines') {
+    const o = ORIGINES[C.origine];
+    const fr = C.origine === 'france' || o.francais;
+    return `<div><span class="lbl">Origine</span><div class="chips">${Object.entries(ORIGINES).map(([k, x]) => chip('origine', k, x.nom, C.origine === k)).join('')}</div></div>
+    ${o.pays.length > 1 ? `<div><span class="lbl">Pays d’origine</span><div class="chips">${o.pays.map((p) => chip('pays', p, p, C.pays === p)).join('')}</div></div>` : ''}
+    <div><span class="lbl">Statut à la naissance</span><div class="chips">${chip('statut', 'ne_france', gF({ id: { genre: C.genre } }, 'Né en France', 'Née en France'), C.statut === 'ne_france')}${chip('statut', 'titre', 'Arrivée enfant (titre de séjour)', C.statut === 'titre', fr)}${chip('statut', 'sans_papiers', 'Arrivée sans papiers', C.statut === 'sans_papiers', fr)}</div>
+    <p class="hint">${C.statut === 'ne_france' ? 'Tu as la nationalité française dès la naissance.' : C.statut === 'titre' ? 'Tu nais au pays et ta famille s’installe en France pendant ton enfance, avec des papiers.' : 'Tu nais au pays et tu arrives en France sans papiers : pas de travail déclaré, peur des contrôles, régularisation possible.'}</p></div>`;
+  }
+  if (cTab === 'apparence')
+    return `<div><span class="lbl">Peau</span><div class="chips">${SKINS.map((c) => sw('look.peau', c, C.look.peau === c)).join('')}</div></div>
+    <div><span class="lbl">Coiffure</span><div class="chips">${HAIRSTYLES.map(([k, t]) => chip('look.coiffure', k, t, C.look.coiffure === k)).join('')}</div></div>
+    ${C.look.coiffure === 'foulard' ? `<div><span class="lbl">Couleur du foulard</span><div class="chips">${FOULARDS.map((c) => sw('look.foulardC', c, C.look.foulardC === c)).join('')}</div></div>` : `<div><span class="lbl">Couleur des cheveux</span><div class="chips">${HAIR_COLORS.map(([c, t]) => sw('look.cheveuxC', c, C.look.cheveuxC === c, t)).join('')}</div></div>`}
+    <div><span class="lbl">Yeux</span><div class="chips">${EYES.map(([c, t]) => sw('look.yeux', c, C.look.yeux === c, t)).join('')}</div></div>
+    ${f ? '' : `<div><span class="lbl">Barbe</span><div class="chips">${BEARDS.map(([k, t]) => chip('look.barbe', k, t, C.look.barbe === k)).join('')}</div></div>`}
+    <div><span class="lbl">Corpulence</span><div class="chips">${BUILDS.map(([k, t]) => chip('look.corpulence', k, t, C.look.corpulence === k)).join('')}</div></div>
+    <div><span class="lbl">Style</span><div class="chips">${STYLES.map(([k, t]) => chip('look.style', k, t, C.look.style === k)).join('')}</div></div>
+    <div><span class="lbl">Accessoires</span><div class="chips">${ACCS.map(([k, t]) => chip('acc', k, t, C.look.acc.includes(k))).join('')}</div></div>`;
+  return `<div><span class="lbl">Traits de caractère (2 max)</span><div class="chips">${Object.entries(TRAITS).map(([k, t]) => chip('trait', k, f ? t.f : t.nom, C.traits.includes(k))).join('')}</div>
+    <p class="hint">${C.traits.map((k) => `${f ? TRAITS[k].f : TRAITS[k].nom} : ${TRAITS[k].desc.toLowerCase()}`).join(' · ') || 'Choisis jusqu’à deux traits.'}</p></div>
+    <div><span class="lbl">Talent caché</span><div class="chips">${Object.entries(TALENTS).map(([k, t]) => chip('talent', k, t, C.talent === k)).join('')}</div>
+    <p class="hint">Ton talent débloque des événements : centre de formation, freestyle filmé, casting, galerie…</p></div>`;
+}
+function creatorSet(k, v) {
+  if (k === 'acc') {
+    const a = C.look.acc;
+    C.look.acc = a.includes(v) ? a.filter((x) => x !== v) : [...a, v];
+  } else if (k === 'trait') {
+    C.traits = C.traits.includes(v) ? C.traits.filter((x) => x !== v) : [...C.traits, v].slice(-2);
+  } else if (k.startsWith('look.')) C.look[k.slice(5)] = v;
+  else C[k] = v;
+  if (k === 'genre') {
+    if (v === 'f') C.look.barbe = 'none';
+    C.attirance = v === 'f' ? 'h' : 'f';
+  }
+  if (k === 'origine') {
+    C.pays = ORIGINES[v].pays[0];
+    if (v === 'france' || ORIGINES[v].francais) C.statut = 'ne_france';
+  }
+  refreshCreator();
+}
+function refreshCreator() {
+  const form = app.querySelector('.form');
+  if (!form) return renderCreator();
+  const top = form.scrollTop;
+  app.querySelector('.preview svg').outerHTML = worldHTML(HOUSING[MILIEUX[C.milieu].logement].scene, { tod: 'soir', meteo: 'soleil' }, { look: C.look, genre: C.genre, age: 24, outfit: C.look.style }, 'cr', false);
+  form.innerHTML = creatorForm();
+  form.scrollTop = top;
+}
+
+// ---------- Jeu ----------
+function renderGameShell() {
+  app.innerHTML = `<div class="game">
+    <div class="stage">${worldHTML('rue', { tod: 'jour', meteo: 'soleil' }, null)}
+      <div class="hud-tl glass" id="hudtl"></div><div class="hud-tr" id="hudtr"></div>
+      <div id="sheet"></div><div id="modal"></div><div class="toasts" id="toasts"></div><div id="death"></div>
+    </div>
+    <nav class="bar">${logo(30)}<div class="dock" id="dock"></div></nav></div>${dev ? '<div id="fps"></div>' : ''}`;
+  lastBg = lastAv = '';
+  updateGame();
+}
+
+function updateGame() {
+  if (!S) return;
+  updateWorld();
+  const sc = currentScene(S);
+  const m = S.meteo;
+  const wIcon = m.type === 'pluie' ? 'rain' : m.type === 'nuages' ? 'cloud' : tod(S.t) === 'nuit' ? 'moon' : 'sun';
+  const wTxt = { soleil: tod(S.t) === 'nuit' ? 'Ciel dégagé' : 'Ensoleillé', nuages: 'Nuageux', pluie: 'Pluie' }[m.type];
+  document.getElementById('hudtl').innerHTML = `<div class="hud-place">${icon('pin', 15)} ${esc(S.id.ville)} · ${SCENE_NOM[sc] || sc}</div>
+    <div class="hud-time"><span class="h">${fmtHeure(S.t)}</span><span class="hud-meteo">${icon(wIcon, 17)} ${m.temp} °C · ${wTxt}</span></div>
+    <div class="hud-date">${fmtDate(S.t)} · ${saison(S.t)}</div>`;
+  const job = inPrison(S) ? `Détenu${S.id.genre === 'f' ? 'e' : ''} · ${S.justice.prison} an${S.justice.prison > 1 ? 's' : ''} restant${S.justice.prison > 1 ? 's' : ''}` : jobTitle(S) || (S.age < 3 ? 'Bébé' : S.age < 6 ? 'Maternelle' : S.etudes.cursus ? (S.etudes.cursus === 'ecole' || S.etudes.cursus === 'lycee' ? 'Élève' : gF(S, 'Étudiant', 'Étudiante')) : S.age < 16 ? 'Enfant' : 'Sans emploi');
+  const stars = S.justice.recherche ? `<span class="pill glass" title="Niveau de recherche"><span class="stars">${[1, 2, 3, 4, 5].map((i) => icon('star', 13, i <= S.justice.recherche ? 'on' : '')).join('')}</span></span>` : '';
+  document.getElementById('hudtr').innerHTML = `<div class="id-card glass"><b>${esc(S.id.prenom)} ${esc(S.id.nom)}</b><span>${S.age} an${S.age > 1 ? 's' : ''} · ${esc(job)}</span></div>
+    <div class="pills">${stars}<span class="pill glass ${S.money < 0 ? 'neg' : 'money'}">${icon('euro', 15)} ${euros(S.money)}</span><span class="pill glass" title="Énergie de l’année"><span class="energy">${[1, 2, 3, 4].map((i) => `<i class="${i <= S.energie ? 'on' : ''}"></i>`).join('')}</span></span></div>`;
+  const tabs = [['vie', 'Vie', 'user'], ['act', 'Activités', 'zap'], ['pro', 'Carrière', 'briefcase'], ['crime', 'Crime', 'mask'], ['rel', 'Relations', 'heart'], ['biens', 'Biens', 'home']];
+  const blocked = busy(S) || !S.vivant;
+  document.getElementById('dock').innerHTML = tabs.map(([k, t, i]) => `<button class="tab ${tab === k ? 'on' : ''} ${k === 'crime' ? 'crime' : ''}" data-a="tab" data-v="${k}" aria-label="${t}">${icon(i, 22)}${t}</button>`).join('') +
+    `<button class="age-btn ${blocked ? 'off' : ''}" data-a="age" aria-label="Avancer d’un an">${icon('forward', 20)}<span>Vieillir<small>+1 an · ${S.age} → ${S.age + 1}</small></span></button>`;
+  document.getElementById('sheet').innerHTML = tab ? `<div class="sheet glass">${sheetHTML()}</div>` : '';
+  document.getElementById('modal').innerHTML = modalHTML();
+  document.getElementById('death').innerHTML = !S.vivant && !busy(S) ? deathHTML() : '';
+  save(S);
+}
+
+function modalHTML() {
+  if (S.current) {
+    const c = S.current;
+    const tag = c.major ? `<span class="ev-tag major"><span class="dot"></span>Décision majeure · ${c.major === 1 ? 'se joue dans la journée' : `se joue sur ${c.major} jours`}</span>` : `<span class="ev-tag"><span class="dot"></span>${esc(c.cat)}</span>`;
+    return `<div class="modal glass" role="dialog" aria-live="polite">${c.major ? `<span class="ev-tag" style="margin-right:10px">${esc(c.cat)}</span>` : ''}${tag}<p class="ev-txt">${esc(c.txt)}</p>
+      <div class="choices">${choicesView(S).map((x) => `<button class="choice ${x.ok ? '' : 'off'}" data-a="choose" data-v="${x.i}" ${x.ok ? '' : 'disabled'}><span>${esc(x.t)}</span>${x.h ? `<small>${esc(x.h)}</small>` : ''}</button>`).join('')}</div></div>`;
+  }
+  if (S.result) return `<div class="modal glass"><span class="ev-tag"><span class="dot"></span>${esc(S.result.cat)}</span><p class="result">${esc(S.result.txt)}</p><button class="btn primary" style="width:100%" data-a="cont">Continuer</button></div>`;
+  return '';
+}
+
+function deathHTML() {
+  const m = S.mort;
+  const kids = childrenOf(S).filter((c) => c.vivant);
+  const birthY = new Date(S.birthT).getUTCFullYear();
+  const deathY = new Date(m.t).getUTCFullYear();
+  return `<div class="death"><div class="card glass">${logoMark(44, 'dl')}
+    <h1>${esc(S.id.prenom)} ${esc(S.id.nom)}</h1><p class="cause">${birthY} – ${deathY} · ${esc(m.cause)}</p>
+    <dl class="kv"><dt>Âge</dt><dd>${m.age} ans</dd><dt>Fortune</dt><dd>${euros(S.money)}</dd><dt>Dernier métier</dt><dd>${esc(jobTitle(S) || '—')}</dd><dt>Casier</dt><dd>${S.justice.casier.length ? `${S.justice.casier.length} mention${S.justice.casier.length > 1 ? 's' : ''}` : 'Vierge'}</dd><dt>Enfants</dt><dd>${childrenOf(S).length}</dd><dt>Génération</dt><dd>${S.gen}</dd></dl>
+    <div class="menu">${kids.map((k) => `<button class="btn primary" data-a="heir" data-v="${k.id}">${icon('play', 16)} Continuer avec ${esc(k.prenom)} (${k.age} ans)</button>`).join('')}
+    <button class="btn" data-a="new">${icon('user', 16)} Nouvelle vie</button><button class="btn" data-a="random">${icon('dice', 16)} Vie aléatoire</button></div></div></div>`;
+}
+
+// ---------- Onglets ----------
+function sheetHTML() {
+  const head = (t, sub) => `<div class="sheet-h"><div><h2>${t}</h2>${sub ? `<div class="sub">${sub}</div>` : ''}</div><button class="close" data-a="tab" data-v="${tab}" aria-label="Fermer">${icon('x', 18)}</button></div>`;
+  const st = S.stats;
+  if (tab === 'vie') {
+    const o = ORIGINES[S.id.origine];
+    return head(`${esc(S.id.prenom)} ${esc(S.id.nom)}`, `${S.age} ans · Génération ${S.gen}`) + `<div class="sheet-b">
+      <div class="sec"><h3>État</h3><div class="bars">${bar('Bonheur', st.bonheur, '#ffd36e')}${bar('Santé', st.sante, '#4fd18b')}${bar('Intelligence', st.intel, '#6fb4ff')}${bar('Apparence', st.apparence, '#c59bff')}</div></div>
+      <div class="sec"><h3>Compétences</h3><div class="bars">${bar('Forme physique', st.forme, '#5ff5d0')}${bar('Talent artistique', st.art, '#ff9f5a')}${bar('Charisme', st.charisme, '#ff6fa1')}${bar('Savoir-faire criminel', st.crime, '#ff5470')}</div></div>
+      <div class="sec"><h3>Réputation</h3><div class="bars">${bar('Réputation de rue', st.reputation, '#ff6fa1')}${bar('Karma', st.karma, '#9a7bff')}${bar('Notoriété', st.notoriete, '#ffd36e')}</div></div>
+      <div class="sec"><h3>Justice</h3><dl class="kv"><dt>Niveau de recherche</dt><dd>${S.justice.recherche}/5${S.justice.motif && S.justice.recherche ? ` · ${esc(S.justice.motif)}` : ''}</dd><dt>Casier judiciaire</dt><dd>${S.justice.casier.length ? '' : 'Vierge'}</dd></dl>
+        ${S.justice.casier.length ? `<div class="list" style="margin-top:8px">${S.justice.casier.slice(-6).reverse().map((c) => `<div class="li"><div class="grow"><b>${esc(c.motif)}</b><small>${c.age} ans · ${esc(c.peine)}</small></div></div>`).join('')}</div>` : ''}</div>
+      <div class="sec"><h3>Identité</h3><dl class="kv"><dt>Origine</dt><dd>${o.nom}${S.id.origine !== 'france' ? ` (${esc(S.id.pays)})` : ''}</dd><dt>Statut</dt><dd>${STATUTS[S.id.statut][S.id.genre === 'f' ? 1 : 0]}</dd><dt>Milieu d’origine</dt><dd>${MILIEUX[S.milieu].nom}</dd><dt>Diplôme</dt><dd>${DIPLOME_NOM[S.etudes.niveau]}</dd><dt>Logement</dt><dd>${S.chezParents ? 'Chez tes parents' : HOUSING[S.logement]?.nom || '—'}</dd><dt>Traits</dt><dd>${S.traits.map((t) => (S.id.genre === 'f' ? TRAITS[t].f : TRAITS[t].nom)).join(', ')}</dd><dt>Talent</dt><dd>${TALENTS[S.talent]}</dd></dl></div>
+      <div class="sec"><h3>Journal</h3><div class="journal">${S.log.slice(-60).reverse().map((l) => `<div><b>${l.age} ans</b><span>${esc(l.txt)}</span></div>`).join('')}</div></div>
+      <button class="btn sm" data-a="quit">${icon('save', 16)} Sauvegarder et revenir au menu</button></div>`;
+  }
+  if (tab === 'act' || tab === 'crime') {
+    const list = ACTIVITIES.filter((a) => (inPrison(S) ? a.tab === 'prison' : a.tab === tab));
+    const warn = tab === 'crime' && !inPrison(S) ? `<div class="note warn">Chaque délit peut augmenter ton niveau de recherche. Plus il est haut, plus la police risque de frapper à ta porte.</div>` : '';
+    return head(inPrison(S) ? 'Vie en détention' : tab === 'act' ? 'Activités' : 'Crime', `Énergie : ${S.energie}/4 · chaque action fait avancer le temps`) + `<div class="sheet-b">${warn}<div class="acts">${list.map((a) => actCard(a)).join('')}</div></div>`;
+  }
+  if (tab === 'pro') return head('Carrière et études', DIPLOME_NOM[S.etudes.niveau]) + `<div class="sheet-b">${proHTML()}</div>`;
+  if (tab === 'rel') return head('Relations', partnerOf(S) ? `En couple avec ${esc(partnerOf(S).prenom)}` : 'Célibataire') + `<div class="sheet-b">${relHTML()}</div>`;
+  if (tab === 'biens') {
+    const inc = yearlyIncome(S), dep = yearlyCosts(S);
+    return head('Biens et argent', `Solde : ${euros(S.money)}`) + `<div class="sheet-b">
+      <div class="sec"><h3>Budget annuel estimé</h3><dl class="kv"><dt>Revenus</dt><dd style="color:var(--good)">${euros(inc)}</dd><dt>Dépenses (logement, vie, enfants)</dt><dd style="color:var(--bad)">${euros(dep)}</dd><dt>Bilan</dt><dd>${euros(inc - dep)}</dd></dl></div>
+      <div class="sec"><h3>Logement actuel</h3><div class="note">${S.chezParents ? 'Tu vis chez tes parents (gratuit).' : `${HOUSING[S.logement]?.nom}${S.proprio ? ' · propriétaire' : ''}`}</div></div>
+      <div class="sec"><h3>Déménager</h3><div class="list">${housingOptions(S).map((h) => `<div class="li ${h.ok ? '' : 'off'}"><div class="grow"><b>${h.nom}</b><small>${h.ok ? [h.loyer ? `Loyer ${euros(h.loyer)}/an` : h.achat ? '' : 'Gratuit', h.achat ? `Achat ${euros(h.achat)}` : ''].filter(Boolean).join(' · ') : esc(h.why)}</small></div>
+        ${h.ok && (h.loyer || !h.achat) ? `<button class="btn sm" data-a="move" data-v="${h.id}">${h.loyer ? 'Louer' : 'Y aller'}</button>` : ''}${h.ok && h.achat ? `<button class="btn sm ${S.money >= h.achat ? '' : 'off'}" data-a="buy" data-v="${h.id}">Acheter</button>` : ''}</div>`).join('')}</div></div></div>`;
+  }
+  return '';
+}
+
+function actCard(a) {
+  const ok = canDo(S, a);
+  const cost = typeof a.cost === 'function' ? a.cost(S) : a.cost || 0;
+  const risk = a.risk ? Math.round(Math.min(0.95, a.risk(S)) * 100) : null;
+  const meta = [cost ? euros(cost) : 'Gratuit', a.days && a.days[1] > 0 ? `${a.days[0]}–${a.days[1]} j` : 'Immédiat', a.free ? 'sans énergie' : ''].filter(Boolean).join(' · ');
+  return `<button class="act ${a.tab === 'crime' ? 'crime' : ''} ${ok === true ? '' : 'off'}" data-a="act" data-v="${a.id}" title="${ok === true ? '' : esc(ok)}">
+    <span class="n">${icon(a.icon, 17)}${esc(a.nom)}</span><span class="d">${ok === true ? esc(a.desc) : esc(ok)}</span>
+    <span class="m">${meta}${risk != null && ok === true ? ` · <span class="risk" style="color:${risk > 65 ? 'var(--good)' : risk > 45 ? 'var(--warn)' : 'var(--bad)'}">${risk}% de réussite</span>` : ''}</span></button>`;
+}
+
+function proHTML() {
+  let h = '';
+  const c = career(S);
+  if (S.carriere) {
+    const k = S.carriere;
+    h += `<div class="job-card"><span class="lbl" style="margin:0">${esc(c.nom)}</span><b>${esc(jobTitle(S))}</b><dl class="kv"><dt>Salaire</dt><dd>${euros(salary(S))} / mois</dd><dt>Ancienneté</dt><dd>${k.annees} an${k.annees > 1 ? 's' : ''}</dd><dt>Échelon</dt><dd>${k.niveau + 1} / ${c.niveaux.length}</dd></dl>${c.fame ? bar('Notoriété', S.stats.notoriete, '#ffd36e') : bar('Performance', k.perf, '#6fb4ff')}</div>`;
+  } else h += `<div class="note">${inPrison(S) ? 'Tu es en prison.' : S.age < 16 ? 'Trop jeune pour travailler. Concentre-toi sur l’école.' : 'Tu n’as pas de travail pour le moment.'}</div>`;
+  const pro = ACTIVITIES.filter((a) => a.tab === 'pro');
+  h += `<div class="sec"><h3>Actions</h3><div class="acts">${pro.map(actCard).join('')}</div></div>`;
+  const e = S.etudes;
+  const NOMS = { ecole: 'École obligatoire', lycee: 'Lycée général', cap: 'CAP', fac: 'Licence', bts: 'BTS', master: 'Master', medecine: 'Médecine', droit: 'Droit', daeu: 'DAEU' };
+  h += `<div class="sec"><h3>Études</h3>${e.cursus ? `<div class="note">En cours : ${NOMS[e.cursus]}${e.reste ? ` · encore ${e.reste} an${e.reste > 1 ? 's' : ''}` : ''}</div>` : ''}`;
+  if (!e.cursus && S.age >= 16 && !inPrison(S)) {
+    const opts = [['fac', 'Licence (3 ans)', 'bac'], ['bts', 'BTS (2 ans)', 'bac'], ['droit', 'Droit (5 ans)', 'bac'], ['medecine', 'Médecine (9 ans)', 'bac'], ['master', 'Master (2 ans)', 'licence'], ['cap', 'CAP (2 ans)', 'aucun'], ['daeu', 'DAEU, équivalent bac (1 an)', 'aucun']];
+    const rank = ['aucun', 'brevet', 'cap', 'bac', 'bts', 'licence', 'master', 'doctorat'];
+    h += `<div class="chips">${opts.filter(([k, , need]) => rank.indexOf(S.etudes.niveau) >= rank.indexOf(need) && !(k === 'daeu' && rank.indexOf(S.etudes.niveau) >= 3)).map(([k, t]) => `<button class="chip" data-a="enroll" data-v="${k}">${t}</button>`).join('')}</div>`;
+  }
+  h += `</div>`;
+  if (S.age >= 16 && !inPrison(S)) {
+    const jobs = Object.entries(CAREERS).filter(([, x]) => x.apply !== false);
+    h += `<div class="sec"><h3>Offres d’emploi</h3><div class="list">${jobs.map(([id, x]) => {
+      const ok = canApply(S, id);
+      return `<div class="li ${ok === true ? '' : 'off'}"><div class="grow"><b>${x.niveaux[0][0]}</b><small>${ok === true ? `${euros(x.niveaux[0][1])} / mois · ${x.nom}` : esc(ok)}</small></div>${ok === true ? `<button class="btn sm" data-a="apply" data-v="${id}">Postuler</button>` : ''}</div>`;
+    }).join('')}</div></div>`;
+  }
+  return h;
+}
+
+function relHTML() {
+  const order = ['conjoint', 'partenaire', 'enfant', 'mere', 'pere', 'fratrie', 'ami', 'ex'];
+  const rels = [...S.relations].filter((r) => r.lien !== 'candidat').sort((a, b) => order.indexOf(a.lien) - order.indexOf(b.lien) || b.vivant - a.vivant);
+  const dating = ACTIVITIES.find((a) => a.id === 'dating');
+  let h = canDo(S, dating) === true ? `<button class="btn sm" data-a="act" data-v="dating">${icon('heart', 16)} Faire des rencontres</button>` : '';
+  h += `<div class="list">${rels.map((r) => {
+    const open = openRel === r.id;
+    const acts = open ? relActions(S, r) : [];
+    return `<div><div class="li ${r.vivant ? '' : 'dead'}" data-a="openrel" data-v="${r.id}" style="cursor:pointer"><div class="av">${miniAv(r.look, r.genre, r.id)}</div><div class="grow"><b>${esc(r.prenom)} ${esc(r.nom)}</b><small>${lienNom(r)} · ${r.vivant ? `${r.age} ans` : 'Décédé' + (r.genre === 'f' ? 'e' : '')}</small>${r.vivant ? `<div class="mini-bar"><i style="width:${r.rel}%;background:${r.rel > 60 ? 'var(--good)' : r.rel > 30 ? 'var(--warn)' : 'var(--bad)'}"></i></div>` : ''}</div>${r.vivant ? icon('chevron', 16) : ''}</div>
+      ${open && acts.length ? `<div class="rel-acts">${acts.map((a) => `<button class="btn sm ${a.ok ? '' : 'off'}" data-a="relact" data-v="${r.id}" data-x="${a.a}" ${a.ok ? '' : 'disabled'}>${a.t}</button>`).join('')}</div>` : ''}</div>`;
+  }).join('') || '<div class="note">Personne pour l’instant.</div>'}</div>`;
+  return h;
+}
+
+// ---------- Actions ----------
+function startLife(cfg) {
+  S = createLife(cfg);
+  tab = null;
+  screen = 'game';
+  renderGameShell();
+  toast(`Bienvenue au monde, ${cfg.prenom}.`, 'good');
+}
+
+function handle(a, v, el) {
+  if (S && busy(S) && ['act', 'apply', 'enroll', 'move', 'buy', 'relact'].includes(a)) return toast('Réponds d’abord à l’événement en cours.', 'err');
+  switch (a) {
+    case 'new':
+      C = randomConfig();
+      cTab = 'identite';
+      screen = 'creator';
+      return renderCreator();
+    case 'random':
+      return startLife(randomConfig());
+    case 'continue':
+      S = load();
+      screen = 'game';
+      tab = null;
+      return renderGameShell();
+    case 'back':
+      screen = 'title';
+      return renderTitle();
+    case 'ctab':
+      cTab = v;
+      return renderCreator();
+    case 'cset':
+      return creatorSet(el.dataset.k, v);
+    case 'reroll':
+      C = randomConfig();
+      return renderCreator();
+    case 'start':
+      if (!C.prenom.trim() || !C.nom.trim()) {
+        cTab = 'identite';
+        renderCreator();
+        return alert('Donne un prénom et un nom à ton personnage.');
+      }
+      return startLife({ ...C, prenom: C.prenom.trim(), nom: C.nom.trim() });
+    case 'tab':
+      tab = tab === v ? null : v;
+      openRel = null;
+      return updateGame();
+    case 'age': {
+      if (busy(S) || !S.vivant) return;
+      const rep = ageUp(S);
+      if (rep) toast(`${S.age} ans${rep.revenus || rep.depenses ? ` · ${euros(rep.revenus - rep.depenses)} sur l’année` : ''}`, rep.revenus - rep.depenses >= 0 ? 'good' : 'err');
+      return updateGame();
+    }
+    case 'choose':
+      choose(S, Number(v));
+      return updateGame();
+    case 'cont':
+      continueResult(S);
+      return updateGame();
+    case 'act': {
+      const r = doActivity(S, v);
+      toast(r.r, r.err ? 'err' : r.good ? 'good' : '');
+      return updateGame();
+    }
+    case 'apply': {
+      const r = applyJob(S, v);
+      toast(r.r, r.err ? 'err' : 'good');
+      return updateGame();
+    }
+    case 'enroll': {
+      const r = enroll(S, v);
+      toast(r.r, r.err ? 'err' : 'good');
+      return updateGame();
+    }
+    case 'move':
+    case 'buy': {
+      const r = moveTo(S, v, a === 'buy');
+      toast(r.r, r.err ? 'err' : 'good');
+      return updateGame();
+    }
+    case 'openrel':
+      openRel = openRel === Number(v) ? null : Number(v);
+      return updateGame();
+    case 'relact': {
+      const r = relAction(S, Number(v), el.dataset.x);
+      toast(r.r);
+      return updateGame();
+    }
+    case 'heir': {
+      const ns = continueAsChild(S, Number(v));
+      if (ns) {
+        S = ns;
+        tab = null;
+        renderGameShell();
+        toast(`Tu continues avec ${S.id.prenom}.`, 'good');
+      }
+      return;
+    }
+    case 'quit':
+      save(S);
+      screen = 'title';
+      return renderTitle();
+  }
+}
+
+app.addEventListener('click', (e) => {
+  const el = e.target.closest('[data-a]');
+  if (!el || el.disabled) return;
+  handle(el.dataset.a, el.dataset.v, el);
+});
+app.addEventListener('input', (e) => {
+  if (screen === 'creator' && e.target.dataset.k && e.target.tagName === 'INPUT') C[e.target.dataset.k] = e.target.value;
+});
+app.addEventListener('change', (e) => {
+  if (screen === 'creator' && e.target.tagName === 'SELECT') creatorSet(e.target.dataset.k, e.target.value);
+});
+document.addEventListener('keydown', (e) => {
+  if (screen !== 'game' || !S) return;
+  if (e.key === 'Escape' && tab) {
+    tab = null;
+    updateGame();
+  }
+  if (e.key === ' ' && e.target === document.body && !busy(S)) {
+    e.preventDefault();
+    handle('age');
+  }
+});
+
+// Compteur de FPS en mode développement (?dev)
+if (dev) {
+  let f = 0, t0 = performance.now();
+  const loop = (n) => {
+    f++;
+    if (n - t0 >= 1000) {
+      const el = document.getElementById('fps');
+      if (el) el.textContent = `${f} FPS`;
+      f = 0;
+      t0 = n;
+    }
+    if (!document.hidden) requestAnimationFrame(loop);
+  };
+  requestAnimationFrame(loop);
+  document.addEventListener('visibilitychange', () => !document.hidden && requestAnimationFrame(loop));
+}
+
+if (dev) window.destino = { get S() { return S; }, refresh: () => updateGame() };
+renderTitle();
+export { tpl, g, presentNext };
