@@ -1,7 +1,11 @@
 // Notes de mise à jour affichées dans le jeu (même contenu que CHANGELOG.md).
-export const VERSION = 'v0.5';
+export const VERSION = 'v0.5.1';
 
 export const CHANGELOG = [
+  { v: 'v0.5.1', titre: 'Destino en ligne', items: [
+    'Le jeu est jouable en ligne : https://samyr13.github.io/Destino/',
+    'Bouton « Signaler un bug » (écran titre, onglet Vie, fin de vie) : ouvre un formulaire avec les infos de ta partie déjà remplies',
+  ] },
   { v: 'v0.5', titre: 'La mise à jour « Agenda et fisc »', items: [
     'Agenda : ce que tu prévois par message (dîner, soirée, livraison, arrivage, parloir, interview…) a une vraie date',
     'Le bouton « Vieillir » devient « Avancer » : il saute de quelques jours jusqu’au prochain rendez-vous au lieu d’une année',

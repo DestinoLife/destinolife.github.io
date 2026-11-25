@@ -2,9 +2,17 @@
 
 Jeu de simulation de vie en 2D (PEGI 18). Chaque choix fait évoluer le personnage, son décor et son destin.
 
-Version actuelle : **v0.5**. Voir [CHANGELOG.md](CHANGELOG.md). Les versions suivent le format v0.x, comme un vrai jeu en accès anticipé : chaque mise à jour a son tag Git et ses notes dans `src/data/changelog.js`.
+Version actuelle : **v0.5.1**. Voir [CHANGELOG.md](CHANGELOG.md). Les versions suivent le format v0.x, comme un vrai jeu en accès anticipé : chaque mise à jour a son tag Git et ses notes dans `src/data/changelog.js`.
 
-## Lancer le jeu
+## Jouer
+
+**👉 https://samyr13.github.io/Destino/** (PC et mobile, sauvegarde dans le navigateur)
+
+Un bug, une idée ? Bouton « Signaler un bug » dans le jeu, ou directement dans les [issues](https://github.com/samyr13/Destino/issues/new/choose). Les infos de la partie sont jointes automatiquement.
+
+Chaque push sur `main` republie le jeu (GitHub Actions → branche `gh-pages`), après la simulation de 300 vies.
+
+## Lancer le jeu en local
 
 ```bash
 npm install

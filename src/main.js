@@ -120,6 +120,21 @@ const bar = (label, v, color) => `<div class="bar-s"><div class="t">${label}<spa
 const gF = (s, h, f) => (s.id.genre === 'f' ? f : h);
 
 // ---------- Écran titre ----------
+// Signalement de bug : ouvre le formulaire GitHub prérempli avec l'état de la partie (aucune donnée perso).
+const REPO = 'https://github.com/samyr13/Destino';
+function bugURL() {
+  const lines = [`Version : ${VERSION}`, `Écran : ${innerWidth}×${innerHeight} · ${navigator.userAgent.match(/(Firefox|Edg|OPR|Chrome|Safari)\/[\d.]+/)?.[0] || 'navigateur inconnu'}${/Mobi/.test(navigator.userAgent) ? ' · mobile' : ''}`];
+  if (S && screen === 'game') {
+    lines.push(`Perso : ${S.age} ans · ${S.id.genre === 'f' ? 'femme' : 'homme'} · ${S.id.origine} · ${S.id.ville} · génération ${S.gen}`,
+      `Situation : ${jobTitle(S) || 'sans métier'} · ${euros(S.money)} · logement ${S.logement}${S.chezParents ? ' (chez les parents)' : ''}${inPrison(S) ? ` · prison ${S.justice.prison} an(s)` : ''}${S.vivant ? '' : ` · mort (${S.mort?.cause})`}`,
+      `Événement en cours : ${S.current?.id || (S.result ? 'résultat affiché' : 'aucun')} · file : ${(S.queue || []).join(', ') || 'vide'} · agenda : ${(S.plans || []).map((p) => p.id).join(', ') || 'vide'}`,
+      `Onglet : ${tab || 'aucun'} · panneau : ${OV ? OV.t + (OV.app ? '/' + OV.app : '') : 'aucun'}`,
+      'Derniers événements du journal :', ...S.log.slice(-6).map((l) => `  [${l.age} ans] ${l.txt}`));
+  }
+  const q = new URLSearchParams({ template: 'bug.yml', title: '[Bug] ', infos: lines.join('\n').slice(0, 1800), appareil: /Mobi/.test(navigator.userAgent) ? 'Téléphone' : 'Ordinateur' });
+  return `${REPO}/issues/new?${q}`;
+}
+
 function renderTitle() {
   const cfg = randomConfig();
   const saved = load();
@@ -134,6 +149,7 @@ function renderTitle() {
       </div>
       <div class="badge18"><b>18+</b> Violence, drogue, crime. Contenu destiné aux adultes.</div>
       <button class="ver" data-a="changelog">${VERSION} · Notes de mise à jour</button>
+      <button class="ver" data-a="bug">Signaler un bug ou proposer une idée</button>
     </div></div>`;
 }
 
@@ -344,7 +360,7 @@ function deathHTML() {
     <h1>${esc(S.id.prenom)} ${esc(S.id.nom)}</h1><p class="cause">${birthY} – ${deathY} · ${esc(m.cause)}</p>
     <dl class="kv"><dt>Âge</dt><dd>${m.age} ans</dd><dt>Fortune</dt><dd>${euros(S.money)}</dd><dt>Dernier métier</dt><dd>${esc(jobTitle(S) || '—')}</dd><dt>Casier</dt><dd>${S.justice.casier.length ? `${S.justice.casier.length} mention${S.justice.casier.length > 1 ? 's' : ''}` : 'Vierge'}</dd><dt>Enfants</dt><dd>${childrenOf(S).length}</dd><dt>Génération</dt><dd>${S.gen}</dd></dl>
     <div class="menu">${kids.map((k) => `<button class="btn primary" data-a="heir" data-v="${k.id}">${icon('play', 16)} Continuer avec ${esc(k.prenom)} (${k.age} ans)</button>`).join('')}
-    <button class="btn" data-a="new">${icon('user', 16)} Nouvelle vie</button><button class="btn" data-a="random">${icon('dice', 16)} Vie aléatoire</button></div></div></div>`;
+    <button class="btn" data-a="new">${icon('user', 16)} Nouvelle vie</button><button class="btn" data-a="random">${icon('dice', 16)} Vie aléatoire</button></div><button class="ver" data-a="bug">Signaler un bug</button></div></div>`;
 }
 
 // ---------- Onglets ----------
@@ -362,6 +378,7 @@ function sheetHTML() {
   if (tab === 'vie') {
     const o = ORIGINES[S.id.origine];
     return head(`${esc(S.id.prenom)} ${esc(S.id.nom)}`, `${S.age} ans · Génération ${S.gen}`) + `<div class="sheet-b">
+      <button class="bug-row" data-a="bug">${icon('alert', 15)}<span><b>Un bug, un truc bizarre ?</b><small>Signale-le en 1 clic : les infos de ta partie sont jointes automatiquement.</small></span>${icon('chevron', 14)}</button>
       <div class="sec"><h3>État</h3><div class="bars">${bar('Bonheur', st.bonheur, '#ffd36e')}${bar('Santé', st.sante, '#4fd18b')}${bar('Intelligence', st.intel, '#6fb4ff')}${bar('Apparence', st.apparence, '#c59bff')}</div></div>
       <div class="sec"><h3>Compétences</h3><div class="bars">${bar('Forme physique', st.forme, '#5ff5d0')}${bar('Talent artistique', st.art, '#ff9f5a')}${bar('Charisme', st.charisme, '#ff6fa1')}${bar('Savoir-faire criminel', st.crime, '#ff5470')}</div></div>
       <div class="sec"><h3>Réputation</h3><div class="bars">${bar('Réputation de rue', st.reputation, '#ff6fa1')}${bar('Karma', st.karma, '#9a7bff')}${bar('Notoriété', st.notoriete, '#ffd36e')}</div></div>
@@ -503,6 +520,8 @@ function handle(a, v, el) {
       return updateGame();
     case 'changelog':
       return showChangelog();
+    case 'bug':
+      return void window.open(bugURL(), '_blank', 'noopener');
     case 'answer': {
       const r = answer(S, Number(v), Number(el.dataset.x));
       if (r?.plan) toast(r.r, 'good');

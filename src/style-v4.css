@@ -67,3 +67,11 @@
 .m-notif > span:last-child { min-width: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; color: #e4dff2; }
 .m-notif b { color: var(--text); }
 .m-notif em { font-style: normal; font-weight: 600; color: #0a84ff; white-space: nowrap; }
+
+/* Signaler un bug */
+.bug-row { display: flex; align-items: center; gap: 10px; width: calc(100% - 36px); margin: 0 18px 4px; padding: 10px 12px; border-radius: 12px; background: rgba(255, 181, 71, 0.08); border: 1px dashed rgba(255, 181, 71, 0.35); text-align: left; color: var(--text); }
+.bug-row span { flex: 1; display: grid; gap: 2px; }
+.bug-row b { font-size: 13px; }
+.bug-row small { font-size: 11px; color: var(--muted); }
+.bug-row:hover { background: rgba(255, 181, 71, 0.14); }
+.death .ver { margin: 14px auto 0; }

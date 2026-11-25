@@ -1,0 +1,11 @@
+name: Proposer une idée
+description: Une idée de métier, d'événement ou d'amélioration pour Destino
+title: "[Idée] "
+labels: [idée]
+body:
+  - type: textarea
+    id: idee
+    attributes:
+      label: Ton idée
+    validations:
+      required: true
