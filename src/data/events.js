@@ -8,6 +8,7 @@ import { rnd, pick, chance } from '../engine/rng.js';
 import { CAREERS, DIPLOMES } from './careers.js';
 import { MILIEUX } from './identity.js';
 import { EVENTS2 } from './events2.js';
+import { EVENTS3 } from './events3.js';
 
 const P = (s) => s.justice.prison > 0;
 const job = (s, id) => s.carriere?.id === id;
@@ -140,7 +141,7 @@ export const EVENTS = [
     { t: 'Appeler le 119', fx: { bonheur: 6, karma: 2 }, r: 'Une éducatrice te suit désormais. Ça aide.' },
     { t: 'Serrer les dents', fx: { bonheur: -5 }, r: 'Plus que quelques années.' },
   ] },
-  { id: 'stage_3e', cat: 'École', age: [14, 15], once: 1, txt: 'Tu dois trouver un stage de 3e.', ch: [
+  { id: 'stage_3e', cat: 'École', age: [13, 15], once: 1, cond: (s) => s.etudes.cursus === 'ecole', txt: 'Tu dois trouver un stage de 3e.', ch: [
     { t: 'Au commissariat', fx: { flag: 'stage_police', karma: 2 }, r: 'Tu découvres l’envers du décor.' },
     { t: 'Dans un studio d’enregistrement', fx: { art: 4 }, r: 'Tu apprends à mixer.' },
     { t: 'Dans une banque', fx: { intel: 3 }, r: 'Costume obligatoire. Ennui mortel.' },
@@ -154,7 +155,7 @@ export const EVENTS = [
   ] },
 
   // ================= ÉCOLE (déclenchés par le moteur) =================
-  { id: 'brevet', forced: 1, cat: 'École', txt: 'Les résultats du brevet sont affichés.', ch: [
+  { id: 'brevet', forced: 1, cat: 'Collège', txt: 'Les résultats du brevet sont affichés.', ch: [
     { t: 'Chercher ton nom', out: [{ p: (s) => 0.35 + st(s, 'intel') / 110, fx: { diplome: 'brevet', bonheur: 5 }, r: 'Tu as ton brevet !' }, { p: 1, fx: { bonheur: -6 }, r: 'Pas de brevet. Pas grave, la vie continue.' }] },
   ] },
   { id: 'orientation', forced: 1, cat: 'Orientation', txt: 'Fin de la 3e. Le conseil de classe te demande ton choix d’orientation.', ch: [
@@ -586,5 +587,5 @@ function arrive(s, extra) {
   return extra;
 }
 
-EVENTS.push(...EVENTS2);
+EVENTS.push(...EVENTS2, ...EVENTS3);
 export const EV = Object.fromEntries(EVENTS.map((e) => [e.id, e]));

@@ -4,6 +4,7 @@ import { createLife } from '../src/engine/core.js';
 import { randomConfig } from '../src/engine/random.js';
 import { ageUp, choose, choicesView, continueResult, doActivity, applyJob, relActions, relAction, housingOptions, moveTo, enroll, continueAsChild, busy, ACTIVITIES, CAREERS } from '../src/engine/flow.js';
 import { pick, chance } from '../src/engine/rng.js';
+import { migrate3, giveParentJobs, instaPost, friendService, bjStart, bjHit, bjStand, expatriate, POST_TYPES, EXPAT, sendMessage, REPLIES } from '../src/engine/life2.js';
 import { migrate, buyAsset, sellAsset, createBusiness, businessAction, networkAction, travel, flee, roulette, slots, moveCity, findContact, startNetwork, ASSETS, BUSINESS, DESTS, MISSIONS } from '../src/engine/economy.js';
 
 const N = Number(process.argv[2] || 300);
@@ -35,7 +36,8 @@ function resolve(s) {
 }
 
 for (let i = 0; i < N; i++) {
-  let s = migrate(createLife(randomConfig()));
+  let s = migrate3(migrate(createLife(randomConfig())));
+  giveParentJobs(s);
   let years = 0;
   while (years++ < 140) {
     resolve(s);
@@ -44,7 +46,7 @@ for (let i = 0; i < N; i++) {
       stats.ages.push(s.age);
       stats.causes[s.mort.cause] = (stats.causes[s.mort.cause] || 0) + 1;
       if (kid && chance(0.3) && stats.gens < 40) {
-        s = migrate(continueAsChild(s, kid.id));
+        s = migrate3(migrate(continueAsChild(s, kid.id)));
         stats.gens++;
         continue;
       }
@@ -78,7 +80,15 @@ for (let i = 0; i < N; i++) {
         else if (k < 0.8) travel(s, pick(DESTS).id);
         else if (k < 0.85 && s.justice.recherche) flee(s, pick(DESTS).id);
         else if (k < 0.93 && s.money > 0) (chance(0.5) ? roulette(s, Math.ceil(s.money * 0.2), pick(['rouge', 'noir', 'pair', '7'])) : slots(s, Math.ceil(s.money * 0.1)));
-        else moveCity(s, pick(['Paris', 'Lyon', 'Nice']));
+        else if (k < 0.95) moveCity(s, pick(['Paris', 'Lyon', 'Nice']));
+        else {
+          const j = Math.random();
+          if (j < 0.3 && s.insta) instaPost(s, pick(Object.keys(POST_TYPES)));
+          else if (j < 0.5) { const f = s.relations.find((x) => x.vivant && x.destin); if (f) friendService(s, f); }
+          else if (j < 0.7 && s.money > 10) { let st = bjStart(s, Math.ceil(s.money * 0.1)); if (!st.err) { while (!st.done && Math.random() < 0.5) st = bjHit(s, st); if (!st.done) bjStand(s, st); } }
+          else if (j < 0.8) expatriate(s, pick(EXPAT).ville);
+          else { const r = pick(s.relations.filter((x) => x.vivant)); if (r) sendMessage(s, r.prenom, pick(REPLIES)); }
+        }
       }
       resolve(s);
     }
@@ -89,6 +99,9 @@ for (let i = 0; i < N; i++) {
     if (s.business.length) stats.biz = (stats.biz || 0) + 1;
     if (s.reseau) stats.res = (stats.res || 0) + 1;
     if (s.cavale) stats.cav = (stats.cav || 0) + 1;
+    if (s.carriere?.cat === 'politique') stats.pol = (stats.pol || 0) + 1;
+    if (Math.max(...Object.values(s.addic)) > 50) stats.add = (stats.add || 0) + 1;
+    if (s.maladies.length) stats.mal = (stats.mal || 0) + 1;
     ageUp(s);
   }
   stats.vies++;
@@ -101,6 +114,7 @@ console.log('Causes :', Object.entries(stats.causes).sort((a, b) => b[1] - a[1])
 console.log('Années-métier :', Object.entries(stats.metiers).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k}:${v}`).join(' '));
 console.log(`Années en prison : ${stats.prison} · fortune max : ${Math.round(stats.maxMoney)} · boucles non résolues : ${stats.unresolved}`);
 console.log(`Années avec business : ${stats.biz || 0} · avec réseau : ${stats.res || 0} · en cavale : ${stats.cav || 0}`);
+console.log(`Années en politique : ${stats.pol || 0} · avec addiction forte : ${stats.add || 0} · malade : ${stats.mal || 0}`);
 const evs = Object.keys(stats.events).length;
 console.log(`Événements différents vus : ${evs}`);
 const uniq = [...new Set(warns)];

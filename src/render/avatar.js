@@ -85,14 +85,14 @@ function face(p, u) {
   const sk = `url(#${u}sk)`;
   const line = shade(look.peau, -0.42);
   const jaw = f
-    ? 'M-34 -4 Q-34 -44 0 -46 Q34 -44 34 -4 Q33 26 14 39 Q0 44 -14 39 Q-33 26 -34 -4Z'
+    ? 'M-32 -6 Q-33 -44 0 -46 Q33 -44 32 -6 Q31 18 16 33 Q0 43 -16 33 Q-31 18 -32 -6Z'
     : 'M-36 -4 Q-36 -44 0 -46 Q36 -44 36 -4 Q36 28 15 40 Q0 46 -15 40 Q-36 28 -36 -4Z';
   const ears = look.coiffure === 'foulard' ? '' : `<ellipse cx="-35" cy="0" rx="6" ry="10" fill="${sk}"/><ellipse cx="35" cy="0" rx="6" ry="10" fill="${sk}"/><path d="M-35 -4 q-3 5 0 10 M35 -4 q3 5 0 10" stroke="${line}" stroke-width="1.6" fill="none" opacity=".6"/>`;
-  const browW = f ? 2.4 : 3.6;
+  const browW = f ? 2 : 3.6;
   const hc = p.hairC;
-  const eye = (x, s) => `<path d="M${x - 8 * s} 0 Q${x} -7 ${x + 8 * s} 0 Q${x} 5 ${x - 8 * s} 0Z" fill="#f6f3ec"/><circle cx="${x}" cy="-.5" r="4.3" fill="url(#${u}ir)"/><circle cx="${x}" cy="-.5" r="2" fill="#070403"/><circle cx="${x + 1.5}" cy="-2" r="1.3" fill="#fff"/><path d="M${x - 9 * s} 0 Q${x} -8.5 ${x + 9 * s} -.5" stroke="#120a05" stroke-width="${f ? 2.4 : 2}" fill="none" stroke-linecap="round"/>${f ? `<path d="M${x + 9 * s} -.5 l${3 * s} -3" stroke="#120a05" stroke-width="1.6" stroke-linecap="round"/>` : ''}`;
+  const eye = (x, s) => `<path d="M${x - 8 * s} 0 Q${x} -7 ${x + 8 * s} 0 Q${x} 5 ${x - 8 * s} 0Z" fill="#f6f3ec"/><circle cx="${x}" cy="-.5" r="4.3" fill="url(#${u}ir)"/><circle cx="${x}" cy="-.5" r="2" fill="#070403"/><circle cx="${x + 1.5}" cy="-2" r="1.3" fill="#fff"/><path d="M${x - 9 * s} 0 Q${x} -8.5 ${x + 9 * s} -.5" stroke="#120a05" stroke-width="${f ? 1.8 : 2}" fill="none" stroke-linecap="round"/>${f ? `<path d="M${x + 9 * s} -.5 l${2.4 * s} -2.4" stroke="#120a05" stroke-width="1.6" stroke-linecap="round"/>` : ''}`;
   const mouth = f
-    ? `<path d="M-9 27 Q0 23 9 27 Q0 34 -9 27Z" fill="${mix(look.peau, '#a2343f', 0.6)}"/><path d="M-4 29 q4 1.5 8 0" stroke="#fff" stroke-width="1" opacity=".35" fill="none"/>`
+    ? `<path d="M-10 26 Q-4 22 0 24 Q4 22 10 26 Q5 27 0 27 Q-5 27 -10 26Z" fill="${mix(look.peau, '#9e2f3f', 0.62)}"/><path d="M-10 26 Q0 35 10 26 Q0 28 -10 26Z" fill="${mix(look.peau, '#b8404f', 0.55)}"/><ellipse cx="-2" cy="29.5" rx="3.5" ry="1.2" fill="#fff" opacity=".3"/>`
     : `<path d="M-9 28 Q1 31 11 26" stroke="${mix(look.peau, '#6e3328', 0.7)}" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M-5 31 Q2 34 8 30" stroke="${line}" stroke-width="1.1" fill="none" opacity=".35"/>`;
   let beard = '';
   if (!f && age >= 16) {
@@ -105,10 +105,12 @@ function face(p, u) {
   const wrinkles = age >= 55 ? `<path d="M-16 -30 q16 -4 32 0 M-12 -24 q12 -3 24 0 M-16 12 q-4 8 -2 16 M16 12 q4 8 2 16" stroke="${line}" stroke-width="1.2" fill="none" opacity=".45"/>` : '';
   return `${ears}<path d="${jaw}" fill="${sk}"/><ellipse cx="-8" cy="-26" rx="14" ry="5" fill="#fff" opacity=".13"/>
   <path d="M-${f ? 24 : 25} -12 q9 -${f ? 6 : 4} 18 -1" stroke="${shade(hc, -0.15)}" stroke-width="${browW}" fill="none" stroke-linecap="round"/><path d="M7 -13 q9 -3 18 ${f ? 2 : 1}" stroke="${shade(hc, -0.15)}" stroke-width="${browW}" fill="none" stroke-linecap="round"/>
-  <g class="blink">${eye(-15, 1)}${eye(15, -1)}</g>
+  <g class="blink">${f ? `<g transform="translate(-15 0) scale(1.18) translate(15 0)">${eye(-15, 1)}<path d="M-24 -2 l-2.5 -2.5 M-21 -4.5 l-1.5 -3" stroke="#120a05" stroke-width="1.3" stroke-linecap="round"/></g><g transform="translate(15 0) scale(1.18) translate(-15 0)">${eye(15, -1)}<path d="M24 -2 l2.5 -2.5 M21 -4.5 l1.5 -3" stroke="#120a05" stroke-width="1.3" stroke-linecap="round"/></g>` : `${eye(-15, 1)}${eye(15, -1)}`}</g>
+  ${p.etat?.cernes ? `<path d="M-23 6.5 q8 4 16 0 M7 6.5 q8 4 16 0" stroke="${shade(look.peau, -0.5)}" stroke-width="2.6" opacity=".45" fill="none" stroke-linecap="round"/>` : ''}
+  ${p.etat?.blesse ? `<ellipse cx="-17" cy="3" rx="10" ry="7" fill="#5a2d63" opacity=".32"/><g transform="rotate(-18 19 -30)"><rect x="7" y="-35" width="26" height="10" rx="3" fill="#f3ede2"/><path d="M13 -33 v6 M20 -33 v6 M27 -33 v6" stroke="#d8cdbb" stroke-width="1.2"/></g>` : ''}
   <path d="M-21 5 q6 3 12 0 M9 5 q6 3 12 0" stroke="${line}" stroke-width="1" fill="none" opacity=".4"/>
-  <path d="M1 2 q-4 12 -4 15 q4 3 9 0" stroke="${line}" stroke-width="2" fill="none" stroke-linecap="round" opacity=".8"/><ellipse cx="2" cy="12" rx="1.6" ry="3" fill="#fff" opacity=".2"/>
-  ${f ? `<ellipse cx="-20" cy="16" rx="7" ry="4" fill="#e0707a" opacity=".16"/><ellipse cx="20" cy="16" rx="7" ry="4" fill="#e0707a" opacity=".16"/>` : ''}
+  <path d="${f ? 'M1 7 q-3 8 -3 10 q3 2.5 7 0' : 'M1 2 q-4 12 -4 15 q4 3 9 0'}" stroke="${line}" stroke-width="${f ? 1.6 : 2}" fill="none" stroke-linecap="round" opacity="${f ? 0.6 : 0.8}"/><ellipse cx="2" cy="12" rx="1.6" ry="3" fill="#fff" opacity=".2"/>
+  ${f ? `<ellipse cx="-20" cy="15" rx="8" ry="4.5" fill="#e0707a" opacity=".24"/><ellipse cx="20" cy="15" rx="8" ry="4.5" fill="#e0707a" opacity=".24"/>` : ''}
   ${wrinkles}${beard}${mouth}`;
 }
 
@@ -133,7 +135,7 @@ function body(p, u, o) {
   const shoe = (x) => `<rect x="${x}" y="-18" width="40" height="15" rx="7" fill="${o.shoes}"/><rect x="${x - 1}" y="-6" width="42" height="6" rx="3" fill="${shade(o.shoes, -0.2)}"/>${o.accent ? `<path d="M${x + 10} -12 h16" stroke="${o.accent}" stroke-width="3" stroke-linecap="round"/>` : ''}`;
   legs += shoe(-44) + shoe(4);
 
-  const T = f ? 'M-45 -210 Q-44 -240 0 -242 Q44 -240 45 -210 Q39 -172 46 -124 Q0 -112 -46 -124 Z' : 'M-50 -208 Q-48 -240 0 -242 Q48 -240 50 -208 L54 -124 Q0 -110 -54 -124 Z';
+  const T = f ? 'M-41 -212 Q-40 -240 0 -242 Q40 -240 41 -212 Q31 -178 38 -152 Q46 -136 45 -124 Q0 -114 -45 -124 Q-46 -136 -38 -152 Q-31 -178 -41 -212 Z' : 'M-50 -208 Q-48 -240 0 -242 Q48 -240 50 -208 L54 -124 Q0 -110 -54 -124 Z';
   const LONG = 'M-50 -208 Q-48 -240 0 -242 Q48 -240 50 -208 L58 -76 Q0 -64 -58 -76 Z';
   const shortSleeve = ['tshirt', 'jersey', 'gilet'].includes(o.type);
   const bare = o.type === 'tank';
@@ -173,7 +175,13 @@ function body(p, u, o) {
       break;
   }
   torso += `<path d="M22 -220 Q40 -180 40 -128" stroke="#000" stroke-width="6" opacity=".1" fill="none"/>`;
-  const neck = `<path d="M-12 -260 h24 v22 q-12 8 -24 0z" fill="${shade(look.peau, -0.18)}"/>`;
+  const neck = f ? `<path d="M-9 -260 h18 v22 q-9 6 -18 0z" fill="${shade(look.peau, -0.18)}"/>` : `<path d="M-12 -260 h24 v22 q-12 8 -24 0z" fill="${shade(look.peau, -0.18)}"/>`;
+  if (p.etat?.ventre) torso += `<ellipse cx="0" cy="-148" rx="44" ry="24" fill="${top}"/><path d="M-38 -140 Q0 -120 38 -140" stroke="#000" stroke-width="3" opacity=".12" fill="none"/>`;
+  if (f) {
+    arms = `<g transform="scale(.86 1)">${arms}</g>`;
+    legs = `<g transform="scale(.9 1)">${legs}</g>`;
+  }
+  if (p.etat?.muscle && !f) arms = `<g transform="scale(1.07 1)">${arms}</g>`;
   const chain = o.chain || (look.acc || []).includes('chaine') ? `<path d="M-15 -243 Q0 -222 15 -243" stroke="#e8c15a" stroke-width="2.2" fill="none"/><circle cx="0" cy="-226" r="3.4" fill="#e8c15a"/>` : '';
   return legs + neck + torso + arms + chain;
 }
@@ -191,20 +199,20 @@ function hats(p, o) {
 
 // p : { look, genre, age, outfit }, u : préfixe unique pour les ids de dégradés.
 export function avatarSVG(p, u = 'av') {
-  const look = p.look;
+  const look = (p.age ?? 25) < 6 ? { ...p.look, acc: [] } : p.look;
   const f = p.genre === 'f';
   const age = p.age ?? 25;
   const o = OUTFITS[p.outfit] || OUTFITS.casual;
   let hairC = look.cheveuxC;
   if (age >= 72) hairC = '#d9d9de';
   else if (age >= 56) hairC = mix(hairC, '#bfbfc7', 0.55);
-  const P = { look, f, age, hairC };
+  const P = { look, f, age, hairC, etat: p.etat || {} };
   const [bs, hs] = dims(age);
   const build = (BUILDS.find((b) => b[0] === look.corpulence) || BUILDS[1])[2];
   const hy = bs * -258 - 34 * hs;
   const style = age < 1 ? 'rase' : look.coiffure;
   const hr = style === 'foulard' && age >= 10 ? foulard(look.foulardC || '#4b3a78') : hair(style === 'foulard' ? 'long' : style, hairC, u, f);
-  const sk = look.peau;
+  const sk = p.etat?.pale ? mix(look.peau, '#cfc7bd', 0.32) : look.peau;
   const defs = `<defs>
     <radialGradient id="${u}sk" cx=".42" cy=".36" r=".72"><stop offset="0" stop-color="${shade(sk, 0.12)}"/><stop offset=".7" stop-color="${sk}"/><stop offset="1" stop-color="${shade(sk, -0.25)}"/></radialGradient>
     <linearGradient id="${u}hr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${shade(hairC, 0.12)}"/><stop offset="1" stop-color="${shade(hairC, -0.4)}"/></linearGradient>

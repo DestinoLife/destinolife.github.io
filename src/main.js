@@ -1,5 +1,6 @@
 import './style.css';
 import './style-v2.css';
+import './style-v3.css';
 import { icon, logo, logoMark } from './ui/icons.js';
 import { sceneSVG } from './render/scene.js';
 import { avatarSVG } from './render/avatar.js';
@@ -19,6 +20,8 @@ import { SKINS, HAIR_COLORS, EYES, HAIRSTYLES, BEARDS, BUILDS, STYLES, ACCS, FOU
 import { save, load, clearSave } from './engine/save.js';
 import { migrate, buyAsset, sellAsset, createBusiness, businessAction, networkAction, travel, flee, roulette, slots, moveCity, readAll, bestCar, ASSETS } from './engine/economy.js';
 import { phoneHTML, pcHTML, casinoHTML, travelHTML, biensHTML, reseauHTML } from './ui/overlays.js';
+import { introHTML, healthHTML, footHTML, expatHTML, destinLabel } from './ui/overlays3.js';
+import { migrate3, giveParentJobs, instaPost, sendMessage, bjStart, bjHit, bjStand, expatriate } from './engine/life2.js';
 import { carSVG } from './render/scene.js';
 import { advanceTime } from './engine/flow.js';
 import { SKINS as SK } from './data/look.js';
@@ -43,6 +46,7 @@ function worldHTML(sceneKey, env, av, uid = 'pl', fade = true) {
     </svg><div class="rainfx ${env.meteo === 'pluie' ? 'on' : ''}" id="rain"></div>`;
 }
 let lastBg = '', lastAv = '', lastProps = '';
+const INDOOR = ['casino', 'bureau', 'studio', 'prison'];
 const GUARD = { peau: SK[5], coiffure: 'rase', cheveuxC: '#0e0907', yeux: '#3b2414', barbe: 'trois', corpulence: 'costaud', style: 'chic', acc: ['lunettes'] };
 const OUT = ['rue', 'cite', 'appart', 'maison', 'villa', 'pays', 'commissariat', 'hopital', 'ecole', 'chantier', 'caserne', 'bidonville', 'stade', 'studio'];
 function propsSVG(sc) {
@@ -54,17 +58,20 @@ function propsSVG(sc) {
   if (S.securite && ['villa', 'maison', 'appart'].includes(sc) && home)
     (S.avec.length ? [140, 950] : [250, 690]).slice(0, Math.min(2, S.securite)).forEach((x, i) => (svg += `<g transform="translate(${x} 506) scale(.93)">${avatarSVG({ look: GUARD, genre: 'h', age: 35, outfit: 'garde' }, 'gd' + i)}</g>`));
   const pos = [[365, 0.97], [640, 0.97], [290, 0.95]];
-  S.avec.map((id) => S.relations.find((r) => r.id === id && r.vivant)).filter((r) => r && r.look).slice(0, 3).forEach((r, i) => {
+  const avec = S.avec.length ? S.avec : S.age < 4 ? S.relations.filter((r) => r.vivant && (r.lien === 'mere' || r.lien === 'pere')).map((r) => r.id) : [];
+  avec.map((id) => S.relations.find((r) => r.id === id && r.vivant)).filter((r) => r && r.look).slice(0, 3).forEach((r, i) => {
     svg += `<g transform="translate(${pos[i][0]} 506) scale(${pos[i][1]})">${avatarSVG({ look: r.look, genre: r.genre, age: r.age, outfit: r.age < 3 ? 'bebe' : sc === 'plage' ? 'plage' : r.look.style || 'casual' }, 'av' + r.id)}</g>`;
   });
-  return { key: `${sc}|${car?.id}|${S.securite}|${S.avec.join(',')}|${S.age}|${home}|${tod(S.t)}`, svg };
+  return { key: `${sc}|${car?.id}|${S.securite}|${avec.join(',')}|${S.age}|${home}|${tod(S.t)}`, svg };
 }
 function updateWorld() {
   const sc = currentScene(S);
   const env = { tod: tod(S.t), meteo: S.meteo.type };
-  const av = { look: S.look, genre: S.id.genre, age: S.age, outfit: outfitOf(S) };
+  const mx = Math.max(...Object.values(S.addic || { a: 0 }));
+  const etat = { cernes: S.stats.sante < 45 || S.stats.bonheur < 28 || mx > 45 ? 1 : 0, pale: S.stats.sante < 30 || mx > 65, blesse: S.blessure === S.age, muscle: S.stats.forme >= 70, ventre: S.stats.forme < 25 && S.age >= 30 };
+  const av = { look: S.look, genre: S.id.genre, age: S.age, outfit: outfitOf(S), etat };
   const bgKey = `${sc}|${env.tod}|${env.meteo}`;
-  const avKey = JSON.stringify([av.look, av.genre, Math.min(av.age, 80), av.outfit, av.age >= 56, av.age >= 72]);
+  const avKey = JSON.stringify([av.look, av.genre, Math.min(av.age, 80), av.outfit, av.age >= 56, av.age >= 72, etat]);
   const bg = document.getElementById('bg');
   if (!bg) return;
   if (bgKey !== lastBg) {
@@ -72,7 +79,7 @@ function updateWorld() {
     void bg.getBoundingClientRect();
     bg.innerHTML = sceneSVG(sc, env);
     bg.classList.add('fade-in');
-    document.getElementById('rain').classList.toggle('on', env.meteo === 'pluie');
+    document.getElementById('rain').classList.toggle('on', env.meteo === 'pluie' && !INDOOR.includes(sc));
     lastBg = bgKey;
   }
   const pr = propsSVG(sc);
@@ -211,18 +218,19 @@ function updateGame() {
   const m = S.meteo;
   const wIcon = m.type === 'pluie' ? 'rain' : m.type === 'nuages' ? 'cloud' : tod(S.t) === 'nuit' ? 'moon' : 'sun';
   const wTxt = { soleil: tod(S.t) === 'nuit' ? 'Ciel dégagé' : 'Ensoleillé', nuages: 'Nuageux', pluie: 'Pluie' }[m.type];
-  const ville = S.voyage?.ville || S.cavale?.ville || S.id.ville;
+  const ville = (S.lieu === 'pays' && S.id.statut !== 'au_pays' ? S.id.pays : null) || S.voyage?.ville || S.cavale?.ville || S.id.ville;
   const where = S.cavale && !S.lieu ? 'Planque' : S.voyage && !S.lieu ? 'En voyage' : SCENE_NOM[sc] || sc;
   document.getElementById('hudtl').innerHTML = `<div class="hud-place">${icon('pin', 15)} ${esc(ville)} · ${where}${S.cavale ? ' · <span style="color:var(--bad)">en cavale</span>' : ''}</div>
     <div class="hud-time"><span class="h">${fmtHeure(S.t)}</span><span class="hud-meteo">${icon(wIcon, 17)} ${m.temp} °C · ${wTxt}</span></div>
     <div class="hud-date">${fmtDate(S.t)} · ${saison(S.t)}</div>`;
-  const job = inPrison(S) ? `Détenu${S.id.genre === 'f' ? 'e' : ''} · ${S.justice.prison} an${S.justice.prison > 1 ? 's' : ''} restant${S.justice.prison > 1 ? 's' : ''}` : jobTitle(S) || (S.age < 3 ? 'Bébé' : S.age < 6 ? 'Maternelle' : S.etudes.cursus ? (S.etudes.cursus === 'ecole' || S.etudes.cursus === 'lycee' ? 'Élève' : gF(S, 'Étudiant', 'Étudiante')) : S.age < 16 ? 'Enfant' : 'Sans emploi');
+  const job = inPrison(S) ? `Détenu${S.id.genre === 'f' ? 'e' : ''} · ${S.justice.prison} an${S.justice.prison > 1 ? 's' : ''} restant${S.justice.prison > 1 ? 's' : ''}` : jobTitle(S) || (S.age < 3 ? 'Bébé' : S.age < 6 ? 'Maternelle' : S.etudes.cursus ? (S.etudes.cursus === 'ecole' ? (S.age < 11 ? 'Élève en primaire' : 'Élève au collège') : S.etudes.cursus === 'lycee' ? 'Lycéen' + (S.id.genre === 'f' ? 'ne' : '') : S.etudes.cursus === 'cap' ? 'En lycée pro' : gF(S, 'Étudiant', 'Étudiante')) : S.age < 16 ? 'Enfant' : 'Sans emploi');
   const stars = S.justice.recherche ? `<span class="pill glass" title="Niveau de recherche"><span class="stars">${[1, 2, 3, 4, 5].map((i) => icon('star', 13, i <= S.justice.recherche ? 'on' : '')).join('')}</span></span>` : '';
   document.getElementById('hudtr').innerHTML = `<div class="id-card glass"><b>${esc(S.id.prenom)} ${esc(S.id.nom)}</b><span>${S.age} an${S.age > 1 ? 's' : ''} · ${esc(job)}</span></div>
-    <div class="pills">${stars}<button class="pill glass phone-btn" data-a="phone" data-v="home" aria-label="Téléphone">${icon('phone', 16)}${S.phone.unread ? `<em>${S.phone.unread}</em>` : ''}</button><span class="pill glass ${S.money < 0 ? 'neg' : 'money'}" title="${S.age < 18 ? 'Argent de poche' : 'Compte en banque'}">${icon('euro', 15)} ${S.age < 18 ? 'Poche · ' : ''}${euros(S.money)}</span><span class="pill glass" title="Énergie de l’année"><span class="energy">${[1, 2, 3, 4].map((i) => `<i class="${i <= S.energie ? 'on' : ''}"></i>`).join('')}</span></span></div>`;
+    <div class="pills">${stars}<span class="pill glass ${S.money < 0 ? 'neg' : 'money'}" title="${S.age < 18 ? 'Argent de poche' : 'Compte en banque'}">${icon('euro', 15)} ${S.age < 18 ? 'Poche · ' : ''}${euros(S.money)}</span><span class="pill glass" title="Énergie de l’année"><span class="energy">${[1, 2, 3, 4].map((i) => `<i class="${i <= S.energie ? 'on' : ''}"></i>`).join('')}</span></span></div>`;
   const tabs = [['vie', 'Vie', 'user'], ['act', 'Activités', 'zap'], ['pro', 'Carrière', 'briefcase'], ['crime', 'Crime', 'mask'], ['rel', 'Relations', 'heart'], ['biens', 'Biens', 'home']];
   const blocked = busy(S) || !S.vivant;
   document.getElementById('dock').innerHTML = tabs.map(([k, t, i]) => `<button class="tab ${tab === k ? 'on' : ''} ${k === 'crime' ? 'crime' : ''}" data-a="tab" data-v="${k}" aria-label="${t}">${icon(i, 22)}${t}</button>`).join('') +
+    `<button class="tab phone-tab ${OV?.t === 'phone' ? 'on' : ''}" data-a="phone" data-v="home" aria-label="Téléphone">${icon('phone', 22)}Téléphone${S.phone.unread ? `<em>${S.phone.unread}</em>` : ''}</button>` +
     `<button class="age-btn ${blocked ? 'off' : ''}" data-a="age" aria-label="Avancer d’un an">${icon('forward', 20)}<span>Vieillir<small>+1 an · ${S.age} → ${S.age + 1}</small></span></button>`;
   document.getElementById('sheet').innerHTML = tab ? `<div class="sheet glass">${sheetHTML()}</div>` : '';
   document.getElementById('modal').innerHTML = modalHTML();
@@ -233,6 +241,7 @@ function updateGame() {
 
 function overlayHTML() {
   if (!OV || !S) return '';
+  if (OV.t === 'intro') return introHTML(S);
   if (OV.t === 'phone') return phoneHTML(S, OV);
   if (OV.t === 'casino') return casinoHTML(S, OV);
   if (OV.t === 'voyage' || OV.t === 'cavale') return travelHTML(S, OV.t);
@@ -275,6 +284,7 @@ function sheetHTML() {
       <div class="sec"><h3>État</h3><div class="bars">${bar('Bonheur', st.bonheur, '#ffd36e')}${bar('Santé', st.sante, '#4fd18b')}${bar('Intelligence', st.intel, '#6fb4ff')}${bar('Apparence', st.apparence, '#c59bff')}</div></div>
       <div class="sec"><h3>Compétences</h3><div class="bars">${bar('Forme physique', st.forme, '#5ff5d0')}${bar('Talent artistique', st.art, '#ff9f5a')}${bar('Charisme', st.charisme, '#ff6fa1')}${bar('Savoir-faire criminel', st.crime, '#ff5470')}</div></div>
       <div class="sec"><h3>Réputation</h3><div class="bars">${bar('Réputation de rue', st.reputation, '#ff6fa1')}${bar('Karma', st.karma, '#9a7bff')}${bar('Notoriété', st.notoriete, '#ffd36e')}</div></div>
+      ${healthHTML(S)}
       <div class="sec"><h3>Justice</h3><dl class="kv"><dt>Niveau de recherche</dt><dd>${S.justice.recherche}/5${S.justice.motif && S.justice.recherche ? ` · ${esc(S.justice.motif)}` : ''}</dd><dt>Casier judiciaire</dt><dd>${S.justice.casier.length ? '' : 'Vierge'}</dd></dl>
         ${S.justice.casier.length ? `<div class="list" style="margin-top:8px">${S.justice.casier.slice(-6).reverse().map((c) => `<div class="li"><div class="grow"><b>${esc(c.motif)}</b><small>${c.age} ans · ${esc(c.peine)}</small></div></div>`).join('')}</div>` : ''}</div>
       <div class="sec"><h3>Identité</h3><dl class="kv"><dt>Origine</dt><dd>${o.nom}${S.id.origine !== 'france' ? ` (${esc(S.id.pays)})` : ''}</dd><dt>Statut</dt><dd>${STATUTS[S.id.statut][S.id.genre === 'f' ? 1 : 0]}</dd><dt>Milieu d’origine</dt><dd>${MILIEUX[S.milieu].nom}</dd><dt>Diplôme</dt><dd>${DIPLOME_NOM[S.etudes.niveau]}</dd><dt>Logement</dt><dd>${S.chezParents ? 'Chez tes parents' : HOUSING[S.logement]?.nom || '—'}</dd><dt>Traits</dt><dd>${S.traits.map((t) => (S.id.genre === 'f' ? TRAITS[t].f : TRAITS[t].nom)).join(', ')}</dd><dt>Talent</dt><dd>${TALENTS[S.talent]}</dd></dl></div>
@@ -286,7 +296,7 @@ function sheetHTML() {
     const warn = tab === 'crime' && !inPrison(S) ? `<div class="note warn">Chaque délit peut augmenter ton niveau de recherche. Plus il est haut, plus la police risque de frapper à ta porte.</div>` : '';
     return head(inPrison(S) ? 'Vie en détention' : tab === 'act' ? 'Activités' : 'Crime', `Énergie : ${S.energie}/4 · chaque action fait avancer le temps`) + `<div class="sheet-b">${warn}${tab === 'crime' && !inPrison(S) && S.justice.recherche ? `<div class="note warn">Recherché${S.id.genre === 'f' ? 'e' : ''} : ${S.justice.recherche}/5 · ${esc(S.justice.motif || '')}</div>` : ''}<div class="acts">${list.map((a) => actCard(a)).join('')}</div>${tab === 'crime' && !inPrison(S) ? reseauHTML(S) : ''}</div>`;
   }
-  if (tab === 'pro') return head('Carrière et études', DIPLOME_NOM[S.etudes.niveau]) + `<div class="sheet-b">${proHTML()}</div>`;
+  if (tab === 'pro') return head('Carrière et études', DIPLOME_NOM[S.etudes.niveau]) + `<div class="sheet-b">${footHTML(S)}${proHTML()}</div>`;
   if (tab === 'rel') return head('Relations', partnerOf(S) ? `En couple avec ${esc(partnerOf(S).prenom)}` : 'Célibataire') + `<div class="sheet-b">${relHTML()}</div>`;
   if (tab === 'biens') {
     const inc = yearlyIncome(S), dep = yearlyCosts(S);
@@ -294,7 +304,7 @@ function sheetHTML() {
       <div class="sec"><h3>Logement actuel</h3><div class="note">${S.chezParents ? 'Tu vis chez tes parents (gratuit).' : `${HOUSING[S.logement]?.nom}${S.proprio ? ' · propriétaire' : ''}`}</div></div>
       <div class="sec"><h3>Déménager</h3><div class="list">${housingOptions(S).map((h) => `<div class="li ${h.ok ? '' : 'off'}"><div class="grow"><b>${h.nom}</b><small>${h.ok ? [h.loyer ? `Loyer ${euros(h.loyer)}/an` : h.achat ? '' : 'Gratuit', h.achat ? `Achat ${euros(h.achat)}` : ''].filter(Boolean).join(' · ') : esc(h.why)}</small></div>
         ${h.ok && (h.loyer || !h.achat) ? `<button class="btn sm" data-a="move" data-v="${h.id}">${h.loyer ? 'Louer' : 'Y aller'}</button>` : ''}${h.ok && h.achat ? `<button class="btn sm ${S.money >= h.achat ? '' : 'off'}" data-a="buy" data-v="${h.id}">Acheter</button>` : ''}</div>`).join('')}</div></div>`;
-    return head('Biens et argent', `${S.age < 18 ? 'Argent de poche' : 'Compte'} : ${euros(S.money)}`) + `<div class="sheet-b">${biensHTML(S, housing)}</div>`;
+    return head('Biens et argent', `${S.age < 18 ? 'Argent de poche' : 'Compte'} : ${euros(S.money)}`) + `<div class="sheet-b">${biensHTML(S, housing)}${expatHTML(S)}</div>`;
   }
   return '';
 }
@@ -345,7 +355,7 @@ function relHTML() {
   h += `<div class="list">${rels.map((r) => {
     const open = openRel === r.id;
     const acts = open ? relActions(S, r) : [];
-    return `<div><div class="li ${r.vivant ? '' : 'dead'}" data-a="openrel" data-v="${r.id}" style="cursor:pointer"><div class="av">${miniAv(r.look, r.genre, r.id)}</div><div class="grow"><b>${esc(r.prenom)} ${esc(r.nom)}</b><small>${lienNom(r)} · ${r.vivant ? `${r.age} ans` : 'Décédé' + (r.genre === 'f' ? 'e' : '')}</small>${r.vivant ? `<div class="mini-bar"><i style="width:${r.rel}%;background:${r.rel > 60 ? 'var(--good)' : r.rel > 30 ? 'var(--warn)' : 'var(--bad)'}"></i></div>` : ''}</div>${r.vivant ? icon('chevron', 16) : ''}</div>
+    return `<div><div class="li ${r.vivant ? '' : 'dead'}" data-a="openrel" data-v="${r.id}" style="cursor:pointer"><div class="av">${miniAv(r.look, r.genre, r.id)}</div><div class="grow"><b>${esc(r.prenom)} ${esc(r.nom)}</b><small>${lienNom(r)} · ${r.vivant ? `${r.age} ans` : 'Décédé' + (r.genre === 'f' ? 'e' : '')}${r.destin ? ` · ${esc(destinLabel(r))}` : ''}${r.job ? ` · ${esc(r.job)}` : ''}</small>${r.vivant ? `<div class="duo"><span>Affection</span><div class="mini-bar"><i style="width:${r.rel}%;background:${r.rel > 60 ? 'var(--good)' : r.rel > 30 ? 'var(--warn)' : 'var(--bad)'}"></i></div><span>Confiance</span><div class="mini-bar"><i style="width:${r.conf ?? 50}%;background:#6fb4ff"></i></div></div>` : ''}</div>${r.vivant ? icon('chevron', 16) : ''}</div>
       ${open && acts.length ? `<div class="rel-acts">${acts.map((a) => `<button class="btn sm ${a.ok ? '' : 'off'}" data-a="relact" data-v="${r.id}" data-x="${a.a}" ${a.ok ? '' : 'disabled'}>${a.t}</button>`).join('')}</div>` : ''}</div>`;
   }).join('') || '<div class="note">Personne pour l’instant.</div>'}</div>`;
   const pros = S.relations.filter((r) => r.lien === 'contact' && r.vivant);
@@ -355,8 +365,9 @@ function relHTML() {
 
 // ---------- Actions ----------
 function startLife(cfg) {
-  S = migrate(createLife(cfg));
-  OV = null;
+  S = migrate3(migrate(createLife(cfg)));
+  giveParentJobs(S);
+  OV = { t: 'intro' };
   tab = null;
   screen = 'game';
   renderGameShell();
@@ -374,7 +385,7 @@ function handle(a, v, el) {
     case 'random':
       return startLife(randomConfig());
     case 'continue':
-      S = migrate(load());
+      S = migrate3(migrate(load()));
       screen = 'game';
       tab = null;
       return renderGameShell();
@@ -456,7 +467,7 @@ function handle(a, v, el) {
     case 'heir': {
       const ns = continueAsChild(S, Number(v));
       if (ns) {
-        migrate(ns);
+        migrate3(migrate(ns));
         S = ns;
         tab = null;
         renderGameShell();
@@ -465,10 +476,52 @@ function handle(a, v, el) {
       return;
     }
     case 'phone':
-      OV = { t: 'phone', app: v };
+      if (inPrison(S) && !S.flags.tel_prison) return toast('Pas de téléphone en détention. Il faut en acheter un au marché noir.', 'err');
+      if (!S.vivant) return;
+      OV = { t: 'phone', app: v, itab: OV?.itab };
       if (v === 'messages') OV.conv = null;
       return updateGame();
+    case 'compose':
+      OV.compose = true;
+      return updateGame();
+    case 'sendmsg':
+      sendMessage(S, OV.conv, v);
+      return updateGame();
+    case 'itab':
+      OV.itab = v;
+      return updateGame();
+    case 'post': {
+      const r = instaPost(S, v);
+      toast(r.r, r.err ? 'err' : 'good');
+      return updateGame();
+    }
+    case 'introgo':
+      OV = null;
+      return updateGame();
+    case 'expat': {
+      const r = expatriate(S, v);
+      toast(r.r, r.err ? 'err' : 'good');
+      presentNext(S);
+      return updateGame();
+    }
+    case 'bjdeal': {
+      const bet = OV.bet === 'tapis' ? S.money : OV.bet === 'moitie' ? Math.floor(S.money / 2) : Number(OV.bet || 0);
+      const st = bjStart(S, bet);
+      if (st.err) return toast(st.r, 'err');
+      OV.bj = st;
+      if (st.done) presentNext(S);
+      return updateGame();
+    }
+    case 'bjhit':
+      OV.bj = bjHit(S, OV.bj);
+      if (OV.bj.done) presentNext(S);
+      return updateGame();
+    case 'bjstand':
+      OV.bj = bjStand(S, OV.bj);
+      presentNext(S);
+      return updateGame();
     case 'phoneconv':
+      OV.compose = false;
       OV.conv = v;
       readAll(S, v);
       return updateGame();

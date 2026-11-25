@@ -11,6 +11,8 @@ import { HOUSING } from '../data/housing.js';
 import { MILIEUX, TRAITS, TALENTS } from '../data/identity.js';
 import { randomLook } from '../data/look.js';
 import { worldTick, migrate } from './economy.js';
+import { life2Tick, migrate3, DISEASES, friendService } from './life2.js';
+const DISEASE_NOM = new Proxy({}, { get: (_, k) => DISEASES[k]?.nom || 'Maladie' });
 
 export const busy = (s) => !!(s.current || s.result);
 export const inPrison = (s) => s.justice.prison > 0;
@@ -32,6 +34,7 @@ export function currentScene(s) {
   if (s.lieu) return s.lieu;
   if (s.voyage) return s.voyage.scene;
   if (s.cavale) return s.cavale.scene;
+  if (s.expat && s.logement !== 'villa' && hourOf(s.t) >= 18) return s.expat.scene;
   const h = hourOf(s.t);
   const work = isWeekday(s.t) && h >= 9 && h < 18;
   if (work && s.carriere && s.age >= 16) return career(s).scene;
@@ -165,6 +168,7 @@ export function continueResult(s) {
 // ---------- Passage d'une année ----------
 export function ageUp(s) {
   if (!s.vivant || busy(s) || s.queue.length) return null;
+  if (s.voyage?.id === 'jour') s.voyage = null;
   const rep = { revenus: 0, depenses: 0 };
   s.age++;
   s.t = setHour(birthdayAt(s.birthT, s.age), rnd(8, 21));
@@ -178,6 +182,7 @@ export function ageUp(s) {
   school(s);
   careerTick(s);
   finances(s, rep);
+  life2Tick(s);
   worldTick(s);
   justiceTick(s);
   health(s);
@@ -298,7 +303,11 @@ function health(s) {
   st.sante = clamp(st.sante);
   st.bonheur = clamp(st.bonheur + Math.round((55 - st.bonheur) * 0.12));
   if (s.age > 35) st.forme = clamp(st.forme - rnd(0, 2));
-  if (st.sante <= 0) return die(s, 'Santé trop dégradée');
+  if (st.sante <= 0) {
+    const m = (s.maladies || []).find((x) => x.stade >= 2 && DISEASES[x.id]?.letal);
+    const add = Object.entries(s.addic || {}).sort((a, b) => b[1] - a[1])[0];
+    return die(s, m ? DISEASE_NOM[m.id] : add && add[1] > 50 ? 'Épuisement dû aux addictions' : s.age > 70 ? 'Corps usé par l’âge' : 'Santé trop dégradée');
+  }
   let p = s.age < 45 ? 0.0012 : s.age < 60 ? 0.006 : s.age < 70 ? 0.018 : s.age < 80 ? 0.05 : s.age < 90 ? 0.13 : 0.32;
   if (st.sante < 25) p *= 3;
   if (chance(p)) die(s, s.age >= 75 ? 'Mort paisible, de vieillesse' : pick(['Crise cardiaque', 'Accident vasculaire cérébral', 'Maladie foudroyante']));
@@ -460,6 +469,8 @@ export function relActions(s, r) {
   if (r.lien === 'contact') return [['temps', 'Boire un verre'], ['negocier', 'Négocier le tarif'], ['supprimer', 'Supprimer le contact']].map(([a, t]) => ({ a, t, ok: !s.relUsed[`${r.id}:${a}`] && !inPrison(s) }));
   const used = (a) => s.relUsed[`${r.id}:${a}`];
   const list = [['temps', 'Passer du temps']];
+  if (s.age >= 8) list.push(['confier', 'Se confier']);
+  if (r.destin && r.age >= 21) list.push(['service', 'Demander un service']);
   if (['mere', 'pere'].includes(r.lien)) list.push(['argent', 'Demander de l’argent']);
   if (['partenaire', 'conjoint', 'ami', 'fratrie', 'mere', 'pere', 'enfant'].includes(r.lien) && s.age >= 12) list.push(['cadeau', 'Offrir un cadeau (150 €)']);
   if (r.lien === 'partenaire' && s.age >= 18) list.push(['mariage', 'Demander en mariage']);
@@ -477,6 +488,7 @@ export function relAction(s, rid, a) {
   let out = '';
   if (a === 'temps') {
     r.rel = clamp(r.rel + rnd(4, 12));
+    r.conf = clamp((r.conf ?? 50) + rnd(1, 3));
     s.stats.bonheur = clamp(s.stats.bonheur + rnd(1, 4));
     out = `Bon moment avec ${r.prenom}.`;
   } else if (a === 'argent') {
@@ -496,6 +508,7 @@ export function relAction(s, rid, a) {
     out = `${r.prenom} adore ton cadeau.`;
   } else if (a === 'dispute') {
     r.rel = clamp(r.rel - rnd(10, 22));
+    r.conf = clamp((r.conf ?? 50) - rnd(3, 8));
     s.stats.bonheur = clamp(s.stats.bonheur - 3);
     out = `Grosse dispute avec ${r.prenom}.`;
   } else if (a === 'mariage') {
@@ -512,6 +525,18 @@ export function relAction(s, rid, a) {
       apply(s, { enfant: true, bonheur: 10 });
       out = `Bienvenue à ${s.tmp.bebe} !`;
     } else out = 'Pas de bébé cette année.';
+  } else if (a === 'confier') {
+    if (r.rel > 50 && Math.random() < 0.75) {
+      r.conf = clamp((r.conf ?? 50) + rnd(5, 12));
+      s.stats.bonheur = clamp(s.stats.bonheur + 3);
+      out = `${r.prenom} t’écoute. Vous êtes plus proches.`;
+    } else {
+      r.conf = clamp((r.conf ?? 50) - 8);
+      out = `${r.prenom} a répété ce que tu lui as dit…`;
+    }
+  } else if (a === 'service') {
+    const res = friendService(s, r);
+    out = res.r;
   } else if (a === 'negocier') {
     if (chance(0.35 + s.stats.charisme / 250 + r.rel / 300)) {
       r.tarif = Math.max(0.55, Math.round((r.tarif - 0.1) * 100) / 100);
@@ -563,4 +588,4 @@ export function continueAsChild(s, rid) {
   return ns;
 }
 
-export { ACTIVITIES, CAREERS, migrate };
+export { ACTIVITIES, CAREERS, migrate, migrate3 };

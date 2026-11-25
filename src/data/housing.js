@@ -13,5 +13,5 @@ export const HOUSING = {
 export const SCENE_NOM = {
   rue: 'Rue', cite: 'Cité des Rosiers', bidonville: 'Campement', appart: 'Centre-ville', maison: 'Quartier pavillonnaire',
   villa: 'Villa', plage: 'Plage', bureau: 'Bureau', chantier: 'Chantier', commissariat: 'Commissariat', hopital: 'Hôpital',
-  ecole: 'École', stade: 'Stade', studio: 'Studio', prison: 'Centre pénitentiaire', pays: 'Quartier familial', caserne: 'Caserne', casino: 'Casino',
+  ecole: 'École', stade: 'Stade', studio: 'Studio', prison: 'Centre pénitentiaire', pays: 'Quartier familial', caserne: 'Caserne', casino: 'Casino', palais: 'Palais',
 };

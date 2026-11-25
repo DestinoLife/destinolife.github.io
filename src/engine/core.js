@@ -51,7 +51,7 @@ export function newPerson(s, lien, o = {}) {
     id: s.uid++, lien, genre,
     prenom: o.prenom || uniqueName(s, origine, genre),
     nom: o.nom || (['mere', 'pere', 'fratrie', 'enfant'].includes(lien) ? s.id.nom : surnameFor(origine)),
-    age: o.age ?? s.age, rel: o.rel ?? rnd(55, 85), vivant: true, depuis: s.age,
+    age: o.age ?? s.age, rel: o.rel ?? rnd(55, 85), conf: o.conf ?? rnd(40, 70), vivant: true, depuis: s.age,
     look: o.look || randomLook(genre, origine),
   };
 }
@@ -297,7 +297,10 @@ export function apply(s, fx) {
   for (const [k, v] of Object.entries(fx)) {
     if (!s.vivant && k !== 'log') break;
     if (FX[k]) FX[k](s, v);
-    else if (STATS.includes(k)) s.stats[k] = clamp(s.stats[k] + v);
+    else if (STATS.includes(k)) {
+      s.stats[k] = clamp(s.stats[k] + v);
+      if (k === 'sante' && v <= -10) s.blessure = s.age;
+    }
     else if (EXTRA_FX[k]) EXTRA_FX[k](s, v);
     else console.warn('Effet inconnu :', k);
   }

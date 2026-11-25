@@ -118,7 +118,7 @@ export function businessAction(s, uid, act) {
       const c = 8000 * b.niveau;
       if (!pay(c)) return { r: `Il te faut ${euros(c)}.`, err: true };
       b.rep = clamp(b.rep + rnd(6, 14));
-      if (B.startup) b.users = Math.round(b.users * (1.2 + Math.random() * 0.4));
+      if (B.startup) b.users = Math.min(80000000, Math.round(b.users * (1.2 + Math.random() * 0.4)));
       return { r: 'Campagne lancée. Ça fait parler.', good: true };
     }
     case 'blanchir': {
@@ -161,7 +161,8 @@ function businessTick(s) {
     b.lave = 0;
     if (B.startup) {
       const growth = 1.3 + gauss() * 0.5 + b.rep / 200 + (s.stats.intel - 50) / 200;
-      b.users = Math.max(50, Math.round(b.users * growth));
+      const room = Math.max(0, 1 - b.users / 80000000);
+      b.users = Math.max(50, Math.round(b.users * (1 + (growth - 1) * room)));
       b.mrr = Math.round(b.users * 6);
       b.burn = Math.round(2500 * b.niveau + b.emp * 1200);
       b.cash += (b.mrr - b.burn) * 12;
@@ -354,6 +355,7 @@ const ROUGE = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36
 export function roulette(s, bet, choice) {
   bet = Math.round(bet);
   if (bet <= 0 || bet > s.money) return { r: 'Mise invalide.', err: true };
+  if (bet > 500000) return { r: 'Limite de la table : 500 000 € par mise.', err: true };
   const n = rnd(0, 36);
   const color = n === 0 ? 'vert' : ROUGE.includes(n) ? 'rouge' : 'noir';
   let mult = 0;
@@ -367,6 +369,7 @@ const SYM = ['7', '★', '♦', '♣', '♥', 'BAR'];
 export function slots(s, bet) {
   bet = Math.round(bet);
   if (bet <= 0 || bet > s.money) return { r: 'Mise invalide.', err: true };
+  if (bet > 500000) return { r: 'Limite de la table : 500 000 € par mise.', err: true };
   const r = [0, 1, 2].map(() => pick(SYM));
   let mult = 0;
   if (r[0] === r[1] && r[1] === r[2]) mult = r[0] === '7' ? 50 : r[0] === 'BAR' ? 20 : 10;
@@ -396,7 +399,7 @@ function healthTick(s) {
     } else s.stats.sante = clamp(s.stats.sante + Math.min(3, s.annee.sport));
     if (s.age > 45 && !s.annee.medecin) s.stats.sante = clamp(s.stats.sante - rnd(1, 3));
   }
-  s.annee = { sport: 0, medecin: 0 };
+  s.annee = { sport: 0, medecin: 0, use: {}, posts: 0 };
 }
 
 function cavaleTick(s) {

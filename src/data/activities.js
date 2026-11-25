@@ -4,6 +4,8 @@ import { rnd, pick, chance, euros } from '../engine/rng.js';
 import { COTIERES } from './identity.js';
 import { CAREERS } from './careers.js';
 import { startNetwork, comeBack } from '../engine/economy.js';
+import { PLAGE_PROCHE } from './world2.js';
+import { diagnose } from '../engine/life2.js';
 
 const coast = (s) => COTIERES.includes(s.id.ville) || s.id.statut === 'au_pays';
 const single = (s) => !s.relations.some((r) => r.vivant && (r.lien === 'partenaire' || r.lien === 'conjoint'));
@@ -44,14 +46,37 @@ export const ACTIVITIES = [
     run: () => ({ fx: { art: rnd(3, 6), bonheur: 2 }, r: pick(['Tu poses un couplet dont tu es fier{|e}.', 'Session studio jusqu’à l’aube.']) }) },
   { id: 'dessin', tab: 'act', nom: 'Dessiner', desc: 'Talent artistique', icon: 'brush', age: [4, 95], days: [1, 4],
     run: () => ({ fx: { art: rnd(2, 5), bonheur: 2 }, r: 'Ton carnet se remplit de personnages.' }) },
-  { id: 'plage', tab: 'act', nom: 'Journée à la plage', desc: 'Bonheur', icon: 'sun', age: [2, 100], days: [1, 2], hour: [11, 18], lieu: 'plage', cost: (s) => (coast(s) || s.chezParents ? 0 : 120),
-    run: () => ({ fx: { bonheur: rnd(6, 10), sante: 1 }, r: pick(['Sable chaud, eau turquoise. La vie est belle.', 'Baignade, glace, sieste. Journée parfaite.']) }) },
+  { id: 'plage', tab: 'act', nom: 'Journée à la plage', desc: 'Bonheur', icon: 'sun', age: [2, 100], days: [1, 2], hour: [11, 18], cost: (s) => (coast(s) || s.chezParents ? 0 : 120),
+    run: (s) => {
+      if (coast(s)) return { fx: { bonheur: rnd(6, 10), sante: 1, lieu: 'plage' }, r: pick(['Sable chaud, eau turquoise. La vie est belle.', 'Baignade, glace, sieste. Journée parfaite.']) };
+      const dest = PLAGE_PROCHE[s.id.ville] || 'la côte';
+      s.voyage = { ville: dest, pays: 'France', scene: 'plage', id: 'jour' };
+      return { fx: { bonheur: rnd(6, 10), sante: 1 }, r: `Deux heures de route jusqu’à ${dest}. Ça valait le coup.` };
+    } },
   { id: 'soiree', tab: 'act', nom: 'Sortir en boîte', desc: 'Bonheur, rencontres', icon: 'music', age: [18, 60], cost: 80, days: [2, 5], hour: [0, 4], lieu: 'appart',
     run: (s) => {
       const q = single(s) && chance(0.3) ? 'rencontre' : chance(0.12) ? 'bagarre_boite' : null;
       return { fx: { bonheur: rnd(5, 10), sante: -rnd(1, 3), charisme: 1 }, r: 'Soirée jusqu’au bout de la nuit.', queue: q };
     } },
-  { id: 'dating', tab: 'act', nom: 'Faire des rencontres', desc: 'Amour', icon: 'heart', age: [16, 85], days: [3, 10], hour: [19, 22], cond: (s) => single(s) || 'Tu es déjà en couple.',
+  { id: 'amis', tab: 'act', nom: 'Se faire des amis', desc: 'Des amis qui t’aideront plus tard', icon: 'users', age: [5, 90], days: [2, 6], hour: [14, 20],
+    run: (s) => ({ fx: { addRel: { lien: 'ami', age: s.age + rnd(-1, 2), rel: rnd(55, 75) }, charisme: 1, bonheur: 3 }, r: 'Une nouvelle amitié commence.' }) },
+  { id: 'boire', tab: 'act', nom: 'Boire un verre', desc: 'Bonheur, risque d’addiction', icon: 'music', age: [16, 99], cost: 25, days: [1, 2], hour: [19, 23],
+    run: () => ({ fx: { use: 'alcool', bonheur: rnd(3, 6), sante: -1 }, r: 'Un verre, puis deux, puis trois…' }) },
+  { id: 'fumer', tab: 'act', nom: 'Fumer', desc: 'Calme, mais addictif', icon: 'leaf', age: [12, 99], cost: 12, days: [0, 1],
+    run: () => ({ fx: { use: 'tabac', bonheur: 2, sante: -1 }, r: 'Une cigarette pour souffler.' }) },
+  { id: 'joint', tab: 'crime', nom: 'Fumer un joint', desc: 'Planer, addiction', icon: 'leaf', age: [13, 99], cost: 20, days: [0, 1], hour: [18, 23],
+    run: () => ({ fx: { use: 'cannabis', bonheur: rnd(4, 7), intel: -1 }, r: 'Tu ris pour rien pendant une heure.' }) },
+  { id: 'coke', tab: 'crime', nom: 'Prendre de la cocaïne', desc: 'Euphorie, très addictif', icon: 'sparkle', age: [18, 99], cost: 90, days: [0, 1], hour: [0, 4],
+    run: (s) => (Math.random() < s.addic.coke / 900 ? { fx: { mort: 'Overdose' }, r: 'Ton cœur lâche.' } : { fx: { use: 'coke', bonheur: rnd(8, 12), sante: -rnd(3, 6) }, r: 'Tu te sens invincible. Pour quelques heures.' }) },
+  { id: 'paris', tab: 'act', nom: 'Paris sportifs', desc: 'Petit gain, grosse addiction', icon: 'ticket', age: [18, 99], days: [0, 1], cond: (s) => s.money >= 20 || 'Il te faut 20 €.',
+    run: (s) => { const b = Math.max(20, Math.round(s.money * 0.05)); return Math.random() < 0.42 ? { fx: { use: 'jeu', money: b }, r: `Pari gagné : +${euros(b)}.`, good: true } : { fx: { use: 'jeu', money: -b }, r: `Pari perdu : −${euros(b)}.` }; } },
+  { id: 'cure', tab: 'act', nom: 'Cure de désintoxication', desc: 'Un mois pour s’en sortir', icon: 'cross', age: [14, 99], cost: 4000, days: [25, 35], lieu: 'hopital',
+    cond: (s) => Math.max(...Object.values(s.addic || {})) >= 20 || 'Tu n’as pas d’addiction.',
+    run: () => ({ fx: { cure: 'lourde', bonheur: -4, sante: 6 }, r: 'Un mois sans rien. Le plus dur reste de tenir dehors.' }) },
+  { id: 'groupe', tab: 'act', nom: 'Groupe de parole', desc: 'Gratuit, aide à décrocher', icon: 'hand', age: [14, 99], days: [1, 3],
+    cond: (s) => Math.max(...Object.values(s.addic || {})) >= 10 || 'Tu n’as pas d’addiction.',
+    run: () => ({ fx: { cure: 'legere', bonheur: 2 }, r: '« Bonjour, je m’appelle… » Ça fait du bien de parler.' }) },
+  { id: 'dating', tab: 'act', nom: 'Faire des rencontres', desc: 'Amour', icon: 'heart', age: [13, 85], days: [3, 10], hour: [19, 22], cond: (s) => single(s) || 'Tu es déjà en couple.',
     run: () => ({ r: 'Tu swipes, tu discutes, tu sors.', queue: 'rencontre' }) },
   { id: 'voyage', tab: 'act', ui: 'voyage', nom: 'Voyager', desc: '11 destinations dans le monde', icon: 'plane', age: [16, 95], days: [7, 15], hour: [12, 19],
     cond: (s) => (s.id.statut === 'sans_papiers' ? 'Impossible de voyager sans papiers.' : true),
@@ -60,7 +85,10 @@ export const ACTIVITIES = [
       return { fx: { bonheur: rnd(12, 18), sante: 2, lieu: d }, r: d === 'pays' ? 'Vacances au {pays}, en famille.' : 'Deux semaines au soleil. Tu reviens bronzé{e}.' };
     } },
   { id: 'medecin', tab: 'act', nom: 'Aller chez le médecin', desc: 'Santé', icon: 'cross', age: [0, 110], cost: 25, days: [1, 2], hour: [9, 17], lieu: 'hopital',
-    run: () => ({ fx: { sante: rnd(4, 10) }, r: 'Bilan complet et traitement adapté.' }) },
+    run: (s) => {
+      const found = diagnose(s);
+      return { fx: { sante: rnd(4, 10) }, r: found.length ? `Diagnostic : ${found.join(', ').toLowerCase()}. Traitement lancé.` : 'Bilan complet : rien d’alarmant.' };
+    } },
   { id: 'chirurgie', tab: 'act', nom: 'Chirurgie esthétique', desc: 'Apparence ▲▲, risque', icon: 'sparkle', age: [18, 75], cost: 6000, days: [5, 15], lieu: 'hopital',
     run: () => (chance(0.08) ? { fx: { sante: -18, apparence: -8, bonheur: -10 }, r: 'Complications. Le résultat est raté.' } : { fx: { apparence: rnd(8, 14), bonheur: 6 }, r: 'Résultat bluffant. Tu te reconnais à peine.' }) },
   { id: 'meditation', tab: 'act', nom: 'Méditer', desc: 'Bonheur, karma', icon: 'leaf', age: [10, 110], days: [1, 2],
@@ -108,6 +136,17 @@ export const ACTIVITIES = [
       if (!s.carriere && s.stats.notoriete + n >= 8) fx.job = 'influenceur';
       return { fx, r: n > 14 ? 'Vidéo virale ! Des milliers d’abonnés en une nuit.' : 'Quelques likes. Il faut persévérer.', good: n > 14 };
     } },
+  { id: 'secher', tab: 'pro', nom: 'Sécher les cours', desc: 'Bonheur ▲, notes ▼', icon: 'door', age: [11, 19], days: [1, 3], hour: [10, 16],
+    cond: (s) => ['ecole', 'lycee', 'cap', 'fac', 'bts'].includes(s.etudes.cursus) || 'Tu n’es pas scolarisé.',
+    run: (s) => (Math.random() < 0.3 ? { fx: { intel: -2, rel: { lien: 'parents', d: -8 } }, r: 'Convocation chez le CPE. Tes parents sont furieux.' } : { fx: { bonheur: 5, intel: -2, reputation: 2 }, r: 'Après-midi au centre commercial avec les potes.' }) },
+  { id: 'fuguer', tab: 'pro', nom: 'Fuguer', desc: 'Décision majeure', icon: 'run', age: [11, 17], days: [0, 1], hour: [1, 3],
+    cond: (s) => s.chezParents || 'Tu ne vis plus chez tes parents.', run: () => ({ r: 'Tu attends que tout le monde dorme.', queue: 'fugue_action' }) },
+  { id: 'decrocher', tab: 'pro', nom: 'Arrêter l’école', desc: 'Possible à partir de 16 ans', icon: 'door', age: [16, 30], free: true, days: [0, 1],
+    cond: (s) => ['lycee', 'cap', 'fac', 'bts', 'master', 'medecine', 'droit'].includes(s.etudes.cursus) || 'Tu n’es pas scolarisé.',
+    run: () => ({ fx: { etudes: { cursus: null, reste: null }, bonheur: 4 }, r: 'Tu quittes les études. Place à la vraie vie.' }) },
+  { id: 'politique', tab: 'pro', nom: 'Se lancer en politique', desc: 'Municipales · décision majeure', icon: 'flag', age: [18, 75], days: [0, 1],
+    cond: (s) => (s.carriere?.cat === 'politique' ? 'Tu fais déjà de la politique.' : !['ne_france', 'naturalise'].includes(s.id.statut) ? 'Il faut la nationalité française.' : s.stats.charisme < 40 && s.stats.notoriete < 40 ? 'Charisme ou notoriété de 40 requis.' : true),
+    run: () => ({ r: 'Tu déposes ta candidature à la mairie.', queue: 'municipales' }) },
   { id: 'regul', tab: 'pro', nom: 'Démarches à la préfecture', desc: 'Régularisation', icon: 'file', age: [18, 99], days: [1, 3], hour: [8, 12],
     cond: (s) => (s.id.statut === 'sans_papiers' ? true : 'Réservé aux personnes sans papiers.'),
     run: () => ({ r: 'File d’attente dès 5 h du matin devant la préfecture.', queue: 'regularisation' }) },
@@ -170,6 +209,8 @@ export const ACTIVITIES = [
     run: () => ({ fx: { bonheur: 4, rel: { lien: 'parents', d: 6 }, karma: 2 }, r: 'Tu écris des pages entières. Ça fait du bien.' }) },
   { id: 'demander_amenagement', tab: 'prison', prison: true, nom: 'Demander un aménagement', desc: 'Bracelet électronique ?', icon: 'scale', days: [5, 20], cond: (s) => s.justice.prison >= 2 || 'Peine trop courte.',
     run: () => ({ r: 'Ton avocat dépose la demande.', queue: 'prison_amenagement' }) },
+  { id: 'tel_prison', tab: 'prison', prison: true, nom: 'Acheter un téléphone', desc: 'Interdit, 400 € au marché noir', icon: 'phone', cost: 400, days: [2, 8], cond: (s) => !s.flags.tel_prison || 'Tu as déjà un téléphone.',
+    run: () => (Math.random() < 0.8 ? { fx: { telPrison: true, bonheur: 6 }, r: 'Un vieux smartphone caché dans une chaussette. Contact avec l’extérieur.' } : { fx: { prisonAdd: 1 }, r: 'Fouille. Téléphone confisqué et un an de plus.' }) },
   { id: 'evasion', tab: 'prison', prison: true, nom: 'Préparer une évasion', desc: 'Décision majeure', icon: 'key', days: [1, 3], hour: [22, 23],
     run: () => ({ r: 'Ton codétenu te glisse un plan à l’oreille.', queue: 'evasion_j1' }) },
 ];

@@ -202,6 +202,11 @@ const S = {
     <rect x="0" y="490" width="1000" height="70" fill="#2a0b18"/><path d="M0 490 H1000" stroke="#c9a227" stroke-width="3"/>
     <text x="500" y="120" text-anchor="middle" font-family="Sora, sans-serif" font-weight="800" font-size="40" letter-spacing="10" fill="#ffd36e">CASINO</text>`,
 
+  palais: () => `${sky()}${skyline(320)}<rect x="140" y="190" width="720" height="300" fill="#efe9dc"/><path d="M120 196 L500 120 L880 196Z" fill="#e2dccd"/><path d="M120 196 L500 120 L880 196" stroke="#cfc6b3" stroke-width="6" fill="none"/>
+    ${[200, 290, 380, 620, 710, 800].map((x) => `<rect x="${x - 14}" y="210" width="28" height="270" fill="#f7f3ea"/><rect x="${x - 18}" y="206" width="36" height="10" fill="#d9d2c2"/>`).join('')}
+    <rect x="440" y="300" width="120" height="190" rx="4" fill="#3a3326"/><rect x="452" y="312" width="96" height="178" fill="#5a4c36"/><text x="500" y="176" text-anchor="middle" font-family="Sora, sans-serif" font-weight="700" font-size="17" letter-spacing="6" fill="#6b604c">RÉPUBLIQUE</text>
+    ${flag(60, 230)}${flag(880, 230)}<path d="M0 492 L1000 484 V560 H0Z" fill="#d9d0bd"/><path d="M380 490 L620 490 L700 560 L300 560Z" fill="#b3132f" opacity=".85"/>`,
+
   caserne: () => `${sky()}${skyline(320)}${facade(170, 220, 660, 270, '#c8c4a8', '2ᵉ RÉGIMENT ÉTRANGER', '#f2efe0', '#3e4a2e')}${grid(200, 300, 7, 2, 46, 40, 88, 70, '#6e6a50')}<rect x="450" y="420" width="100" height="70" fill="#3e4a2e"/>${flag(110, 250)}${sidewalk('url(#asph)', '#a7a3b8')}`,
 };
 

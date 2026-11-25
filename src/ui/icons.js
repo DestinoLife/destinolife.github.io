@@ -48,6 +48,8 @@ const P = {
   plus: '<path d="M12 5v14M5 12h14"/>',
   chevron: '<path d="M9 6l6 6-6 6"/>',
   play: '<path d="M7 4l13 8-13 8z"/>',
+  edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13 7l4 4"/>',
+  globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',
   mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>',
   phone: '<rect x="6.5" y="2" width="11" height="20" rx="2.5"/><path d="M11 18.5h2"/>',
 };

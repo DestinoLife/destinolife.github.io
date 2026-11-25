@@ -5,6 +5,7 @@ import { fmtHeure } from '../engine/time.js';
 import { ASSETS, BUSINESS, ROLES, MISSIONS, destsFor, patrimoine, contactsOf } from '../engine/economy.js';
 import { lienNom } from '../engine/core.js';
 import { relActions } from '../engine/flow.js';
+import { messagesHTML, instaHTML, actusHTML, blackjackHTML, destinLabel } from './overlays3.js';
 
 const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const pct = (v) => `${v >= 0 ? '+' : ''}${Math.round(v * 100)} %`;
@@ -21,6 +22,8 @@ export function spark(values, color = '#5ff5d0', w = 220, h = 54) {
 // ---------- Téléphone ----------
 const APPS = [
   ['messages', 'Messages', 'mail', '#34c759'],
+  ['insta', 'Instapic', 'camera', 'linear-gradient(45deg,#feda75,#d62976,#4f5bd5)'],
+  ['actus', 'Actus', 'globe', '#5856d6'],
   ['contacts', 'Contacts', 'users', '#8e8e93'],
   ['banque', 'Banque', 'euro', '#0a84ff'],
   ['business', 'Business', 'trend', '#ff9f0a'],
@@ -31,19 +34,15 @@ export function phoneHTML(S, o) {
   const app = o.app;
   const bar = `<div class="ph-status"><b>${fmtHeure(S.t)}</b><span>${icon('zap', 12)} 5G ▮▮▮ 87 %</span></div>`;
   let body = '';
-  const back = (t) => `<div class="ph-head"><button data-a="phone" data-v="home">${icon('chevron', 16, 'flip')} Retour</button><b>${t}</b><span></span></div>`;
+  const back = (t, right = '') => `<div class="ph-head"><button data-a="phone" data-v="${o.conv || o.compose ? 'messages' : 'home'}">${icon('chevron', 16, 'flip')} Retour</button><b>${t}</b><span class="ph-right">${right}</span></div>`;
   if (!app || app === 'home') {
     body = `<div class="ph-home"><div class="ph-clock">${fmtHeure(S.t)}</div><div class="ph-grid">${APPS.filter(([k]) => k !== 'reseau' || S.reseau).map(([k, n, i, c]) => `<button class="ph-app" data-a="phone" data-v="${k}"><span style="background:${c}">${icon(i, 26)}${k === 'messages' && S.phone.unread ? `<em>${S.phone.unread}</em>` : ''}</span>${n}</button>`).join('')}</div></div>`;
   } else if (app === 'messages') {
-    const convs = {};
-    S.phone.msgs.forEach((m) => (convs[m.from] ||= []).push(m));
-    if (o.conv) {
-      const list = convs[o.conv] || [];
-      body = back(esc(o.conv)) + `<div class="ph-thread">${list.map((m) => `<div class="bubble"><span>${esc(m.txt)}</span><small>${m.age} ans</small></div>`).join('')}</div>`;
-    } else {
-      const keys = Object.keys(convs).sort((a, b) => convs[b].at(-1).t - convs[a].at(-1).t);
-      body = back('Messages') + `<div class="ph-list">${keys.map((k) => { const last = convs[k].at(-1); const un = convs[k].some((m) => !m.read); return `<button class="ph-row" data-a="phoneconv" data-v="${esc(k)}"><span class="ph-av">${esc(k[0])}</span><span class="grow"><b>${esc(k)}${un ? ' <i class="dot-u"></i>' : ''}</b><small>${esc(last.txt)}</small></span></button>`; }).join('') || '<p class="ph-empty">Aucun message.</p>'}</div>`;
-    }
+    body = messagesHTML(S, o, back);
+  } else if (app === 'insta') {
+    body = instaHTML(S, o, back);
+  } else if (app === 'actus') {
+    body = actusHTML(S, back);
   } else if (app === 'contacts') {
     const people = S.relations.filter((r) => r.vivant && r.lien !== 'candidat');
     const pro = people.filter((r) => r.lien === 'contact');
@@ -51,7 +50,7 @@ export function phoneHTML(S, o) {
     const row = (r) => {
       const open = o.rel === r.id;
       const acts = open ? relActions(S, r) : [];
-      return `<div><button class="ph-row" data-a="phonerel" data-v="${r.id}"><span class="ph-av">${esc(r.prenom[0])}</span><span class="grow"><b>${esc(r.prenom)} ${esc(r.nom)}</b><small>${r.lien === 'contact' ? `${ROLES[r.role].nom} · tarif ${r.tarif < 0.9 ? 'avantageux' : r.tarif > 1.1 ? 'élevé' : 'normal'} (×${r.tarif})` : lienNom(r)}</small></span></button>${open ? `<div class="rel-acts ph">${acts.map((a) => `<button class="btn sm ${a.ok ? '' : 'off'}" data-a="relact" data-v="${r.id}" data-x="${a.a}" ${a.ok ? '' : 'disabled'}>${a.t}</button>`).join('')}</div>` : ''}</div>`;
+      return `<div><button class="ph-row" data-a="phonerel" data-v="${r.id}"><span class="ph-av">${esc(r.prenom[0])}</span><span class="grow"><b>${esc(r.prenom)} ${esc(r.nom)}</b><small>${r.lien === 'contact' ? `${ROLES[r.role]?.nom || 'Contact'} · tarif ${r.tarif < 0.9 ? 'avantageux' : r.tarif > 1.1 ? 'élevé' : 'normal'} (×${r.tarif})` : `${lienNom(r)} ${destinLabel(r)}`} · confiance ${Math.round(r.conf ?? 50)}</small></span></button>${open ? `<div class="rel-acts ph">${acts.map((a) => `<button class="btn sm ${a.ok ? '' : 'off'}" data-a="relact" data-v="${r.id}" data-x="${a.a}" ${a.ok ? '' : 'disabled'}>${a.t}</button>`).join('')}</div>` : ''}</div>`;
     };
     body = back('Contacts') + `<div class="ph-list"><p class="ph-sec">Pro</p>${pro.map(row).join('') || '<p class="ph-empty">Aucun contact pro. Va dans Crime : « Chercher un contact ».</p>'}<p class="ph-sec">Proches</p>${perso.map(row).join('')}</div>`;
   } else if (app === 'banque') {
@@ -101,16 +100,18 @@ export function casinoHTML(S, o) {
     const n = res?.n;
     show = `<div class="wheel ${res ? 'spin' : ''}" style="--end:${res ? 720 + n * 9.7 : 0}deg"><div class="wheel-in">${res ? `<b class="${res.color}">${n}</b>` : '<b>?</b>'}</div></div>
       <div class="chips">${['rouge', 'noir', 'pair', 'impair'].map((c) => `<button class="chip ${o.pick === c ? 'on' : ''}" data-a="cpick" data-v="${c}">${c[0].toUpperCase() + c.slice(1)} ×2</button>`).join('')}<button class="chip ${/^\d+$/.test(o.pick || '') ? 'on' : ''}" data-a="cpick" data-v="${o.num ?? 17}">N° ${o.num ?? 17} ×36</button></div>`;
+  } else if (game === 'blackjack') {
+    show = blackjackHTML(S, o);
   } else {
     const reels = res?.reels || ['7', '★', '♦'];
     show = `<div class="reels ${res ? 'roll' : ''}">${reels.map((r) => `<div class="reel"><b>${r}</b></div>`).join('')}</div><p class="hint">3 identiques ×10 · trois 7 ×50 · BAR ×20 · paire ×1,5</p>`;
   }
   return `<div class="casino glass"><div class="sheet-h"><div><h2>Casino</h2><div class="sub">Solde : ${euros(S.money)}</div></div><button class="close" data-a="overlay" aria-label="Quitter">${icon('x', 18)}</button></div>
-    <div class="sheet-b"><div class="tabs mini">${[['roulette', 'Roulette'], ['slots', 'Machine à sous']].map(([k, t]) => `<button class="${game === k ? 'on' : ''}" data-a="cgame" data-v="${k}">${t}</button>`).join('')}</div>
+    <div class="sheet-b"><div class="tabs mini">${[['roulette', 'Roulette'], ['blackjack', 'Blackjack'], ['slots', 'Machine à sous']].map(([k, t]) => `<button class="${game === k ? 'on' : ''}" data-a="cgame" data-v="${k}">${t}</button>`).join('')}</div>
     ${show}
-    ${res ? `<div class="note ${res.win ? '' : 'warn'}" style="text-align:center;font-size:15px">${res.win ? `Gagné : +${euros(res.delta)}` : `Perdu : ${euros(res.delta)}`}</div>` : ''}
+    ${res && game !== 'blackjack' ? `<div class="note ${res.win ? '' : 'warn'}" style="text-align:center;font-size:15px">${res.win ? `Gagné : +${euros(res.delta)}` : `Perdu : ${euros(res.delta)}`}</div>` : ''}
     <div><span class="lbl">Mise</span><div class="chips">${bets.map((b) => `<button class="chip ${o.bet === b ? 'on' : ''}" data-a="cbet" data-v="${b}">${euros(b)}</button>`).join('')}${S.money > 0 ? `<button class="chip ${o.bet === 'moitie' ? 'on' : ''}" data-a="cbet" data-v="moitie">50 %</button><button class="chip ${o.bet === 'tapis' ? 'on' : ''}" data-a="cbet" data-v="tapis">Tapis</button>` : ''}</div></div>
-    <button class="btn primary" style="width:100%" data-a="cplay">${game === 'roulette' ? 'Lancer la bille' : 'Tirer le levier'}</button>
+    ${game === 'blackjack' && o.bj && !o.bj.done ? '' : `<button class="btn primary" style="width:100%" data-a="${game === 'blackjack' ? 'bjdeal' : 'cplay'}">${game === 'roulette' ? 'Lancer la bille' : game === 'blackjack' ? 'Distribuer' : 'Tirer le levier'}</button>`}
     <p class="hint">Le jeu peut ruiner une vie. Plus de 200 000 € de pertes peut déclencher une addiction.</p></div></div>`;
 }
 

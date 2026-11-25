@@ -1,0 +1,67 @@
+/* =================== V3 : intro, messages, Instapic, blackjack, relations =================== */
+
+/* Intro animée en début de partie */
+.intro { position: absolute; inset: 0; z-index: 30; background: radial-gradient(ellipse at 50% 40%, #241a45 0%, #0b0a12 70%); display: grid; place-items: center; padding: 24px; }
+.intro-in { max-width: 640px; display: grid; gap: 14px; text-align: center; }
+.intro-in p { font-family: var(--display); font-size: clamp(17px, 2.4vw, 24px); line-height: 1.4; opacity: 0; animation: introLine 0.9s ease forwards; color: #ece8f7; }
+.intro-in p:first-child { font-size: clamp(28px, 4.5vw, 44px); font-weight: 800; background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+@keyframes introLine { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+.intro-go { justify-self: center; margin-top: 14px; opacity: 0; animation: introLine 0.6s ease forwards; }
+.intro-skip { position: absolute; top: 20px; right: 24px; color: var(--muted); font-size: 13px; }
+.intro-skip:hover { color: var(--text); }
+
+/* Téléphone dans la barre du bas */
+.phone-tab { position: relative; }
+.phone-tab em { position: absolute; top: 4px; right: 18px; min-width: 18px; height: 18px; border-radius: 9px; background: #ff3b30; color: #fff; font: 700 11px/18px var(--font); font-style: normal; text-align: center; padding: 0 4px; }
+.ph-right button { color: #0a84ff; }
+
+/* Messages à bulles */
+.bubble.mine { justify-self: end; background: #0a84ff; border-radius: 18px 18px 6px 18px; color: #fff; }
+.bubble.mine small { color: rgba(255, 255, 255, 0.7); text-align: right; }
+.ph-reply { position: sticky; bottom: 0; display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 12px; background: rgba(18, 16, 31, 0.97); border-top: 1px solid var(--line); }
+.ph-reply .chip { height: 30px; font-size: 12px; border-radius: 15px; }
+
+/* Instapic */
+.ig-tabs { display: flex; border-bottom: 1px solid var(--line); }
+.ig-tabs button { flex: 1; padding: 10px; font-size: 13px; color: var(--muted); border-bottom: 2px solid transparent; }
+.ig-tabs button.on { color: var(--text); border-color: #d62976; }
+.ig-prof { display: flex; gap: 14px; align-items: center; }
+.ig-stats { display: flex; gap: 12px; font-size: 12px; color: var(--muted); margin-top: 4px; flex-wrap: wrap; }
+.ig-stats b { color: var(--text); }
+.ph-av.big { width: 64px; height: 64px; font-size: 24px; background: linear-gradient(45deg, #feda75, #d62976, #4f5bd5); }
+.ph-av.sm { width: 28px; height: 28px; font-size: 12px; }
+.ig-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; }
+.ig-tile { aspect-ratio: 1; border-radius: 4px; background: linear-gradient(135deg, #3a2a6a, #8a3a6a); display: flex; flex-direction: column; justify-content: space-between; padding: 6px; font-size: 10px; }
+.ig-tile.viral { background: linear-gradient(135deg, #ff6b8b, #ffb35c); color: #1a1020; }
+.ig-post { display: grid; gap: 6px; }
+.ig-h { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.ig-img { height: 150px; border-radius: 10px; background: linear-gradient(135deg, #2b1f55, #6a3f8f 50%, #ff8a65); }
+.ig-post small { color: var(--muted); font-size: 12px; }
+
+/* Actus */
+.news { font-size: 13px; padding: 8px 0; border-bottom: 1px solid var(--line); display: grid; gap: 2px; }
+.news small { color: var(--faint); font-size: 11px; }
+.sit { width: 10px; height: 10px; border-radius: 50%; }
+.sit-crise { background: var(--warn); }
+.sit-emeutes { background: #ff8a3d; }
+.sit-guerre { background: var(--bad); }
+
+/* Blackjack */
+.bj { display: grid; gap: 12px; }
+.hand { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+.card { width: 48px; height: 68px; border-radius: 8px; background: #f7f4ee; color: #1a1220; display: grid; place-items: center; font: 800 18px var(--display); position: relative; animation: deal 0.3s ease both; }
+.card i { position: absolute; bottom: 4px; right: 6px; font-style: normal; font-size: 13px; }
+.card.red { color: #c8102e; }
+.card.back { background: repeating-linear-gradient(45deg, #7b1530 0 6px, #5a0f24 6px 12px); border: 3px solid #f7f4ee; }
+@keyframes deal { from { opacity: 0; transform: translateY(-16px) rotate(-6deg); } }
+
+/* Relations : affection + confiance */
+.duo { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; align-items: center; margin-top: 4px; font-size: 10px; color: var(--faint); }
+.duo .mini-bar { margin: 0; }
+
+@media (max-width: 900px) {
+  .phone-tab em { right: 4px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .intro-in p, .intro-go, .card { animation: none; opacity: 1; }
+}

@@ -19,6 +19,10 @@ npm run sim      # simule 300 vies au hasard pour détecter les bugs
 | `src/data/events2.js` | Événements V2 : enfance, prison, rue, millionnaire, réseau, voyages, cavale, rap, business, SMS |
 | `src/data/world.js` | Biens (voitures, bijoux, art), entreprises, rôles des contacts, destinations, missions du réseau |
 | `src/engine/economy.js` | Valeur des biens, business, réseau, voyages, cavale, casino, téléphone, santé (sport obligatoire) |
+| `src/data/events3.js` | Événements V3 : petite enfance, école, addictions, symptômes, confiance, monde, foot, politique |
+| `src/data/world2.js` | Addictions, maladies, destins des amis d'enfance, pays et situations, expatriation |
+| `src/engine/life2.js` | Addictions, maladies, confiance, services des amis, Instapic, actus, foot, blackjack, intro |
+| `src/ui/overlays3.js` | Intro animée, messages avec réponses, Instapic, actus, blackjack, santé, foot, expatriation |
 | `src/ui/overlays.js` | Téléphone, PC de la start-up, casino, choix de destination, onglet Biens, gestion du réseau |
 | `src/data/activities.js` | Actions du menu du bas : activités, crime, carrière, prison |
 | `src/data/careers.js` | Métiers, niveaux, salaires, conditions d'embauche |
