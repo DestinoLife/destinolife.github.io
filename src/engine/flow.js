@@ -10,7 +10,7 @@ import { CAREERS, canApply, dipRank } from '../data/careers.js';
 import { HOUSING, originScene } from '../data/housing.js';
 import { MILIEUX, TRAITS, TALENTS } from '../data/identity.js';
 import { randomLook } from '../data/look.js';
-import { worldTick, migrate, patrimoine } from './economy.js';
+import { worldTick, migrate, patrimoine, eco } from './economy.js';
 import { life2Tick, migrate3, DISEASES, friendService } from './life2.js';
 import { messagesTick, runPlan } from './messages.js';
 import { energieMax } from '../data/unlocks.js';
@@ -267,7 +267,9 @@ export function yearlyCosts(s) {
   return (h.vie || 7000) + (s.proprio ? h.entretien || 0 : h.loyer || 0) + kids;
 }
 export const isCrime = (s) => !!s.carriere && career(s).cat === 'crime';
-export const yearlyIncome = (s) => (inPrison(s) ? 0 : (isCrime(s) ? 0 : salary(s) * 12) + s.pension * 12);
+export const isBoss = (s) => !!s.carriere && career(s).cat === 'business';
+// Un entrepreneur n'a pas de salaire fixe : revenu « moyen attendu » ici (affichage, impôts), le vrai est tiré chaque année.
+export const yearlyIncome = (s) => (inPrison(s) ? 0 : (isCrime(s) ? 0 : isBoss(s) ? Math.round(salary(s) * 12 * 0.55 * eco(s).mult) : salary(s) * 12) + s.pension * 12);
 
 // Impôt sur le revenu (barème simplifié, par part).
 export function impot(revenu) {
@@ -311,8 +313,14 @@ export function fiscalite(s) {
 }
 
 function finances(s, rep) {
-  const inc = yearlyIncome(s);
+  let inc = yearlyIncome(s);
   const dep = yearlyCosts(s);
+  // Entrepreneur : bonnes et mauvaises années, crises, et parfois la faillite
+  if (isBoss(s) && !inPrison(s)) {
+    const k = (0.05 + Math.random() * 0.95 + (Math.random() - 0.5) * 0.6 + (s.carriere.perf || 0) / 300) * eco(s).mult;
+    inc = Math.round(salary(s) * 12 * k) + s.pension * 12;
+    if (k < 0.15 && chance(0.35)) s.queue.push('faillite_boite');
+  }
   let poche = 0;
   if (s.chezParents && s.age >= 12 && s.age < 18) poche = MILIEUX[s.milieu].poche;
   const fz = fiscalite(s);
@@ -393,10 +401,14 @@ function family(s) {
     addLog(s, `Décès de ${r.prenom} (${r.age} ans).`);
     s.stats.bonheur = clamp(s.stats.bonheur - (r.rel > 60 ? 15 : 6));
     if (r.lien === 'mere' || r.lien === 'pere') {
-      const her = Math.round(MILIEUX[s.milieu].heritage * (0.6 + Math.random() * 0.8) / Math.max(1, parentsOf(s).length + 1));
+      const brut = Math.round(MILIEUX[s.milieu].heritage * (0.6 + Math.random() * 0.8) / Math.max(1, parentsOf(s).length + 1));
+      // Droits de succession (ligne directe, simplifiés) : 100 000 € d'abattement, puis 20 % jusqu'à 1,8 M€, 40 % au-delà
+      const taxable = Math.max(0, brut - 100000);
+      const droits = Math.round(Math.min(taxable, 1700000) * 0.2 + Math.max(0, taxable - 1700000) * 0.4);
+      const her = brut - droits;
       if (her > 0 && s.age >= 18) {
         s.money += her;
-        addLog(s, `Héritage reçu : ${euros(her)}.`);
+        addLog(s, `Héritage reçu : ${euros(her)}${droits ? ` (après ${euros(droits)} de droits de succession)` : ''}.`);
       }
       if (s.chezParents && !parentsOf(s).length) s.chezParents = s.age < 18;
     }

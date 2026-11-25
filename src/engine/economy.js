@@ -46,6 +46,66 @@ export function flavorSms(s) {
   if (s.money > 500000 && chance(0.4)) sms(s, 'Numéro inconnu', pick(['On sait où tu habites. Prépare 50 000 €.', 'Salut beau gosse, on s’est vus au club ? 😘', 'Placement exclusif, rendement 40 %, appelle-moi.']), '');
 }
 
+// ---------- Conjoncture : l'économie a des cycles (croissance, récession, krach) ----------
+// mult : demande des commerces · val : valorisations des start-ups · fund : facilité à lever des fonds
+// art : variation des biens de collection · bourse : rendement moyen des actions
+export const ECO = {
+  boom: { nom: 'Boom économique', mult: 1.12, val: 1.35, fund: 1.4, art: 0.06, bourse: 0.16 },
+  croissance: { nom: 'Croissance', mult: 1.05, val: 1.1, fund: 1.15, art: 0.03, bourse: 0.08 },
+  stable: { nom: 'Économie stable', mult: 1, val: 1, fund: 1, art: 0, bourse: 0.04 },
+  recession: { nom: 'Récession', mult: 0.86, val: 0.7, fund: 0.55, art: -0.06, bourse: -0.1 },
+  krach: { nom: 'Krach boursier', mult: 0.74, val: 0.5, fund: 0.3, art: -0.2, bourse: -0.32 },
+};
+const NEXT = {
+  boom: [['boom', 35], ['croissance', 30], ['krach', 20], ['recession', 15]],
+  croissance: [['croissance', 45], ['boom', 18], ['stable', 25], ['recession', 12]],
+  stable: [['stable', 48], ['croissance', 30], ['recession', 14], ['krach', 8]],
+  recession: [['recession', 45], ['stable', 35], ['croissance', 15], ['krach', 5]],
+  krach: [['recession', 70], ['stable', 30]],
+};
+export const eco = (s) => ECO[s.eco?.phase || 'stable'];
+function ecoTick(s) {
+  s.eco ??= { phase: 'stable', ans: 0, hist: [] };
+  const prev = s.eco.phase;
+  const opts = NEXT[prev];
+  let r = Math.random() * 100;
+  let next = opts[opts.length - 1][0];
+  for (const [k, w] of opts) { if ((r -= w) <= 0) { next = k; break; } }
+  s.eco.phase = next;
+  s.eco.ans = next === prev ? s.eco.ans + 1 : 0;
+  s.eco.hist.push({ age: s.age, phase: next });
+  if (s.eco.hist.length > 12) s.eco.hist.shift();
+  // Bourse
+  if (s.bourse > 0) {
+    const rend = ECO[next].bourse + gauss() * 0.12;
+    const avant = s.bourse;
+    s.bourse = Math.max(0, Math.round(s.bourse * (1 + rend)));
+    s.bourseRend = Math.round(rend * 1000) / 10;
+    addLog(s, `Bourse : ${rend >= 0 ? '+' : ''}${s.bourseRend} % (${euros(s.bourse - avant)}).`);
+  }
+  if (next === prev || s.age < 18) return;
+  const expose = s.business.length || s.bourse > 0 || s.money > 80000 || s.biens.some((b) => ASSETS[b.id].cat !== 'Voiture');
+  if (next === 'krach' && expose) s.queue.push('krach_boursier');
+  else if (next === 'recession' && s.business.length) s.queue.push('recession_eco');
+  else if (next === 'boom') addLog(s, 'L’économie s’emballe : boom économique.');
+}
+export function bourseAction(s, act, montant) {
+  if (!adult(s)) return { r: 'Il faut être majeur pour ouvrir un compte-titres.', err: true };
+  s.bourse ||= 0;
+  if (act === 'placer') {
+    const m = montant === 'tout' ? Math.max(0, s.money) : Math.min(Number(montant), s.money);
+    if (m <= 0) return { r: 'Pas assez d’argent sur ton compte.', err: true };
+    s.money -= m;
+    s.bourse += m;
+    return { r: `${euros(m)} placés en bourse. Ça peut monter… ou chuter.`, good: true };
+  }
+  if (s.bourse <= 0) return { r: 'Tu n’as rien en bourse.', err: true };
+  const m = s.bourse;
+  s.money += m;
+  s.bourse = 0;
+  return { r: `Tu retires ${euros(m)} de la bourse.`, good: true };
+}
+
 // ---------- Biens ----------
 export function buyAsset(s, id) {
   const a = ASSETS[id];
@@ -62,23 +122,31 @@ export function sellAsset(s, uid) {
   if (i < 0) return { r: '', err: true };
   const b = s.biens[i];
   const rec = s.relations.find((r) => r.vivant && r.role === 'receleur');
-  const prix = rec ? Math.round(b.valeur * 1.15) : b.valeur;
+  // Frais de revente : un marchand prend sa commission (voitures 15 %, art et bijoux 10 %)
+  const frais = ASSETS[b.id].car ? 0.85 : 0.9;
+  const prix = Math.round(b.valeur * frais * (rec ? 1.15 : 1));
   s.money += prix;
   s.biens.splice(i, 1);
   addLog(s, `Vente : ${ASSETS[b.id].nom} pour ${euros(prix)}.`);
-  return { r: `Vendu ${euros(prix)} (${prix >= b.achat ? '+' : ''}${euros(prix - b.achat)})${rec ? ' · +15 % grâce à ton receleur' : ''}.`, good: prix >= b.achat };
+  return { r: `Vendu ${euros(prix)} (${prix >= b.achat ? '+' : ''}${euros(prix - b.achat)})${rec ? ' · +15 % grâce à ton receleur' : ' · commission du marchand déduite'}.`, good: prix >= b.achat };
 }
 export const bestCar = (s) => s.biens.filter((b) => ASSETS[b.id].car).sort((a, b) => b.valeur - a.valeur)[0];
-export const patrimoine = (s) => s.biens.reduce((t, b) => t + b.valeur, 0) + s.business.reduce((t, b) => t + b.valo, 0);
+export const bizValue = (b) => (BUSINESS[b.type].startup ? Math.round(b.valo * (b.part ?? 100) / 100) : b.valo);
+export const patrimoine = (s) => s.biens.reduce((t, b) => t + b.valeur, 0) + s.business.reduce((t, b) => t + bizValue(b), 0) + (s.bourse || 0);
 
 function assetsTick(s) {
+  const E = eco(s);
   for (const b of s.biens) {
     const a = ASSETS[b.id];
-    b.valeur = Math.max(Math.round(a.prix * 0.05), Math.round(b.valeur * (1 + a.tend + gauss() * a.vol)));
+    const cycle = a.car && b.id !== 'collection' ? 0 : E.art;
+    b.valeur = Math.max(Math.round(a.prix * 0.05), Math.round(b.valeur * (1 + a.tend + cycle + gauss() * a.vol)));
   }
 }
 
 // ---------- Entreprises ----------
+// Commerce : CA = base × niveau^0,85 × demande ; bénéfice = CA × marge brute − charges fixes (loyer, salaires).
+// Agrandir augmente le CA mais aussi les charges : ça ne rapporte que si la réputation et l'économie suivent.
+// Start-up : qualité cachée du produit (la plupart échouent), levées de fonds qui diluent ta part.
 export function createBusiness(s, type, nom) {
   const B = BUSINESS[type];
   if (!adult(s)) return { r: 'Il faut être majeur.', err: true };
@@ -87,13 +155,17 @@ export function createBusiness(s, type, nom) {
     const ok = B.cond(s);
     if (ok !== true) return { r: ok, err: true };
   }
+  if (s.business.length >= 3) return { r: 'Trois entreprises, c’est déjà beaucoup à gérer seul.', err: true };
   if (s.money < B.prix) return { r: `Il te faut ${euros(B.prix)}.`, err: true };
   s.money -= B.prix;
-  const b = { uid: s.uid++, type, nom: nom || `${B.nom} ${s.id.nom}`, niveau: 1, rep: 50, emp: B.emp, ca: B.base, benef: 0, valo: B.prix, annees: 0, hist: [], lave: 0 };
-  if (B.startup) Object.assign(b, { users: 500, mrr: 3000, burn: 6100, cash: 120000, valo: 300000 });
+  const b = { uid: s.uid++, type, nom: nom || `${B.nom} ${s.id.nom}`, niveau: 1, rep: 45 + rnd(0, 10), emp: B.emp, ca: 0, benef: 0, valo: Math.round(B.prix * 0.6), investi: B.prix, annees: 0, hist: [], lave: 0, pertes: 0 };
+  if (B.startup) {
+    const q = Math.min(1, Math.max(0, Math.random() ** 1.8 + (s.stats.intel - 50) / 400));
+    Object.assign(b, { q, users: 1500, mrr: 0, burn: 9000, cash: 110000, valo: 30000, part: 100, tour: 0, g: 0 });
+  }
   s.business.push(b);
   addLog(s, `Ouverture : ${b.nom}.`);
-  return { r: B.startup ? `${b.nom} est lancée, avec 90 000 € de love money en plus de ta mise.` : `${b.nom} ouvre ses portes !`, good: true };
+  return { r: B.startup ? `${b.nom} est lancée, avec 80 000 € de « love money » de tes proches en plus de ta mise. 9 start-ups sur 10 ne passent pas 5 ans…` : `${b.nom} ouvre ses portes ! Les premières années sont les plus dures.`, good: true };
 }
 
 export function businessAction(s, uid, act) {
@@ -107,19 +179,29 @@ export function businessAction(s, uid, act) {
   };
   switch (act) {
     case 'investir': {
+      if (b.investiAn === s.age) return { r: 'Un agrandissement par an : il faut le temps que ça tourne.', err: true };
       const c = Math.round(B.prix * 0.6 * b.niveau);
       if (!pay(c)) return { r: `Il te faut ${euros(c)}.`, err: true };
+      b.investiAn = s.age;
       b.niveau++;
+      b.investi += c;
       b.emp += Math.ceil(B.emp / 2);
-      if (B.startup) b.cash += c;
-      return { r: `Agrandissement : niveau ${b.niveau}.`, good: true };
+      if (B.startup) { b.cash += c; return { r: `Tu recrutes. Niveau ${b.niveau} : plus de dépenses, plus de vitesse… si le produit plaît.`, good: true }; }
+      return { r: `Agrandissement : niveau ${b.niveau}. Plus de clients possibles, mais plus de charges. Rentable seulement si la demande suit.`, good: true };
     }
     case 'marketing': {
+      if (b.pubAn === s.age) return { r: 'Tu as déjà lancé une campagne cette année.', err: true };
       const c = 8000 * b.niveau;
       if (!pay(c)) return { r: `Il te faut ${euros(c)}.`, err: true };
-      b.rep = clamp(b.rep + rnd(6, 14));
-      if (B.startup) b.users = Math.min(80000000, Math.round(b.users * (1.2 + Math.random() * 0.4)));
-      return { r: 'Campagne lancée. Ça fait parler.', good: true };
+      b.pubAn = s.age;
+      const gain = Math.round(rnd(4, 12) * (1 - b.rep / 120));
+      b.rep = clamp(b.rep + gain);
+      if (B.startup) {
+        const k = 1 + (0.05 + b.q * 0.35) * (0.6 + Math.random() * 0.8);
+        b.users = Math.round(b.users * k);
+        return { r: b.q < 0.25 ? 'Les inscriptions montent… puis repartent. Le produit ne retient pas les gens.' : 'La campagne amène du monde.', good: b.q >= 0.25 };
+      }
+      return { r: `Campagne lancée : réputation +${gain}.`, good: true };
     }
     case 'blanchir': {
       const cap = B.lav * b.niveau - b.lave;
@@ -127,6 +209,7 @@ export function businessAction(s, uid, act) {
       if (m <= 0) return { r: cap <= 0 ? 'Capacité de blanchiment atteinte cette année.' : 'Tu n’as pas d’argent sale à blanchir.', err: true };
       s.sale -= m;
       b.lave += m;
+      s.flags.compta_creative = true;
       s.justice.recherche = Math.max(0, s.justice.recherche - (m > 30000 ? 1 : 0));
       if (chance(B.startup ? 0.12 : 0.06)) {
         apply(s, { arrest: { motif: 'Blanchiment d’argent', peine: [1, 4] } });
@@ -135,10 +218,11 @@ export function businessAction(s, uid, act) {
       return { r: B.startup ? `${euros(m)} blanchis via de faux investisseurs dans ${b.nom}. Plus risqué qu’un resto.` : `${euros(m)} blanchis via ${b.nom}.`, good: true };
     }
     case 'vendre': {
-      s.money += b.valo;
+      const prix = Math.round(bizValue(b) * (0.88 + Math.random() * 0.14));
+      s.money += prix;
       s.business = s.business.filter((x) => x !== b);
-      addLog(s, `Revente de ${b.nom} : ${euros(b.valo)}.`);
-      return { r: `${b.nom} vendu ${euros(b.valo)}.`, good: true };
+      addLog(s, `Revente de ${b.nom} : ${euros(prix)}.`);
+      return { r: `${b.nom} vendu ${euros(prix)}${B.startup && b.part < 100 ? ` (tu détenais ${Math.round(b.part)} %)` : ''}.`, good: prix >= b.investi };
     }
     case 'lever': {
       if (!B.startup) return { r: '', err: true };
@@ -146,48 +230,76 @@ export function businessAction(s, uid, act) {
       if (s.energie <= 0) return { r: 'Plus d’énergie cette année.', err: true };
       s.energie--;
       b.leveAn = s.age;
-      if (chance(0.25 + b.users / 400000)) {
-        const m = Math.min(25000000, Math.round(b.valo * (0.15 + Math.random() * 0.1)));
+      const p = Math.min(0.8, Math.max(0.04, 0.08 + Math.max(0, b.g) * 0.9 + b.rep / 600 + (s.stats.charisme - 50) / 400) * eco(s).fund);
+      if (chance(p)) {
+        const m = Math.min(60000000, Math.round(b.valo * (0.18 + Math.random() * 0.1)));
+        b.part = Math.round(b.part * (b.valo / (b.valo + m)) * 10) / 10;
+        b.valo += m;
         b.cash += m;
-        b.valo = Math.min(400000000, Math.round(b.valo * 1.25));
-        return { r: `Levée de fonds réussie : ${euros(m)} !`, good: true };
+        b.tour++;
+        const T = ['d’amorçage', 'de série A', 'de série B', 'de série C', 'de série D'][Math.min(4, b.tour - 1)];
+        return { r: `Levée ${T} réussie : ${euros(m)} ! Tu ne détiens plus que ${Math.round(b.part)} % de ta boîte.`, good: true };
       }
-      return { r: 'Les investisseurs ne sont pas convaincus.', err: true };
+      return { r: b.g < 0.1 ? 'Les investisseurs veulent voir de la croissance. Là, ça stagne.' : 'Les investisseurs ne sont pas convaincus. Peut-être l’an prochain.', err: true };
     }
   }
   return { r: '' };
 }
 
+function faillite(s, b, txt) {
+  s.business = s.business.filter((x) => x !== b);
+  addLog(s, txt);
+  s.stats.bonheur = clamp(s.stats.bonheur - 12);
+  sms(s, 'Le mandataire judiciaire', `Liquidation judiciaire de ${b.nom}. Les actifs sont vendus pour payer les créanciers.`, 'Business');
+}
+
+const BIZ_EVENTS = ['biz_assurance', 'biz_concurrent', 'biz_bad_buzz', 'biz_vol_gerant', 'biz_prudhommes', 'biz_greve', 'biz_compta', 'biz_incendie', 'biz_rachat', 'biz_controle', 'biz_hygiene', 'biz_fournisseur'];
+const SU_EVENTS = ['su_pivot', 'su_faille', 'su_cto', 'su_rachat'];
 function businessTick(s) {
+  const E = eco(s);
   for (const b of [...s.business]) {
     const B = BUSINESS[b.type];
+    // Anciennes sauvegardes (avant v0.8)
+    b.investi ??= Math.round(B.prix * (1 + 0.3 * b.niveau * (b.niveau - 1)));
+    b.pertes ??= 0;
+    if (B.startup) { b.q ??= 0.35; b.part ??= 100; b.tour ??= 0; }
     b.annees++;
     b.lave = 0;
     if (B.startup) {
-      const growth = 1.25 + gauss() * 0.4 + b.rep / 240 + (s.stats.intel - 50) / 240;
-      const room = Math.max(0, 1 - b.users / 5000000);
-      b.users = Math.max(50, Math.round(b.users * (1 + (growth - 1) * room)));
-      b.mrr = Math.round(b.users * 3);
-      b.burn = Math.round(2500 * b.niveau + b.emp * 1200 + b.users * 0.8);
+      const pot = 40000 + b.q * b.q * 2500000;
+      b.g = Math.round(((-0.15 + b.q * 1.45 + (b.rep - 50) / 300 + (s.stats.intel - 50) / 400 + gauss() * 0.3) * (0.7 + 0.3 * E.mult)) * 100) / 100;
+      b.users = Math.max(50, Math.round(b.users * (1 + b.g * Math.max(0, 1 - b.users / pot))));
+      b.mrr = Math.round(b.users * 0.9);
+      b.burn = Math.round(6000 + b.emp * 3800 + b.users * 0.12);
       b.cash += (b.mrr - b.burn) * 12;
-      b.valo = Math.min(500000000, Math.max(50000, Math.round(b.mrr * 12 * (4 + b.rep / 30))));
       b.ca = b.mrr * 12;
       b.benef = (b.mrr - b.burn) * 12;
-      if (b.cash < 0) {
-        s.business = s.business.filter((x) => x !== b);
-        addLog(s, `${b.nom} fait faillite : plus de trésorerie.`);
-        sms(s, 'Ton associé', `C’est fini pour ${b.nom}. On a cramé toute la tréso. Désolé.`, 'Business');
-        continue;
-      }
+      const mult = Math.min(16, Math.max(1.5, 4 + b.g * 12));
+      b.valo = Math.max(Math.round(b.cash * 0.3), 20000, Math.round(b.ca * mult * E.val));
+      b.rep = clamp(b.rep + rnd(-5, 4));
+      if (b.cash < 0) { faillite(s, b, `${b.nom} fait faillite : plus de trésorerie.`); continue; }
     } else {
-      b.ca = Math.round(B.base * (0.6 + 0.4 * b.niveau) * (0.6 + b.rep / 100) * (0.8 + Math.random() * 0.45));
-      b.benef = Math.round(b.ca * B.marge * (0.6 + Math.random() * 0.8) - (chance(0.08) ? b.ca * 0.15 : 0));
-      b.valo = Math.round(B.prix * 0.8 * b.niveau + Math.max(0, b.benef) * 3);
-      b.rep = clamp(b.rep + rnd(-6, 4));
+      const demande = (0.6 + b.rep / 125) * E.mult * (0.85 + Math.random() * 0.3) * (b.choc || 1);
+      b.choc = 1;
+      b.ca = Math.round(B.base * b.niveau ** 0.8 * demande);
+      b.benef = Math.round(b.ca * B.mb - B.fixe * b.niveau ** 0.95 * (b.salaires || 1) - (b.assure ? b.investi * 0.015 : 0));
+      const moy = [...b.hist.slice(-2).map((h) => h.benef), b.benef].reduce((t, v) => t + v, 0) / (Math.min(2, b.hist.length) + 1);
+      b.valo = Math.max(0, Math.round(b.investi * 0.3 + Math.max(0, moy) * 3.5 * E.val ** 0.5));
+      b.rep = clamp(Math.round(b.rep + (50 - b.rep) * 0.12 + rnd(-4, 3)));
       if (s.justice.prison === 0) s.money += b.benef;
+      else b.benef = Math.round(b.benef * 0.5) - 10000;
+      b.pertes = b.benef < 0 ? b.pertes + 1 : 0;
+      if (b.pertes >= 3 || (b.pertes >= 2 && s.money < 0)) { faillite(s, b, `${b.nom} est en liquidation après ${b.pertes} années de pertes.`); continue; }
     }
     b.hist.push({ age: s.age, ca: b.ca, benef: b.benef, users: b.users });
     if (b.hist.length > 12) b.hist.shift();
+  }
+  // Un imprévu par an pour un patron (pas systématique)
+  const actifs = s.business.filter((x) => x.annees >= 1);
+  if (actifs.length && s.justice.prison === 0 && chance(0.6)) {
+    const b = pick(actifs);
+    s.mem.biz = b.uid;
+    s.queue.push(pick(BUSINESS[b.type].startup ? SU_EVENTS : BIZ_EVENTS));
   }
 }
 
@@ -249,6 +361,10 @@ export function networkAction(s, act, arg) {
   const ok = chance(m.p + s.stats.crime / 400 + s.stats.reputation / 500);
   n.chaleur = clamp(n.chaleur + rnd(3, 10));
   if (!ok) {
+    if (m.id === 'go_fast' && chance(0.5)) {
+      apply(s, { arrest: { motif: 'Importation de stupéfiants', peine: [4, 10] } });
+      return { r: 'Go-fast intercepté par les douanes sur l’A7. La voiture était pleine.', err: true };
+    }
     if (chance(0.35)) apply(s, { recherche: 1, motif: 'Trafic de stupéfiants' });
     if (m.id === 'rival' && chance(0.3)) apply(s, { sante: -25 });
     return { r: `Mission ratée : ${m.nom.toLowerCase()}.`, err: true };
@@ -264,7 +380,7 @@ export function networkAction(s, act, arg) {
   }
   if (m.id === 'flic') n.chaleur = clamp(n.chaleur - 30);
   if (m.id === 'go_fast') {
-    const g = rnd(60000, 140000);
+    const g = rnd(35000, 90000);
     s.money += g;
     s.sale += g;
   }
@@ -275,19 +391,22 @@ function networkTick(s) {
   const n = s.reseau;
   if (!n || s.justice.prison > 0) return;
   const f = s.relations.find((r) => r.id === n.fournisseur && r.vivant);
-  const vente = f ? Math.min(n.vendeurs, n.points * 3) * 48000 * f.qualite * (n.boost || 1) : n.vendeurs * 3000;
+  // Plus tu as de points, plus la concurrence et la pression policière rognent chaque point
+  const vente = f ? Math.min(n.vendeurs, n.points * 3) * 44000 * f.qualite * (n.boost || 1) * (1 / (1 + 0.15 * (n.points - 1))) : n.vendeurs * 3000;
   const achat = f ? vente * 0.3 * f.tarif : 0;
   const salaires = n.guetteurs * 6000 + n.vendeurs * 9000;
   n.boost = 1;
   const net = Math.round(vente - achat - salaires);
   s.money += net;
   s.sale += Math.max(0, net);
-  n.chaleur = clamp(n.chaleur + n.points * 7 - n.guetteurs * 3 + rnd(-4, 6));
+  n.chaleur = clamp(n.chaleur + n.points * 8 - n.guetteurs * 2 + rnd(-4, 8));
   n.hist.push({ age: s.age, net });
   if (n.hist.length > 10) n.hist.shift();
   addLog(s, `Réseau : ${net >= 0 ? '+' : ''}${euros(net)} sur l’année.`);
-  if (chance(n.chaleur / 200)) s.queue.unshift('descente_reseau');
+  if (chance(n.chaleur / 150)) s.queue.unshift('descente_reseau');
   if (chance(n.chaleur / 500)) s.queue.push('rivaux');
+  if (n.points >= 2 && chance(0.08 * n.points)) s.queue.push('guerre_gangs');
+  if (n.chaleur >= 45 && chance(0.25)) s.queue.push(chance(0.5) ? 'enquete_ofast' : 'indic_equipe');
   if (f && chance((1 - f.fiab) * 0.5)) s.queue.push('fournisseur_trahit');
 }
 
@@ -415,6 +534,7 @@ function cavaleTick(s) {
 
 // Appelé une fois par an par le moteur.
 export function worldTick(s) {
+  ecoTick(s);
   assetsTick(s);
   businessTick(s);
   networkTick(s);

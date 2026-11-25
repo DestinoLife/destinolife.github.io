@@ -20,7 +20,7 @@ import { HOUSING, SCENE_NOM, originScene } from './data/housing.js';
 import { ORIGINES, VILLES, MILIEUX, TRAITS, TALENTS, STATUTS } from './data/identity.js';
 import { SKINS, HAIR_COLORS, EYES, HAIRSTYLES, BEARDS, BUILDS, STYLES, ACCS, FOULARDS } from './data/look.js';
 import { save, load, clearSave } from './engine/save.js';
-import { migrate, buyAsset, sellAsset, createBusiness, businessAction, networkAction, travel, flee, roulette, slots, moveCity, readAll, bestCar, patrimoine, ASSETS } from './engine/economy.js';
+import { migrate, buyAsset, sellAsset, createBusiness, businessAction, networkAction, travel, flee, roulette, slots, moveCity, readAll, bestCar, patrimoine, ASSETS , bourseAction } from './engine/economy.js';
 import { checkAchievements, achievementsSummary } from './engine/achievements.js';
 import { guideHTML, guideSteps, positionGuide, hasSeenGuide, markGuideDone, achievementsModalHTML } from './ui/guide.js';
 import { phoneHTML, pcHTML, casinoHTML, travelHTML, biensHTML, crimeHubHTML } from './ui/overlays.js';
@@ -532,6 +532,11 @@ function handle(a, v, el) {
     case 'tipsoff':
       S.tipsOff = true;
       return updateGame();
+    case 'bourse': {
+      const r = bourseAction(S, v, el.dataset.x);
+      toast(r.r, r.err ? 'err' : 'good');
+      return updateGame();
+    }
     case 'changelog':
       return showChangelog();
     case 'bug':

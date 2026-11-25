@@ -10,6 +10,7 @@ import { MILIEUX } from './identity.js';
 import { EVENTS2 } from './events2.js';
 import { EVENTS3 } from './events3.js';
 import { EVENTS4 } from './events4.js';
+import { EVENTS5 } from './events5.js';
 
 const P = (s) => s.justice.prison > 0;
 const job = (s, id) => s.carriere?.id === id;
@@ -280,7 +281,7 @@ export const EVENTS = [
     { t: 'Médecines alternatives', out: [{ p: 0.15, fx: { sante: 5 }, r: 'Contre toute attente, tu vas mieux.' }, { p: 1, fx: { sante: -25 }, r: 'Tu as perdu un temps précieux.' }] },
   ] },
   { id: 'crypto', cat: 'Argent', age: [18, 65], cond: (s) => s.money >= 3000, w: 0.6, txt: '{ami} jure qu’une nouvelle crypto va faire x100. « Faut investir maintenant, frère. »', ch: [
-    { t: 'Mettre la moitié de ton argent', fx: (s) => ((s.tmp.x = Math.round(s.money / 2)), {}), out: [{ p: 0.12, fx: (s) => ({ money: s.tmp.x * 7 }), r: 'Jackpot ! x8. Tu encaisses au bon moment.' }, { p: 0.3, fx: (s) => ({ money: Math.round(s.tmp.x * 0.4) }), r: 'Petit gain. Tu sors à temps.' }, { p: 1, fx: (s) => ({ money: -s.tmp.x, bonheur: -8 }), r: 'Rug pull. La crypto vaut zéro.' }] },
+    { t: 'Mettre la moitié de ton argent', fx: (s) => ((s.tmp.x = Math.round(s.money / 2)), {}), out: [{ p: 0.04, fx: (s) => ({ money: s.tmp.x * 3 }), r: 'Jackpot ! x4. Tu encaisses au bon moment.' }, { p: 0.25, fx: (s) => ({ money: Math.round(s.tmp.x * 0.3) }), r: 'Petit gain. Tu sors à temps.' }, { p: 1, fx: (s) => ({ money: -Math.round(s.tmp.x * 0.9), bonheur: -8 }), r: 'Rug pull. La crypto ne vaut presque plus rien.' }] },
     { t: 'Passer ton tour', r: 'Six mois plus tard, {ami} ne parle plus de crypto.' },
   ] },
   { id: 'startup', cat: 'Business', age: [20, 55], once: 1, cond: (s) => (st(s, 'intel') >= 58 || s.talent === 'business' || s.talent === 'tech') && !job(s, 'entrepreneur') && !cat(s, 'crime') && !P(s),
@@ -589,5 +590,5 @@ function arrive(s, extra) {
   return extra;
 }
 
-EVENTS.push(...EVENTS2, ...EVENTS3, ...EVENTS4);
+EVENTS.push(...EVENTS2, ...EVENTS3, ...EVENTS4, ...EVENTS5);
 export const EV = Object.fromEntries(EVENTS.map((e) => [e.id, e]));

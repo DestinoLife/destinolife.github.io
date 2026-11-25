@@ -1,6 +1,18 @@
 # Notes de mise à jour de Destino
 
-Version actuelle : **v0.7**. Ces notes sont aussi visibles dans le jeu (écran titre, « Notes de mise à jour »).
+Version actuelle : **v0.8**. Ces notes sont aussi visibles dans le jeu (écran titre, « Notes de mise à jour »).
+
+## v0.8 · La mise à jour « Économie réelle »
+
+- Audit complet de l’économie : devenir riche est possible, mais plus garanti (fini les 500 millions en 4 parties)
+- Cycles économiques : croissance, boom, récession et krach boursier touchent tes ventes, tes biens et tes levées de fonds
+- Bourse : place ton argent dans l’onglet Biens. En moyenne ça rapporte, mais un krach peut coûter 30 % en un an
+- Commerces réalistes : charges fixes (loyer, salaires), années de pertes, liquidation après 3 ans dans le rouge. Agrandir ne rapporte que si la réputation et l’économie suivent
+- Plus de 15 imprévus pour les patrons : concurrent, bad buzz, gérant qui vole, prud’hommes, grève, incendie, contrôle fiscal, hygiène, offre de rachat, assurance…
+- Start-ups : la plupart échouent. Chaque levée de fonds dilue ta part, possibilité de pivoter, faille de sécurité, CTO qui veut des parts, offre de rachat par un géant
+- Métier Entrepreneur : revenus variables selon les années et la conjoncture, faillite possible (fini le salaire fixe de 1,5 M€ par an)
+- Côté illégal : guerres de territoire, enquête des stups (OFAST), indic dans l’équipe, go-fast qui finit en prison, saisie des avoirs criminels en cas de condamnation
+- Héritage soumis aux droits de succession, crypto perdante en moyenne, commission du marchand à la revente des biens
 
 ## v0.7 · La mise à jour « Grandir »
 

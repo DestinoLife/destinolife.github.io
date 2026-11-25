@@ -2,7 +2,7 @@
 import { icon } from './icons.js';
 import { euros } from '../engine/rng.js';
 import { fmtHeure } from '../engine/time.js';
-import { ASSETS, BUSINESS, ROLES, MISSIONS, destsFor, patrimoine, contactsOf } from '../engine/economy.js';
+import { ASSETS, BUSINESS, ROLES, MISSIONS, destsFor, patrimoine, contactsOf, eco, ECO, bizValue } from '../engine/economy.js';
 import { lienNom } from '../engine/core.js';
 import { relActions, impot, legalIncome } from '../engine/flow.js';
 import { messagesHTML, instaHTML, actusHTML, blackjackHTML, destinLabel } from './overlays3.js';
@@ -69,9 +69,9 @@ export function bizCard(b, compact) {
   const B = BUSINESS[b.type];
   const hist = b.hist.map((h) => (B.startup ? h.users || 0 : h.benef));
   const stats = B.startup
-    ? `<dl class="kv"><dt>Utilisateurs</dt><dd>${(b.users || 0).toLocaleString('fr-FR')}</dd><dt>Revenu mensuel</dt><dd>${euros(b.mrr || 0)}</dd><dt>Dépenses mensuelles</dt><dd>${euros(b.burn || 0)}</dd><dt>Trésorerie</dt><dd style="color:${b.cash < 50000 ? 'var(--bad)' : 'inherit'}">${euros(b.cash || 0)}</dd><dt>Autonomie</dt><dd>${b.burn > b.mrr ? `${Math.max(0, Math.floor((b.cash || 0) / (b.burn - b.mrr)))} mois` : 'Rentable'}</dd><dt>Valorisation</dt><dd>${euros(b.valo)}</dd></dl>`
-    : `<dl class="kv"><dt>Chiffre d’affaires</dt><dd>${euros(b.ca)}</dd><dt>Bénéfice annuel</dt><dd style="color:${b.benef >= 0 ? 'var(--good)' : 'var(--bad)'}">${euros(b.benef)}</dd><dt>Employés</dt><dd>${b.emp}</dd><dt>Réputation</dt><dd>${b.rep}/100</dd><dt>Valeur</dt><dd>${euros(b.valo)}</dd></dl>`;
-  const acts = compact ? '' : `<div class="chips">${[['investir', `Agrandir (${euros(Math.round(B.prix * 0.6 * b.niveau))})`], ['marketing', `Marketing (${euros(8000 * b.niveau)})`], ...(B.lav ? [['blanchir', 'Blanchir']] : []), ...(B.startup ? [['lever', 'Lever des fonds'], ['pc', 'Ouvrir le PC']] : []), ['vendre', `Vendre (${euros(b.valo)})`]].map(([a, t]) => `<button class="chip" data-a="${a === 'pc' ? 'pc' : 'biz'}" data-v="${b.uid}" data-x="${a}">${t}</button>`).join('')}</div>`;
+    ? `<dl class="kv"><dt>Ta part</dt><dd>${Math.round(b.part ?? 100)} %${b.tour ? ` · ${b.tour} levée${b.tour > 1 ? 's' : ''}` : ''}</dd><dt>Croissance</dt><dd style="color:${(b.g || 0) >= 0.2 ? 'var(--good)' : (b.g || 0) < 0.05 ? 'var(--bad)' : 'inherit'}">${b.annees ? `${(b.g || 0) >= 0 ? '+' : ''}${Math.round((b.g || 0) * 100)} %/an` : '—'}</dd><dt>Utilisateurs</dt><dd>${(b.users || 0).toLocaleString('fr-FR')}</dd><dt>Revenu mensuel</dt><dd>${euros(b.mrr || 0)}</dd><dt>Dépenses mensuelles</dt><dd>${euros(b.burn || 0)}</dd><dt>Trésorerie</dt><dd style="color:${b.cash < 50000 ? 'var(--bad)' : 'inherit'}">${euros(b.cash || 0)}</dd><dt>Autonomie</dt><dd>${b.burn > b.mrr ? `${Math.max(0, Math.floor((b.cash || 0) / (b.burn - b.mrr)))} mois` : 'Rentable'}</dd><dt>Valorisation</dt><dd>${euros(b.valo)}</dd></dl>`
+    : `<dl class="kv"><dt>Chiffre d’affaires</dt><dd>${euros(b.ca)}</dd><dt>Bénéfice annuel</dt><dd style="color:${b.benef >= 0 ? 'var(--good)' : 'var(--bad)'}">${euros(b.benef)}</dd><dt>Employés</dt><dd>${b.emp}</dd><dt>Réputation</dt><dd>${b.rep}/100</dd><dt>Valeur de revente</dt><dd>${euros(b.valo)}</dd>${b.pertes ? `<dt>Années de pertes</dt><dd style="color:var(--bad)">${b.pertes} · liquidation à 3</dd>` : ''}<dt>Assurance</dt><dd>${b.assure ? 'Oui' : 'Non'}</dd></dl>`;
+  const acts = compact ? '' : `<div class="chips">${[['investir', `Agrandir (${euros(Math.round(B.prix * 0.6 * b.niveau))})`], ['marketing', `Marketing (${euros(8000 * b.niveau)})`], ...(B.lav ? [['blanchir', 'Blanchir']] : []), ...(B.startup ? [['lever', 'Lever des fonds'], ['pc', 'Ouvrir le PC']] : []), ['vendre', `Vendre (~${euros(bizValue(b))})`]].map(([a, t]) => `<button class="chip" data-a="${a === 'pc' ? 'pc' : 'biz'}" data-v="${b.uid}" data-x="${a}">${t}</button>`).join('')}</div>`;
   return `<div class="biz"><div class="biz-h"><b>${esc(b.nom)}</b><small>${B.nom} · niv. ${b.niveau} · ${b.annees} an${b.annees > 1 ? 's' : ''}</small></div>${stats}${hist.length > 1 ? `<div class="lbl" style="margin:8px 0 4px">${B.startup ? 'Croissance des utilisateurs' : 'Bénéfice par année'}</div>${spark(hist, B.startup ? '#5ff5d0' : '#ffd36e')}` : ''}${acts}</div>`;
 }
 
@@ -128,6 +128,24 @@ export function travelHTML(S, mode) {
 }
 
 // ---------- Onglet Biens ----------
+const ECO_TXT = {
+  boom: 'Tout monte : ventes, valorisations, bourse. Attention, les booms finissent souvent en krach.',
+  croissance: 'Bonne période pour développer ton business et lever des fonds.',
+  stable: 'Rien de particulier. Les bons gestionnaires font la différence.',
+  recession: 'Les clients dépensent moins, les investisseurs ferment le robinet. Prudence.',
+  krach: 'Les marchés s’effondrent. Les prix sont bas… pour ceux qui ont du cash.',
+};
+function ecoBlock(S) {
+  const ph = S.eco?.phase || 'stable';
+  const E = ECO[ph];
+  const col = { boom: 'var(--good)', croissance: 'var(--good)', stable: 'var(--muted)', recession: 'var(--warn)', krach: 'var(--bad)' }[ph];
+  const b = S.bourse || 0;
+  const amounts = [1000, 10000, 100000].filter((m) => m <= S.money);
+  return `<div class="sec"><h3>Économie et bourse</h3>
+    <div class="note"><b style="color:${col}">${E.nom}</b> · ${ECO_TXT[ph]}</div>
+    <div class="li"><div class="grow"><b>Compte-titres</b><small>${b ? `${euros(b)} placés${S.bourseRend != null ? ` · l’an dernier ${S.bourseRend >= 0 ? '+' : ''}${S.bourseRend} %` : ''}` : 'Rien de placé. En moyenne ça rapporte, mais un krach peut te coûter 30 % en une année.'}</small></div>${b ? '<button class="btn sm" data-a="bourse" data-v="retirer">Tout retirer</button>' : ''}</div>
+    ${amounts.length ? `<div class="chips">${amounts.map((m) => `<button class="chip" data-a="bourse" data-v="placer" data-x="${m}">Placer ${euros(m)}</button>`).join('')}</div>` : ''}</div>`;
+}
 export function biensHTML(S, housingBlock) {
   if (S.age < 18) return `<div class="note">Tu es mineur : pas de compte en banque, seulement ${euros(S.money)} d’argent de poche. Les achats et les business, ce sera à 18 ans.</div>${housingBlock}`;
   const p = patrimoine(S);
@@ -141,6 +159,7 @@ export function biensHTML(S, housingBlock) {
   const open = Object.entries(BUSINESS).map(([id, B]) => `<div class="li ${S.money >= B.prix ? '' : 'off'}"><div class="grow"><b>${B.nom}</b><small>${B.desc}${B.lav ? ` · blanchit ${euros(B.lav)}/an` : ''}</small></div><button class="btn sm ${S.money >= B.prix ? '' : 'off'}" data-a="openbiz" data-v="${id}">${euros(B.prix)}</button></div>`).join('');
   const villes = ['Paris', 'Marseille', 'Lyon', 'Nice', 'Bordeaux', 'Lille', 'Toulouse', 'Montpellier', 'Nantes', 'Strasbourg'].filter((v) => v !== S.id.ville);
   return `<div class="ph-card wide"><small>Patrimoine total</small><b>${euros(p + S.money)}</b><span>Compte ${euros(S.money)} · biens et business ${euros(p)}${S.sale ? ` · à blanchir ${euros(S.sale)}` : ''}</span></div>
+    ${ecoBlock(S)}
     <div class="sec"><h3>Mes biens</h3><div class="list">${own || '<div class="note">Aucun bien pour l’instant.</div>'}</div></div>
     <div class="sec"><h3>Mes entreprises</h3>${biz || '<div class="note">Aucune entreprise. Un restaurant ou un snack permet aussi de blanchir l’argent sale.</div>'}</div>
     <div class="sec"><h3>Ouvrir un business</h3><div class="list">${open}</div></div>

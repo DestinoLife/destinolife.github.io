@@ -150,6 +150,16 @@ export function condamne(s, factor) {
   }
   s.justice.prison = y;
   s.justice.peineTotale = y;
+  // Saisie des avoirs criminels (AGRASC) : l'argent sale et une partie du compte sont confisqués
+  if (/stup|blanchi|trafic|importation|fraude|escroquerie|braquage/i.test(p.motif) && (s.sale > 0 || s.money > 20000)) {
+    const saisie = Math.round(Math.min(Math.max(0, s.money), (s.sale || 0) + Math.max(0, s.money - (s.sale || 0)) * 0.3));
+    if (saisie > 0) {
+      s.money -= saisie;
+      s.sale = 0;
+      addLog(s, `Saisie des avoirs criminels : ${euros(saisie)} confisqués par la justice.`);
+      s.tmp.saisie = saisie;
+    }
+  }
   s.lieu = null;
   if (s.carriere && career(s).cat !== 'crime') setCareer(s, null);
   if (partnerOf(s) && chance(0.35)) {

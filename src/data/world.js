@@ -19,12 +19,12 @@ export const ASSETS = {
 // ---------- Entreprises ----------
 // base : chiffre d'affaires annuel de départ, marge : part qui reste en bénéfice, lav : blanchiment max par an.
 export const BUSINESS = {
-  resto: { nom: 'Restaurant', prix: 90000, base: 210000, marge: 0.12, lav: 70000, emp: 6, scene: 'appart', desc: 'Idéal pour blanchir' },
-  vetements: { nom: 'Magasin de vêtements', prix: 70000, base: 170000, marge: 0.16, lav: 50000, emp: 4, scene: 'appart', desc: 'Ta propre marque streetwear' },
-  garage: { nom: 'Garage automobile', prix: 60000, base: 150000, marge: 0.15, lav: 60000, emp: 4, scene: 'chantier', desc: 'Revente de voitures, pièces' },
-  salle: { nom: 'Salle de sport', prix: 120000, base: 190000, marge: 0.2, lav: 40000, emp: 5, scene: 'stade', desc: 'Abonnements récurrents' },
-  kebab: { nom: 'Snack / kebab', prix: 35000, base: 110000, marge: 0.14, lav: 45000, emp: 3, scene: 'rue', desc: 'Cash, beaucoup de cash' },
-  label: { nom: 'Label de musique', prix: 150000, base: 120000, marge: 0.25, lav: 30000, emp: 5, scene: 'studio', desc: 'Signe des artistes', cond: (s) => s.carriere?.id === 'rappeur' || s.stats.notoriete >= 50 || 'Il faut être connu dans la musique.' },
+  resto: { nom: 'Restaurant', prix: 90000, base: 210000, mb: 0.45, fixe: 70000, marge: 0.12, lav: 70000, emp: 6, scene: 'appart', desc: 'Idéal pour blanchir' },
+  vetements: { nom: 'Magasin de vêtements', prix: 70000, base: 170000, mb: 0.5, fixe: 60000, marge: 0.16, lav: 50000, emp: 4, scene: 'appart', desc: 'Ta propre marque streetwear' },
+  garage: { nom: 'Garage automobile', prix: 60000, base: 150000, mb: 0.5, fixe: 53000, marge: 0.15, lav: 60000, emp: 4, scene: 'chantier', desc: 'Revente de voitures, pièces' },
+  salle: { nom: 'Salle de sport', prix: 120000, base: 190000, mb: 0.6, fixe: 84000, marge: 0.2, lav: 40000, emp: 5, scene: 'stade', desc: 'Abonnements récurrents' },
+  kebab: { nom: 'Snack / kebab', prix: 35000, base: 110000, mb: 0.5, fixe: 41000, marge: 0.14, lav: 45000, emp: 3, scene: 'rue', desc: 'Cash, beaucoup de cash' },
+  label: { nom: 'Label de musique', prix: 150000, base: 140000, mb: 0.62, fixe: 62000, marge: 0.25, lav: 30000, emp: 5, scene: 'studio', desc: 'Signe des artistes', cond: (s) => s.carriere?.id === 'rappeur' || s.stats.notoriete >= 50 || 'Il faut être connu dans la musique.' },
   startup: { nom: 'Start-up tech', prix: 30000, base: 0, marge: 0, lav: 25000, emp: 3, scene: 'bureau', desc: 'Utilisateurs, levées de fonds, licorne ?', startup: true },
 };
 
@@ -58,9 +58,9 @@ export const DESTS = [
 
 // ---------- Réseau (trafic géré comme un business) ----------
 export const MISSIONS = [
-  { id: 'point', nom: 'Ouvrir un nouveau point', desc: 'Plus de vente, plus de chaleur', cout: 15000, p: 0.7 },
+  { id: 'point', nom: 'Ouvrir un nouveau point', desc: 'Plus de vente, beaucoup plus de chaleur', cout: 25000, p: 0.6 },
   { id: 'dette', nom: 'Récupérer une dette', desc: 'Un client doit 8 000 €', cout: 0, p: 0.6 },
   { id: 'rival', nom: 'Intimider un réseau rival', desc: 'Récupérer leur territoire', cout: 5000, p: 0.45 },
   { id: 'flic', nom: 'Corrompre un policier', desc: 'Baisse la chaleur', cout: 20000, p: 0.55 },
-  { id: 'go_fast', nom: 'Organiser un go-fast', desc: 'Gros stock depuis l’Espagne', cout: 30000, p: 0.6 },
+  { id: 'go_fast', nom: 'Organiser un go-fast', desc: 'Gros stock depuis l’Espagne · prison si ça rate', cout: 30000, p: 0.5 },
 ];
