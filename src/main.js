@@ -52,9 +52,11 @@ const VB = '0 0 1000 560';
 function worldHTML(sceneKey, env, av, uid = 'pl', fade = true) {
   return `<svg class="world" data-a="closeall" viewBox="${VB}" preserveAspectRatio="xMidYMax slice" role="img" aria-label="${SCENE_NOM[sceneKey] || 'Scène'}">
     <g id="bg" class="${fade ? 'fade-in' : ''}">${sceneSVG(sceneKey, env)}</g>
+    </svg><div class="rainfx ${env.meteo === 'pluie' ? 'on' : ''}" id="rain"></div>
+    <svg class="world fg" data-a="closeall" viewBox="${VB}" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
     <g id="props"></g>
     <g id="pl" transform="translate(500 506)">${av ? avatarSVG(av, uid) : ''}</g>
-    </svg><div class="rainfx ${env.meteo === 'pluie' ? 'on' : ''}" id="rain"></div>`;
+    </svg>`;
 }
 let lastBg = '', lastAv = '', lastProps = '';
 const INDOOR = ['casino', 'bureau', 'studio', 'prison'];

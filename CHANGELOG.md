@@ -1,6 +1,12 @@
 # Notes de mise à jour de Destino
 
-Version actuelle : **v0.9**. Ces notes sont aussi visibles dans le jeu (écran titre, « Notes de mise à jour »).
+Version actuelle : **v0.9.1**. Ces notes sont aussi visibles dans le jeu (écran titre, « Notes de mise à jour »).
+
+## v0.9.1 · Corrections visuelles
+
+- La pluie tombe derrière les personnages au lieu de passer devant eux
+- Les voitures qui passent roulent sur la chaussée au lieu de flotter, et l’ombre des voitures est sous les roues
+- Coiffures recalées sur la tête : moins de volume au-dessus du front, racine des cheveux plus naturelle (fini le gros crâne avec le chignon, la queue et les tresses)
 
 ## v0.9 · La mise à jour « Tentations »
 

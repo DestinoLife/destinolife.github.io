@@ -1,7 +1,12 @@
 // Notes de mise à jour affichées dans le jeu (même contenu que CHANGELOG.md).
-export const VERSION = 'v0.9';
+export const VERSION = 'v0.9.1';
 
 export const CHANGELOG = [
+  { v: 'v0.9.1', titre: 'Corrections visuelles', items: [
+    'La pluie tombe derrière les personnages au lieu de passer devant eux',
+    'Les voitures qui passent roulent sur la chaussée au lieu de flotter, et l’ombre des voitures est sous les roues',
+    'Coiffures recalées sur la tête : moins de volume au-dessus du front, racine des cheveux plus naturelle (fini le gros crâne avec le chignon, la queue et les tresses)',
+  ] },
   { v: 'v0.9', titre: 'La mise à jour « Tentations »', items: [
     'Devenir millionnaire est beaucoup plus dur : un artiste talentueux n’y arrive plus à coup sûr (30 % à 55 ans au lieu de 100 %), un footballeur doué non plus (34 % au lieu de 91 %)',
     'Musique : chaque son est un pari (flop, succès moyen ou tube), le public se lasse si tu sors trop de sons, et la célébrité s’use vite si tu ne produis plus',

@@ -79,6 +79,12 @@ function babySVG(p, u) {
   </g>`;
 }
 
+// Les coiffures sont dessinées pour la tête large : on les recale sur le visage (plus fin chez les femmes)
+const fitHair = (hr, f) => {
+  const t = f ? 'translate(0 1) scale(.9 .9)' : 'translate(0 1) scale(.98 .93)';
+  return { back: hr.back && `<g transform="${t}">${hr.back}</g>`, front: hr.front && `<g transform="${t}">${hr.front}</g>` };
+};
+
 // ---------- Cheveux (repère de la tête : centre 0,0) ----------
 function hair(style, c, u, f) {
   const H = `url(#${u}hr)`;
@@ -112,19 +118,19 @@ function hair(style, c, u, f) {
     case 'queue':
       return {
         back: `<path d="M28 -40 Q66 -32 54 24 Q50 46 38 34 Q46 2 24 -28Z" fill="${H}"/>`,
-        front: `<path d="M-37 -6 Q-40 -56 0 -56 Q40 -56 37 -6 Q32 -38 0 -40 Q-32 -38 -37 -6Z" fill="${H}"/>${shine}`,
+        front: `<path d="M-37 -6 Q-40 -56 0 -56 Q40 -56 37 -6 Q34 -28 14 -32 Q0 -29 -14 -32 Q-34 -28 -37 -6Z" fill="${H}"/>${shine}`,
       };
     case 'tresses': {
       const br = [-36, -24, 24, 36].map((x) => `<rect x="${x - 5}" y="-22" width="10" height="${f ? 96 : 70}" rx="5" fill="${H}"/>`).join('');
       return {
         back: br,
-        front: `<path d="M-37 -6 Q-40 -56 0 -56 Q40 -56 37 -6 Q32 -38 0 -40 Q-32 -38 -37 -6Z" fill="${H}"/><path d="M-20 -50 Q-26 -28 -34 -8 M-6 -55 Q-8 -40 -12 -40 M8 -55 Q10 -40 12 -40 M20 -50 Q26 -28 34 -8" stroke="${dk}" stroke-width="2.2" fill="none"/>`,
+        front: `<path d="M-37 -6 Q-40 -56 0 -56 Q40 -56 37 -6 Q34 -28 14 -32 Q0 -29 -14 -32 Q-34 -28 -37 -6Z" fill="${H}"/><path d="M-20 -50 Q-26 -28 -34 -8 M-6 -55 Q-8 -40 -12 -40 M8 -55 Q10 -40 12 -40 M20 -50 Q26 -28 34 -8" stroke="${dk}" stroke-width="2.2" fill="none"/>`,
       };
     }
     case 'chignon':
       return {
         back: `<circle cx="0" cy="-58" r="16" fill="${H}"/>`,
-        front: `<path d="M-37 -6 Q-40 -56 0 -56 Q40 -56 37 -6 Q32 -38 0 -40 Q-32 -38 -37 -6Z" fill="${H}"/>${shine}`,
+        front: `<path d="M-37 -6 Q-40 -56 0 -56 Q40 -56 37 -6 Q34 -28 14 -32 Q0 -29 -14 -32 Q-34 -28 -37 -6Z" fill="${H}"/>${shine}`,
       };
     case 'rase':
       return { front: `<path d="M-37 -6 Q-40 -52 0 -52 Q40 -52 37 -6 Q32 -36 0 -38 Q-32 -36 -37 -6Z" fill="${dk}" opacity=".5"/>` };
@@ -284,7 +290,7 @@ export function avatarSVG(p, u = 'av') {
   const build = (BUILDS.find((b) => b[0] === look.corpulence) || BUILDS[1])[2];
   const hy = bs * -258 - 34 * hs;
   const style = look.coiffure;
-  const hr = style === 'foulard' && age >= 10 ? foulard(look.foulardC) : hair(style === 'foulard' ? 'long' : style, hairC, u, f);
+  const hr = style === 'foulard' && age >= 10 ? foulard(look.foulardC) : fitHair(hair(style === 'foulard' ? 'long' : style, hairC, u, f), f);
   const sk = p.etat?.pale ? mix(look.peau, '#cfc7bd', 0.32) : look.peau;
   const defs = `<defs>
     <radialGradient id="${u}sk" cx=".42" cy=".36" r=".72"><stop offset="0" stop-color="${shade(sk, 0.12)}"/><stop offset=".7" stop-color="${sk}"/><stop offset="1" stop-color="${shade(sk, -0.25)}"/></radialGradient>
@@ -319,7 +325,7 @@ export function miniAvatarSVG(p, u = 'm') {
   if (age >= 72) hairC = '#d9d9de';
   else if (age >= 56) hairC = mix(hairC, '#bfbfc7', 0.55);
   const P = { look, f, age, hairC, etat: {} };
-  const hr = look.coiffure === 'foulard' && age >= 10 ? foulard(look.foulardC) : hair(look.coiffure === 'foulard' ? 'long' : look.coiffure, hairC, u, f);
+  const hr = look.coiffure === 'foulard' && age >= 10 ? foulard(look.foulardC) : fitHair(hair(look.coiffure === 'foulard' ? 'long' : look.coiffure, hairC, u, f), f);
   const defs = `<defs>
     <radialGradient id="${u}sk" cx=".42" cy=".36" r=".72"><stop offset="0" stop-color="${shade(look.peau, 0.12)}"/><stop offset=".7" stop-color="${look.peau}"/><stop offset="1" stop-color="${shade(look.peau, -0.25)}"/></radialGradient>
     <linearGradient id="${u}hr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${shade(hairC, 0.12)}"/><stop offset="1" stop-color="${shade(hairC, -0.4)}"/></linearGradient>

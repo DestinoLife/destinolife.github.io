@@ -73,7 +73,7 @@ export function carSVG(x, y, c, k = 1, type = 'citadine') {
     sport: `<path d="M-104 -12 Q-104 -28 -84 -32 L-40 -52 Q-20 -60 20 -58 Q56 -56 84 -36 L102 -30 Q110 -26 108 -12 L108 -8 L-104 -8Z" fill="${c}"/><path d="M-30 -50 Q-14 -56 18 -54 L40 -36 H-46Z" fill="${glass}"/><path d="M-104 -20 L108 -20" stroke="#000" stroke-width="2" opacity=".3"/><rect x="-108" y="-36" width="18" height="6" rx="2" fill="#111"/>${wheel(-62, 15)}${wheel(66, 15)}`,
     collection: `<path d="M-96 -12 Q-98 -30 -80 -36 Q-70 -40 -58 -40 Q-40 -72 6 -72 Q44 -72 58 -42 Q86 -40 98 -30 Q104 -22 100 -10 L-96 -10Z" fill="${c}"/><path d="M-44 -44 Q-30 -66 2 -66 V-44Z M10 -66 Q38 -66 48 -44 H10Z" fill="${glass}"/><path d="M-96 -16 H100" stroke="#d8d8d8" stroke-width="3"/>${wheel(-56, 17)}${wheel(60, 17)}`,
   }[type] || '';
-  return `<g transform="translate(${x} ${y}) scale(${k})"><ellipse cx="0" cy="2" rx="100" ry="8" fill="#000" opacity=".25"/>${body}<rect x="${type === 'suv' ? 94 : 84}" y="-34" width="8" height="6" rx="2" fill="${light}"/></g>`;
+  return `<g transform="translate(${x} ${y}) scale(${k})"><ellipse cx="0" cy="9" rx="100" ry="7" fill="#000" opacity=".25"/>${body}<rect x="${type === 'suv' ? 94 : 84}" y="-34" width="8" height="6" rx="2" fill="${light}"/></g>`;
 }
 
 const facade = (x, y, w, h, wall, sign, signC, signBg) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${wall}"/><rect x="${x - 6}" y="${y - 8}" width="${w + 12}" height="12" rx="3" fill="${shade2(wall)}"/>${sign ? `<rect x="${x + w / 2 - 110}" y="${y + 18}" width="220" height="38" rx="6" fill="${signBg}"/><text x="${x + w / 2}" y="${y + 44}" text-anchor="middle" font-family="Sora, sans-serif" font-weight="800" font-size="20" letter-spacing="3" fill="${signC}">${sign}</text>` : ''}`;
@@ -260,7 +260,7 @@ function ambient(key) {
   const outdoor = !['bureau', 'studio', 'prison', 'casino'].includes(key);
   if (outdoor && (E.tod === 'jour' || E.tod === 'aube') && E.meteo !== 'pluie')
     s += `<g class="fly"><path d="M0 0 q8 -8 16 0 q8 -8 16 0 M40 20 q6 -6 12 0 q6 -6 12 0 M-30 26 q6 -6 12 0 q6 -6 12 0" stroke="#2a2440" stroke-width="2.5" fill="none" stroke-linecap="round" transform="translate(0 120)"/></g>`;
-  if (STREET.includes(key)) s += `<g class="pass">${carSVG(0, 478, pickColor(key), 0.55, key.startsWith('pays') ? 'citadine' : 'compacte')}</g><g class="pass p2"><g transform="scale(-1 1)">${carSVG(0, 478, '#e8e8ee', 0.5, 'suv')}</g></g>`;
+  if (STREET.includes(key)) s += `<g class="pass">${carSVG(0, 494, pickColor(key), 0.55, key.startsWith('pays') ? 'citadine' : 'compacte')}</g><g class="pass p2"><g transform="scale(-1 1)">${carSVG(0, 494, '#e8e8ee', 0.5, 'suv')}</g></g>`;
   if (key === 'plage' || key === 'pays_antilles') s += `<g class="wave" stroke="#fff" stroke-width="3" fill="none" opacity=".55"><path d="M60 420 q30 -10 60 0 t60 0"/><path d="M420 400 q30 -10 60 0 t60 0"/><path d="M760 430 q30 -10 60 0 t60 0"/></g>`;
   if (key === 'villa') s += `<g class="wave" stroke="#fff" stroke-width="3" fill="none" opacity=".6"><path d="M90 470 q25 -8 50 0 t50 0"/><path d="M230 500 q25 -8 50 0 t50 0"/></g>`;
   return s;
