@@ -9,6 +9,7 @@ import { CAREERS, DIPLOMES } from './careers.js';
 import { MILIEUX } from './identity.js';
 import { EVENTS2 } from './events2.js';
 import { EVENTS3 } from './events3.js';
+import { EVENTS4 } from './events4.js';
 
 const P = (s) => s.justice.prison > 0;
 const job = (s, id) => s.carriere?.id === id;
@@ -411,8 +412,9 @@ export const EVENTS = [
     { t: 'Fuir par la fenêtre', out: [{ p: (s) => 0.25 + st(s, 'forme') / 200, fx: { flag: 'cavale', reputation: 6 }, r: 'Tu t’échappes par les toits. La cavale continue.' }, { p: 1, fx: (s) => ({ arrest: { motif: s.justice.motif || 'Rébellion', peine: [2, 5] } }), r: 'Tu te tords la cheville en sautant. Fin de la course.' }] },
     { t: 'Te barricader', out: [{ p: 0.12, fx: { reputation: 10 }, r: 'Ils finissent par repartir. Incroyable.' }, { p: 0.8, fx: (s) => ({ arrest: { motif: (s.justice.motif || 'Rébellion') + ' et rébellion', peine: [3, 7] } }), r: 'Le RAID défonce la porte.' }, { p: 1, fx: { mort: 'Abattu{e} pendant l’assaut' }, r: 'L’assaut tourne mal.' }] },
   ] },
-  { id: 'proces', chain: 1, major: 2, cat: 'Tribunal', pre: (s) => { const p = s.justice.pending || { motif: 'Affaires en cours', peine: [1, 3] }; s.tmp.motifP = p.motif.toLowerCase(); s.tmp.peineMax = p.peine[1]; },
+  { id: 'proces', chain: 1, major: 2, cat: 'Tribunal', pre: (s) => { const p = s.justice.pending || { motif: 'Affaires en cours', peine: [1, 3] }; s.tmp.motifP = p.motif.toLowerCase(); s.tmp.peineMax = p.peine[1]; s.tmp.avocat = s.relations.find((r) => r.vivant && r.destin === 'avocat' && (r.conf ?? 50) >= 50)?.prenom; },
     txt: 'Audience au tribunal correctionnel. Tu es jugé{e} pour {motifP}. Tu risques jusqu’à {peineMax} ans de prison.', ch: [
+    { t: 'Appeler {avocat}, ton ami d’enfance avocat', h: 'Gratuit · grosse chance', c: (s) => !!s.tmp.avocat, out: [{ p: 0.6, fx: { acquitte: true }, r: '{avocat} démonte le dossier. {verdict}', days: 2 }, { p: 1, fx: { condamne: 0.45 }, r: '{avocat} obtient une peine très réduite. {verdict}', days: 2 }] },
     { t: 'Avocat commis d’office', out: [{ p: (s) => 0.12 + st(s, 'charisme') / 400, fx: { acquitte: true }, r: '{verdict}', days: 2 }, { p: 1, fx: { condamne: 1 }, r: '{verdict}', days: 2 }] },
     { t: 'Payer un ténor du barreau (25 000 €)', c: (s) => s.money >= 25000, fx: { money: -25000 }, out: [{ p: 0.45, fx: { acquitte: true }, r: '{verdict}', days: 2 }, { p: 1, fx: { condamne: 0.6 }, r: '{verdict}', days: 2 }] },
     { t: 'Plaider coupable', fx: { condamne: 0.5, karma: 3 }, r: '{verdict}', days: 1 },
@@ -587,5 +589,5 @@ function arrive(s, extra) {
   return extra;
 }
 
-EVENTS.push(...EVENTS2, ...EVENTS3);
+EVENTS.push(...EVENTS2, ...EVENTS3, ...EVENTS4);
 export const EV = Object.fromEntries(EVENTS.map((e) => [e.id, e]));

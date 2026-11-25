@@ -12,6 +12,7 @@ import { MILIEUX, TRAITS, TALENTS } from '../data/identity.js';
 import { randomLook } from '../data/look.js';
 import { worldTick, migrate } from './economy.js';
 import { life2Tick, migrate3, DISEASES, friendService } from './life2.js';
+import { messagesTick } from './messages.js';
 const DISEASE_NOM = new Proxy({}, { get: (_, k) => DISEASES[k]?.nom || 'Maladie' });
 
 export const busy = (s) => !!(s.current || s.result);
@@ -188,6 +189,8 @@ export function ageUp(s) {
   health(s);
   family(s);
   if (s.vivant) pickYearEvents(s);
+  if (s.vivant && s.logement === 'rue' && !s.chezParents && s.relations.some((r) => r.vivant && r.lien === 'ami' && (r.conf ?? 0) >= 60) && chance(0.5)) s.queue.unshift('ami_heberge');
+  messagesTick(s);
   presentNext(s);
   return rep;
 }
@@ -259,17 +262,42 @@ export function yearlyCosts(s) {
   const h = HOUSING[s.logement] || HOUSING.hlm;
   return (h.vie || 7000) + (s.proprio ? h.entretien || 0 : h.loyer || 0) + kids;
 }
-export const yearlyIncome = (s) => (inPrison(s) ? 0 : salary(s) * 12 + s.pension * 12);
+export const isCrime = (s) => !!s.carriere && career(s).cat === 'crime';
+export const yearlyIncome = (s) => (inPrison(s) ? 0 : (isCrime(s) ? 0 : salary(s) * 12) + s.pension * 12);
+
+// Impôt sur le revenu (barème simplifié, par part).
+export function impot(revenu) {
+  const T = [[11300, 0], [28800, 0.11], [82300, 0.3], [177100, 0.41], [Infinity, 0.45]];
+  let reste = revenu, prev = 0, tax = 0;
+  for (const [lim, taux] of T) {
+    const part = Math.max(0, Math.min(reste, lim - prev));
+    tax += part * taux;
+    reste -= part;
+    prev = lim;
+    if (reste <= 0) break;
+  }
+  return Math.round(tax);
+}
+export const legalIncome = (s) => yearlyIncome(s) + (s.business || []).reduce((t, b) => t + Math.max(0, b.benef || 0), 0);
 
 function finances(s, rep) {
   const inc = yearlyIncome(s);
   const dep = yearlyCosts(s);
   let poche = 0;
   if (s.chezParents && s.age >= 12 && s.age < 18) poche = MILIEUX[s.milieu].poche;
-  s.money += inc - dep + poche;
-  rep.revenus = inc + poche;
-  rep.depenses = dep;
-  if (inc || dep) addLog(s, `Bilan de l’année : ${euros(inc + poche)} de revenus, ${euros(dep)} de dépenses.`);
+  const tax = s.age >= 18 ? impot(legalIncome(s)) : 0;
+  // Gains illégaux : variables, selon ton rang et ton activité de l'année (argent sale)
+  let sale = 0;
+  if (isCrime(s) && !inPrison(s)) {
+    sale = Math.round(salary(s) * 12 * (0.25 + Math.random() * 0.5 + Math.min(0.5, s.carriere.perf / 200)));
+    s.sale += sale;
+  }
+  // Un ado dépense son argent de poche (sorties, fringues, jeux)
+  const ado = s.age < 18 && s.money > 0 ? Math.round(s.money * 0.35) : 0;
+  s.money += inc - dep + poche - tax + sale - ado;
+  rep.revenus = inc + poche + sale;
+  rep.depenses = dep + tax + ado;
+  if (inc || dep || sale) addLog(s, `Bilan : ${euros(inc + poche)} de revenus${sale ? `, ${euros(sale)} d’argent sale` : ''}, ${euros(dep)} de dépenses${tax ? `, ${euros(tax)} d’impôts` : ''}.`);
   if (s.money < -4000 && !s.chezParents && !['rue', 'bidonville', 'pays'].includes(s.logement) && !inPrison(s)) s.queue.unshift('expulsion');
 }
 
@@ -287,7 +315,7 @@ function justiceTick(s) {
     return;
   }
   if (j.recherche > 0 && !s.cavale) {
-    if (chance(j.recherche * 0.11)) s.queue.unshift('interpellation');
+    if (chance(j.recherche * 0.11)) s.queue.unshift(s.relations.some((r) => r.vivant && r.destin === 'flic' && (r.conf ?? 50) >= 50) && chance(0.6) ? 'ami_flic_previent' : 'interpellation');
     else if (chance(0.45)) j.recherche--;
   }
 }

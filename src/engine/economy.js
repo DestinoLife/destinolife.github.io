@@ -25,9 +25,8 @@ export function migrate(s) {
 
 // ---------- Téléphone ----------
 export function sms(s, from, txt, role = '') {
-  s.phone.msgs.push({ from, role, txt: tpl(txt, s), age: s.age, t: s.t, read: false });
+  s.phone.msgs.push({ from, role, txt: tpl(txt, s), age: s.age, t: s.t, read: true });
   if (s.phone.msgs.length > 200) s.phone.msgs.splice(0, s.phone.msgs.length - 200);
-  s.phone.unread = s.phone.msgs.filter((m) => !m.read).length;
 }
 export function readAll(s, from) {
   s.phone.msgs.forEach((m) => (!from || m.from === from) && (m.read = true));
@@ -271,17 +270,19 @@ function networkTick(s) {
   const n = s.reseau;
   if (!n || s.justice.prison > 0) return;
   const f = s.relations.find((r) => r.id === n.fournisseur && r.vivant);
-  const vente = f ? Math.min(n.vendeurs, n.points * 3) * 26000 * f.qualite : n.vendeurs * 4000;
-  const achat = f ? vente * 0.35 * f.tarif : 0;
-  const salaires = n.guetteurs * 9000 + n.vendeurs * 14000;
+  const vente = f ? Math.min(n.vendeurs, n.points * 3) * 48000 * f.qualite * (n.boost || 1) : n.vendeurs * 3000;
+  const achat = f ? vente * 0.3 * f.tarif : 0;
+  const salaires = n.guetteurs * 6000 + n.vendeurs * 9000;
+  n.boost = 1;
   const net = Math.round(vente - achat - salaires);
   s.money += net;
   s.sale += Math.max(0, net);
-  n.chaleur = clamp(n.chaleur + n.points * 6 - n.guetteurs * 3 + rnd(-5, 5));
+  n.chaleur = clamp(n.chaleur + n.points * 7 - n.guetteurs * 3 + rnd(-4, 6));
   n.hist.push({ age: s.age, net });
   if (n.hist.length > 10) n.hist.shift();
   addLog(s, `Réseau : ${net >= 0 ? '+' : ''}${euros(net)} sur l’année.`);
-  if (chance(n.chaleur / 260)) s.queue.unshift('descente_reseau');
+  if (chance(n.chaleur / 200)) s.queue.unshift('descente_reseau');
+  if (chance(n.chaleur / 500)) s.queue.push('rivaux');
   if (f && chance((1 - f.fiab) * 0.5)) s.queue.push('fournisseur_trahit');
 }
 
@@ -417,7 +418,6 @@ export function worldTick(s) {
   s.voyage = null;
   s.avec = [];
   if (s.securite > 0 && s.justice.prison === 0) s.money -= s.securite * 42000;
-  flavorSms(s);
 }
 
 registerFx('contact', (s, role) => findContact(s, role === true ? null : role));

@@ -1,6 +1,7 @@
 import './style.css';
 import './style-v2.css';
 import './style-v3.css';
+import './style-v4.css';
 import { icon, logo, logoMark } from './ui/icons.js';
 import { sceneSVG } from './render/scene.js';
 import { avatarSVG } from './render/avatar.js';
@@ -13,13 +14,19 @@ import {
   continueAsChild, currentScene, outfitOf, busy, inPrison, canDo, yearlyCosts, yearlyIncome, presentNext, ACTIVITIES, CAREERS,
 } from './engine/flow.js';
 import { canApply, DIPLOME_NOM } from './data/careers.js';
+import { impot, legalIncome } from './engine/flow.js';
 import { ROLES } from './data/world.js';
 import { HOUSING, SCENE_NOM } from './data/housing.js';
 import { ORIGINES, VILLES, MILIEUX, TRAITS, TALENTS, STATUTS } from './data/identity.js';
 import { SKINS, HAIR_COLORS, EYES, HAIRSTYLES, BEARDS, BUILDS, STYLES, ACCS, FOULARDS } from './data/look.js';
 import { save, load, clearSave } from './engine/save.js';
 import { migrate, buyAsset, sellAsset, createBusiness, businessAction, networkAction, travel, flee, roulette, slots, moveCity, readAll, bestCar, ASSETS } from './engine/economy.js';
-import { phoneHTML, pcHTML, casinoHTML, travelHTML, biensHTML, reseauHTML } from './ui/overlays.js';
+import { phoneHTML, pcHTML, casinoHTML, travelHTML, biensHTML, crimeHubHTML } from './ui/overlays.js';
+import { answer, writeTo } from './engine/messages.js';
+import { instaComment } from './engine/life2.js';
+import { VERSION, CHANGELOG } from './data/changelog.js';
+import { nameFor } from './data/identity.js';
+import { randomLook } from './data/look.js';
 import { introHTML, healthHTML, footHTML, expatHTML, destinLabel } from './ui/overlays3.js';
 import { migrate3, giveParentJobs, instaPost, sendMessage, bjStart, bjHit, bjStand, expatriate } from './engine/life2.js';
 import { carSVG } from './render/scene.js';
@@ -34,12 +41,13 @@ let openRel = null;
 let C = null; // personnage en création
 let cTab = 'identite';
 let OV = null; // fenêtre ouverte : téléphone, casino, voyage, PC…
+let lastSheet = null, lastOvKey = '', lastModal = '';
 const dev = location.search.includes('dev');
 
 // ---------- Monde (décor + perso) ----------
 const VB = '0 0 1000 560';
 function worldHTML(sceneKey, env, av, uid = 'pl', fade = true) {
-  return `<svg class="world" viewBox="${VB}" preserveAspectRatio="xMidYMax slice" role="img" aria-label="${SCENE_NOM[sceneKey] || 'Scène'}">
+  return `<svg class="world" data-a="closeall" viewBox="${VB}" preserveAspectRatio="xMidYMax slice" role="img" aria-label="${SCENE_NOM[sceneKey] || 'Scène'}">
     <g id="bg" class="${fade ? 'fade-in' : ''}">${sceneSVG(sceneKey, env)}</g>
     <g id="props"></g>
     <g id="pl" transform="translate(500 506)">${av ? avatarSVG(av, uid) : ''}</g>
@@ -125,7 +133,17 @@ function renderTitle() {
         <button class="btn" data-a="random">${icon('dice', 18)} Vie aléatoire</button>
       </div>
       <div class="badge18"><b>18+</b> Violence, drogue, crime. Contenu destiné aux adultes.</div>
+      <button class="ver" data-a="changelog">${VERSION} · Notes de mise à jour</button>
     </div></div>`;
+}
+
+function showChangelog() {
+  const box = document.createElement('div');
+  box.className = 'changelog-wrap';
+  box.innerHTML = `<div class="changelog glass"><div class="sheet-h"><div><h2>Notes de mise à jour</h2><div class="sub">Version actuelle : ${VERSION}</div></div><button class="close" aria-label="Fermer">${icon('x', 18)}</button></div>
+    <div class="sheet-b">${CHANGELOG.map((c) => `<div class="sec"><h3>${c.v} · ${c.titre}</h3><ul>${c.items.map((i) => `<li>${i}</li>`).join('')}</ul></div>`).join('')}</div></div>`;
+  box.addEventListener('click', (e) => (e.target === box || e.target.closest('.close')) && box.remove());
+  document.body.appendChild(box);
 }
 
 // ---------- Créateur ----------
@@ -181,7 +199,8 @@ function creatorSet(k, v) {
   } else if (k.startsWith('look.')) C.look[k.slice(5)] = v;
   else C[k] = v;
   if (k === 'genre') {
-    if (v === 'f') C.look.barbe = 'none';
+    C.prenom = nameFor(C.origine, v);
+    C.look = { ...randomLook(v, C.origine), peau: C.look.peau, yeux: C.look.yeux };
     C.attirance = v === 'f' ? 'h' : 'f';
   }
   if (k === 'origine') {
@@ -232,16 +251,33 @@ function updateGame() {
   document.getElementById('dock').innerHTML = tabs.map(([k, t, i]) => `<button class="tab ${tab === k ? 'on' : ''} ${k === 'crime' ? 'crime' : ''}" data-a="tab" data-v="${k}" aria-label="${t}">${icon(i, 22)}${t}</button>`).join('') +
     `<button class="tab phone-tab ${OV?.t === 'phone' ? 'on' : ''}" data-a="phone" data-v="home" aria-label="Téléphone">${icon('phone', 22)}Téléphone${S.phone.unread ? `<em>${S.phone.unread}</em>` : ''}</button>` +
     `<button class="age-btn ${blocked ? 'off' : ''}" data-a="age" aria-label="Avancer d’un an">${icon('forward', 20)}<span>Vieillir<small>+1 an · ${S.age} → ${S.age + 1}</small></span></button>`;
-  document.getElementById('sheet').innerHTML = tab ? `<div class="sheet glass">${sheetHTML()}</div>` : '';
+  const keep = (sel) => document.querySelector(sel)?.scrollTop || 0;
+  const sbTop = keep('#sheet .sheet-b'), phTop = keep('.ph-screen'), ovTop = keep('#overlay .sheet-b');
+  const sameSheet = lastSheet === tab, sameOv = lastOvKey === (OV ? `${OV.t}|${OV.app}|${OV.conv}|${OV.itab}` : '');
+  document.getElementById('sheet').innerHTML = tab ? `<div class="sheet glass ${sameSheet ? 'still' : ''}">${sheetHTML()}</div>` : '';
   document.getElementById('modal').innerHTML = modalHTML();
   document.getElementById('death').innerHTML = !S.vivant && !busy(S) ? deathHTML() : '';
   document.getElementById('overlay').innerHTML = overlayHTML();
+  if (sameOv) document.querySelectorAll('#overlay .phone, #overlay .casino, #overlay .travel, #overlay .pc').forEach((e) => e.classList.add('still'));
+  const put = (sel, v) => { const e = document.querySelector(sel); if (e) e.scrollTop = v; };
+  if (sameSheet) put('#sheet .sheet-b', sbTop);
+  if (sameOv) { put('.ph-screen', phTop); put('#overlay .sheet-b', ovTop); }
+  const mk = S.current ? S.current.id : S.result ? 'r' : '';
+  if (mk && mk === lastModal) document.querySelector('#modal .modal')?.classList.add('still');
+  lastSheet = tab; lastOvKey = OV ? `${OV.t}|${OV.app}|${OV.conv}|${OV.itab}` : ''; lastModal = mk;
   save(S);
 }
 
 function overlayHTML() {
   if (!OV || !S) return '';
   if (OV.t === 'intro') return introHTML(S);
+  if (OV.t === 'tips')
+    return `<div class="intro"><div class="tips-card glass"><h2>Comment jouer</h2><ol>
+      <li><b>Vieillir</b> fait passer une année. Les grandes décisions, elles, se jouent sur quelques jours.</li>
+      <li>Tu as <b>4 énergies par an</b> pour les activités, le travail ou les coups. Choisis bien.</li>
+      <li>Le menu du bas gère ta vie : Activités, Carrière, Crime, Relations, Biens.</li>
+      <li>Le <b>téléphone</b> sert à parler aux gens : réponds aux messages, sinon tes proches s’éloignent.</li>
+    </ol><button class="btn primary" data-a="tipsgo">C’est parti</button></div></div>`;
   if (OV.t === 'phone') return phoneHTML(S, OV);
   if (OV.t === 'casino') return casinoHTML(S, OV);
   if (OV.t === 'voyage' || OV.t === 'cavale') return travelHTML(S, OV.t);
@@ -275,8 +311,16 @@ function deathHTML() {
 }
 
 // ---------- Onglets ----------
+const TIPS = {
+  vie: 'Ta fiche : santé, addictions, justice et journal. Surveille les symptômes : un médecin peut te sauver.',
+  act: 'Chaque activité coûte 1 énergie (4 par an) et fait avancer le temps. Sans sport, ta santé baisse chaque année.',
+  pro: 'Postule, étudie ou lance-toi (sport, musique, politique). Ta performance fait monter ta carrière.',
+  crime: 'Tout l’illégal se gère ici. Ça rapporte gros, mais chaque coup fait monter ton niveau de recherche.',
+  rel: 'Affection et confiance comptent. Tes amis d’enfance deviendront des contacts utiles.',
+  biens: 'Achète, investis, ouvre des business, blanchis ton argent sale. Les impôts tombent chaque année.',
+};
 function sheetHTML() {
-  const head = (t, sub) => `<div class="sheet-h"><div><h2>${t}</h2>${sub ? `<div class="sub">${sub}</div>` : ''}</div><button class="close" data-a="tab" data-v="${tab}" aria-label="Fermer">${icon('x', 18)}</button></div>`;
+  const head = (t, sub) => `<div class="sheet-h"><div><h2>${t}</h2>${sub ? `<div class="sub">${sub}</div>` : ''}</div><button class="close" data-a="tab" data-v="${tab}" aria-label="Fermer">${icon('x', 18)}</button></div>${TIPS[tab] && !S.tipsOff ? `<div class="tip">${icon('sparkle', 14)}<span>${TIPS[tab]}</span><button data-a="tipsoff" aria-label="Masquer les astuces">${icon('x', 12)}</button></div>` : ''}`;
   const st = S.stats;
   if (tab === 'vie') {
     const o = ORIGINES[S.id.origine];
@@ -294,13 +338,13 @@ function sheetHTML() {
   if (tab === 'act' || tab === 'crime') {
     const list = ACTIVITIES.filter((a) => (inPrison(S) ? a.tab === 'prison' : a.tab === tab));
     const warn = tab === 'crime' && !inPrison(S) ? `<div class="note warn">Chaque délit peut augmenter ton niveau de recherche. Plus il est haut, plus la police risque de frapper à ta porte.</div>` : '';
-    return head(inPrison(S) ? 'Vie en détention' : tab === 'act' ? 'Activités' : 'Crime', `Énergie : ${S.energie}/4 · chaque action fait avancer le temps`) + `<div class="sheet-b">${warn}${tab === 'crime' && !inPrison(S) && S.justice.recherche ? `<div class="note warn">Recherché${S.id.genre === 'f' ? 'e' : ''} : ${S.justice.recherche}/5 · ${esc(S.justice.motif || '')}</div>` : ''}<div class="acts">${list.map((a) => actCard(a)).join('')}</div>${tab === 'crime' && !inPrison(S) ? reseauHTML(S) : ''}</div>`;
+    return head(inPrison(S) ? 'Vie en détention' : tab === 'act' ? 'Activités' : 'Crime', `Énergie : ${S.energie}/4 · chaque action fait avancer le temps`) + `<div class="sheet-b">${tab === 'crime' && !inPrison(S) ? crimeHubHTML(S) : ''}${warn}${tab === 'crime' && !inPrison(S) && S.justice.recherche ? `<div class="note warn">Recherché${S.id.genre === 'f' ? 'e' : ''} : ${S.justice.recherche}/5 · ${esc(S.justice.motif || '')}</div>` : ''}<div class="acts">${list.map((a) => actCard(a)).join('')}</div></div>`;
   }
   if (tab === 'pro') return head('Carrière et études', DIPLOME_NOM[S.etudes.niveau]) + `<div class="sheet-b">${footHTML(S)}${proHTML()}</div>`;
   if (tab === 'rel') return head('Relations', partnerOf(S) ? `En couple avec ${esc(partnerOf(S).prenom)}` : 'Célibataire') + `<div class="sheet-b">${relHTML()}</div>`;
   if (tab === 'biens') {
     const inc = yearlyIncome(S), dep = yearlyCosts(S);
-    const housing = `<div class="sec"><h3>Budget annuel estimé</h3><dl class="kv"><dt>Revenus</dt><dd style="color:var(--good)">${euros(inc)}</dd><dt>Dépenses (logement, vie, enfants)</dt><dd style="color:var(--bad)">${euros(dep)}</dd><dt>Bilan</dt><dd>${euros(inc - dep)}</dd></dl></div>
+    const housing = `<div class="sec"><h3>Budget annuel estimé</h3><dl class="kv"><dt>Revenus</dt><dd style="color:var(--good)">${euros(inc)}</dd><dt>Dépenses (logement, vie, enfants)</dt><dd style="color:var(--bad)">${euros(dep)}</dd><dt>Impôt sur le revenu</dt><dd style="color:var(--bad)">${euros(S.age >= 18 ? impot(legalIncome(S)) : 0)}</dd><dt>Bilan</dt><dd>${euros(inc - dep - (S.age >= 18 ? impot(legalIncome(S)) : 0))}</dd></dl></div>
       <div class="sec"><h3>Logement actuel</h3><div class="note">${S.chezParents ? 'Tu vis chez tes parents (gratuit).' : `${HOUSING[S.logement]?.nom}${S.proprio ? ' · propriétaire' : ''}`}</div></div>
       <div class="sec"><h3>Déménager</h3><div class="list">${housingOptions(S).map((h) => `<div class="li ${h.ok ? '' : 'off'}"><div class="grow"><b>${h.nom}</b><small>${h.ok ? [h.loyer ? `Loyer ${euros(h.loyer)}/an` : h.achat ? '' : 'Gratuit', h.achat ? `Achat ${euros(h.achat)}` : ''].filter(Boolean).join(' · ') : esc(h.why)}</small></div>
         ${h.ok && (h.loyer || !h.achat) ? `<button class="btn sm" data-a="move" data-v="${h.id}">${h.loyer ? 'Louer' : 'Y aller'}</button>` : ''}${h.ok && h.achat ? `<button class="btn sm ${S.money >= h.achat ? '' : 'off'}" data-a="buy" data-v="${h.id}">Acheter</button>` : ''}</div>`).join('')}</div></div>`;
@@ -324,7 +368,7 @@ function proHTML() {
   const c = career(S);
   if (S.carriere) {
     const k = S.carriere;
-    h += `<div class="job-card"><span class="lbl" style="margin:0">${esc(c.nom)}</span><b>${esc(jobTitle(S))}</b><dl class="kv"><dt>Salaire</dt><dd>${euros(salary(S))} / mois</dd><dt>Ancienneté</dt><dd>${k.annees} an${k.annees > 1 ? 's' : ''}</dd><dt>Échelon</dt><dd>${k.niveau + 1} / ${c.niveaux.length}</dd></dl>${c.fame ? bar('Notoriété', S.stats.notoriete, '#ffd36e') : bar('Performance', k.perf, '#6fb4ff')}</div>`;
+    h += `<div class="job-card"><span class="lbl" style="margin:0">${esc(c.nom)}</span><b>${esc(jobTitle(S))}</b><dl class="kv">${c.cat === 'crime' ? `<dt>Gains</dt><dd>Variables · argent sale</dd>` : `<dt>Salaire</dt><dd>${euros(salary(S))} / mois</dd>`}<dt>Ancienneté</dt><dd>${k.annees} an${k.annees > 1 ? 's' : ''}</dd><dt>Échelon</dt><dd>${k.niveau + 1} / ${c.niveaux.length}</dd></dl>${c.fame ? bar('Notoriété', S.stats.notoriete, '#ffd36e') : bar('Performance', k.perf, '#6fb4ff')}</div>`;
   } else h += `<div class="note">${inPrison(S) ? 'Tu es en prison.' : S.age < 16 ? 'Trop jeune pour travailler. Concentre-toi sur l’école.' : 'Tu n’as pas de travail pour le moment.'}</div>`;
   const pro = ACTIVITIES.filter((a) => a.tab === 'pro');
   h += `<div class="sec"><h3>Actions</h3><div class="acts">${pro.map(actCard).join('')}</div></div>`;
@@ -407,7 +451,48 @@ function handle(a, v, el) {
         return alert('Donne un prénom et un nom à ton personnage.');
       }
       return startLife({ ...C, prenom: C.prenom.trim(), nom: C.nom.trim() });
+    case 'closeall':
+      if (OV?.t === 'intro' || OV?.t === 'tips') return;
+      if (!tab && !OV) return;
+      tab = null;
+      OV = null;
+      return updateGame();
+    case 'tipsoff':
+      S.tipsOff = true;
+      return updateGame();
+    case 'changelog':
+      return showChangelog();
+    case 'answer': {
+      const r = answer(S, Number(v), Number(el.dataset.x));
+      if (r?.plan) {
+        OV = null;
+        presentNext(S);
+        toast(r.r, 'good');
+      }
+      return updateGame();
+    }
+    case 'write': {
+      const rel = S.relations.find((x) => x.vivant && x.prenom === OV.conv);
+      if (!rel) return;
+      const r = writeTo(S, rel, v);
+      if (r.err) toast(r.r, 'err');
+      if (r.plan) {
+        OV = null;
+        presentNext(S);
+        toast(`Rendez-vous avec ${rel.prenom} !`, 'good');
+      }
+      return updateGame();
+    }
+    case 'comment': {
+      const r = instaComment(S, v, el.dataset.x);
+      if (r.r) toast(r.r, r.err ? 'err' : 'good');
+      return updateGame();
+    }
+    case 'tipsgo':
+      OV = null;
+      return updateGame();
     case 'tab':
+      if (OV && OV.t !== 'intro') OV = null;
       tab = tab === v ? null : v;
       openRel = null;
       return updateGame();
@@ -478,6 +563,7 @@ function handle(a, v, el) {
     case 'phone':
       if (inPrison(S) && !S.flags.tel_prison) return toast('Pas de téléphone en détention. Il faut en acheter un au marché noir.', 'err');
       if (!S.vivant) return;
+      tab = null;
       OV = { t: 'phone', app: v, itab: OV?.itab };
       if (v === 'messages') OV.conv = null;
       return updateGame();
@@ -496,7 +582,8 @@ function handle(a, v, el) {
       return updateGame();
     }
     case 'introgo':
-      OV = null;
+      OV = localStorage.getItem('destino.tips') ? null : { t: 'tips' };
+      localStorage.setItem('destino.tips', '1');
       return updateGame();
     case 'expat': {
       const r = expatriate(S, v);

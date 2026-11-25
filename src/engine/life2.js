@@ -45,7 +45,7 @@ function worldNews(s) {
   if (m.news.length > 30) m.news.splice(0, m.news.length - 30);
   // Le pays d'origine en difficulté : la famille appelle à l'aide.
   const o = s.id.pays;
-  if (o && ['crise', 'emeutes', 'guerre'].includes(m.pays[o]) && s.age >= 18 && chance(0.5)) s.queue.push('pays_crise');
+  if (o && o !== 'France' && s.id.origine !== 'france' && !ORIGINES[s.id.origine]?.francais && ['crise', 'emeutes', 'guerre'].includes(m.pays[o]) && s.age >= 18 && chance(0.4)) s.queue.push('pays_crise');
 }
 
 // ---------- Addictions ----------
@@ -130,7 +130,7 @@ function friendsTick(s) {
     if (!r.vivant) continue;
     if (r.lien === 'ami' && r.age >= 21 && !r.destin) {
       r.destin = weighted(Object.keys(DESTINS), (k) => DESTINS[k].w);
-      if (r.rel > 50) apply(s, { sms: { from: r.prenom, txt: pick([`Devine quoi : je suis devenu ${DESTINS[r.destin].nom} !`, `Ça y est, je bosse comme ${DESTINS[r.destin].nom}. On se voit bientôt ?`]), role: 'Ami d’enfance' } });
+      if (r.rel > 50) apply(s, { sms: { from: r.prenom, txt: `Devine quoi : je suis devenu ${DESTINS[r.destin].nom} ! Si un jour t’as besoin, demande.` } });
     }
     r.conf = clamp((r.conf ?? 55) + Math.round((r.rel - 50) / 25));
   }
@@ -181,27 +181,43 @@ export const POST_TYPES = {
 };
 export function instaPost(s, type, legende) {
   if (!s.insta) return { r: 'Il faut avoir 12 ans.', err: true };
-  if (s.annee.posts >= 6) return { r: 'Tu as déjà beaucoup posté cette année.', err: true };
+  if (s.annee.posts >= 3) return { r: 'Tu as déjà posté 3 fois cette année. Poster plus ne sert à rien : l’algorithme te pénalise.', err: true };
   const T = POST_TYPES[type];
   s.annee.posts++;
   const base = 20 + Math.sqrt(s.insta.followers) * 6;
   const mult = T.base * (0.5 + s.stats.apparence / 100 + s.stats.notoriete / 60 + s.stats.charisme / 200) * (s.carriere?.id === 'influenceur' ? 2.5 : 1);
   const viral = chance(0.05 + s.stats.charisme / 2000);
-  const gain = Math.min(5000000, Math.round(base * mult * (0.6 + Math.random()) * (viral ? 8 : 1)));
+  const fatigue = 1 / (1 + (s.annee.posts - 1) * 0.8);
+  const gain = Math.min(2000000, Math.round(base * mult * fatigue * (0.5 + Math.random() * 0.8) * (viral ? 6 : 1)));
   const likes = Math.round((s.insta.followers + gain) * (0.08 + Math.random() * 0.12) * (viral ? 6 : 1));
   s.insta.followers += gain;
   s.insta.posts.unshift({ age: s.age, type, txt: legende || T.nom, likes, viral });
   if (s.insta.posts.length > 30) s.insta.posts.pop();
   if (s.insta.followers > 10000) s.stats.notoriete = clamp(Math.max(s.stats.notoriete, Math.round(Math.log10(s.insta.followers) * 14 - 40)));
-  if (s.carriere?.id === 'influenceur') s.money += Math.min(150000, Math.round(s.insta.followers / 100));
   return { r: viral ? `Ton post devient viral ! +${gain.toLocaleString('fr-FR')} abonnés.` : `+${gain.toLocaleString('fr-FR')} abonnés, ${likes.toLocaleString('fr-FR')} likes.`, good: true };
 }
+// Commenter le post d'un proche : change la relation.
+export function instaComment(s, who, kind) {
+  const r = s.relations.find((x) => x.vivant && x.prenom === who);
+  if (!r) return { r: '' };
+  const k = `${r.id}:com`;
+  if (s.relUsed[k]) return { r: 'Tu as déjà commenté ce post.', err: true };
+  s.relUsed[k] = true;
+  if (kind === 'gentil') { r.rel = clamp(r.rel + rnd(3, 6)); r.conf = clamp((r.conf ?? 50) + 2); return { r: `${r.prenom} a liké ton commentaire ❤️`, good: true }; }
+  if (kind === 'drole') { r.rel = clamp(r.rel + (r.rel > 50 ? 3 : -3)); return { r: r.rel > 50 ? `${r.prenom} : « 😂😂 t’es grave »` : `${r.prenom} n’a pas trouvé ça drôle.` }; }
+  r.rel = clamp(r.rel - rnd(8, 14));
+  r.conf = clamp((r.conf ?? 50) - 6);
+  s.stats.reputation = clamp(s.stats.reputation + 2);
+  return { r: `Ton commentaire méchant fait le buzz. ${r.prenom} est vexé{e2}.`.replace('{e2}', r.genre === 'f' ? 'e' : '') };
+}
+
 export function instaFeed(s) {
   const people = s.relations.filter((r) => r.vivant && ['ami', 'fratrie', 'partenaire', 'conjoint', 'contact', 'ex'].includes(r.lien) && r.age >= 12).slice(0, 10);
   const seed = s.age * 7;
   return people.map((r, i) => {
     const t = r.destin === 'artiste' ? 'Nouveau son dispo, lien en bio 🔥' : r.destin === 'dealer' ? 'Nouvelle montre 💸' : r.destin === 'medecin' ? 'Garde de nuit terminée 😴' : r.lien === 'ex' ? 'Nouveau départ ✨' : ['Vacances 🌴', 'Soirée de folie', 'Dimanche en famille', 'Leg day 💪', 'Nouvelle coupe', 'Concert hier soir 🎶'][(seed + i) % 6];
-    return { who: r.prenom, txt: t, likes: 20 + ((seed * (i + 3)) % 400) };
+    const type = r.destin === 'artiste' ? 'clip' : r.destin === 'dealer' ? 'luxe' : r.destin === 'medecin' ? 'selfie' : ['voyage', 'soiree', 'selfie', 'sport', 'voyage', 'soiree'][(seed + i) % 6];
+    return { who: r.prenom, txt: t, type, likes: 20 + ((seed * (i + 3)) % 400), look: r.look, genre: r.genre };
   });
 }
 
@@ -374,11 +390,9 @@ export function life2Tick(s) {
   worldNews(s);
   if (s.age >= 12 && !s.insta) {
     s.insta = { followers: rnd(20, 80), posts: [] };
-    apply(s, { sms: { from: 'Instapic', txt: 'Bienvenue sur Instapic ! Publie ton premier post 📸' } });
   }
   if (s.insta && s.carriere?.id === 'influenceur') s.insta.followers = Math.min(300000000, Math.round(s.insta.followers * (1.02 + Math.random() * 0.1)));
   if (s.justice.prison === 0) delete s.flags.tel_prison;
-  contextSms(s);
   s.annee.use = {};
   s.annee.posts = 0;
 }

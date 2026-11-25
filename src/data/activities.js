@@ -106,12 +106,12 @@ export const ACTIVITIES = [
 
   // ---------- Carrière & talents ----------
   { id: 'bosser', tab: 'pro', nom: 'Travailler dur', desc: 'Performance ▲', icon: 'briefcase', age: [14, 90], days: [5, 20], hour: [9, 18],
-    cond: (s) => !!s.carriere || 'Tu n’as pas de travail.', lieu: (s) => CAREERS[s.carriere.id].scene,
+    cond: (s) => (!s.carriere ? 'Tu n’as pas de travail.' : CAREERS[s.carriere.id].cat === 'crime' ? 'Dans le milieu, ça se passe dans l’onglet Crime.' : true), lieu: (s) => CAREERS[s.carriere.id].scene,
     run: (s) => ({ fx: { perf: rnd(8, 14), bonheur: -2, sante: -1, ...(CAREERS[s.carriere.id].fame ? { notoriete: rnd(2, 5) } : {}), ...(CAREERS[s.carriere.id].stat === 'forme' ? { forme: rnd(1, 3) } : {}) }, r: 'Tu donnes tout. Ça se remarque.' }) },
   { id: 'augmentation', tab: 'pro', nom: 'Demander une promotion', desc: 'Selon perf. et charisme', icon: 'trend', age: [16, 90], days: [1, 5], hour: [10, 17],
-    cond: (s) => (s.carriere && !CAREERS[s.carriere.id].fame ? true : 'Indisponible pour ce métier.'),
+    cond: (s) => (s.carriere && !CAREERS[s.carriere.id].fame && !['crime', 'politique'].includes(CAREERS[s.carriere.id].cat) ? true : 'Indisponible pour ce métier.'),
     run: (s) => (chance(0.12 + s.carriere.perf / 300 + s.stats.charisme / 400) ? { fx: { jobLvl: 1, bonheur: 6 }, r: 'Accordé ! Nouveau poste.', good: true } : { fx: { perf: -6, bonheur: -3 }, r: 'Refusé. « On en reparle l’an prochain. »' }) },
-  { id: 'demission', tab: 'pro', nom: 'Démissionner', desc: 'Quitter ton poste', icon: 'door', age: [14, 99], free: true, days: [0, 1], cond: (s) => !!s.carriere || 'Tu n’as pas de travail.',
+  { id: 'demission', tab: 'pro', nom: 'Démissionner', desc: 'Quitter ton poste', icon: 'door', age: [14, 99], free: true, days: [0, 1], cond: (s) => (!s.carriere ? 'Tu n’as pas de travail.' : CAREERS[s.carriere.id].cat === 'crime' ? 'On ne démissionne pas du milieu…' : true),
     run: () => ({ fx: { job: null, bonheur: 3 }, r: 'Lettre posée sur le bureau. Libre.' }) },
   { id: 'essais_pro', tab: 'pro', nom: 'Tenter les essais pro', desc: 'Foot, basket ou boxe', icon: 'trophy', age: [15, 27], days: [3, 10], lieu: 'stade',
     cond: (s) => (s.carriere ? 'Quitte d’abord ton métier.' : s.stats.forme < 55 ? 'Forme 55 requise.' : true),
@@ -163,10 +163,10 @@ export const ACTIVITIES = [
   crime({ id: 'arnaque', nom: 'Arnaque en ligne', desc: 'Intelligence 40', icon: 'laptop', age: [16, 90], p: (s) => 0.4 + s.stats.intel / 300 + s.stats.crime / 400, gain: [800, 25000], motif: 'Escroquerie', peine: [1, 2], rech: 0.3, days: [5, 15], hour: [20, 23],
     cond: (s) => s.stats.intel >= 40 || 'Intelligence 40 requise.' }),
   { id: 'deal', tab: 'crime', nom: 'Faire des heures au point', desc: 'Réseau : argent rapide', icon: 'cash', age: [13, 70], days: [3, 10], hour: [14, 23], lieu: 'cite',
-    cond: (s) => (s.carriere?.id === 'reseau' ? true : 'Il faut faire partie d’un réseau.'),
+    cond: (s) => (s.carriere?.id === 'reseau' || s.reseau ? true : 'Il faut faire partie d’un réseau.'),
     run: (s) => {
-      const g = rnd(300, 1500) * (s.carriere.niveau + 1);
-      const fx = { money: g, crime: 2, karma: -3, perf: 6 };
+      const g = rnd(400, 1800) * ((s.carriere?.niveau ?? 3) + 1);
+      const fx = { money: g, sale: g, crime: 2, karma: -3, perf: 10, reputation: 2 };
       if (chance(0.3)) Object.assign(fx, { recherche: 1, motif: 'Trafic de stupéfiants' });
       return { fx, r: `Grosse journée. +${euros(g)}.`, good: true };
     } },

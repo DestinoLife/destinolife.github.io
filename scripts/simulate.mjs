@@ -5,6 +5,8 @@ import { randomConfig } from '../src/engine/random.js';
 import { ageUp, choose, choicesView, continueResult, doActivity, applyJob, relActions, relAction, housingOptions, moveTo, enroll, continueAsChild, busy, ACTIVITIES, CAREERS } from '../src/engine/flow.js';
 import { pick, chance } from '../src/engine/rng.js';
 import { migrate3, giveParentJobs, instaPost, friendService, bjStart, bjHit, bjStand, expatriate, POST_TYPES, EXPAT, sendMessage, REPLIES } from '../src/engine/life2.js';
+import { answer, writeTo, topicsFor } from '../src/engine/messages.js';
+import { instaComment, instaFeed } from '../src/engine/life2.js';
 import { migrate, buyAsset, sellAsset, createBusiness, businessAction, networkAction, travel, flee, roulette, slots, moveCity, findContact, startNetwork, ASSETS, BUSINESS, DESTS, MISSIONS } from '../src/engine/economy.js';
 
 const N = Number(process.argv[2] || 300);
@@ -87,7 +89,11 @@ for (let i = 0; i < N; i++) {
           else if (j < 0.5) { const f = s.relations.find((x) => x.vivant && x.destin); if (f) friendService(s, f); }
           else if (j < 0.7 && s.money > 10) { let st = bjStart(s, Math.ceil(s.money * 0.1)); if (!st.err) { while (!st.done && Math.random() < 0.5) st = bjHit(s, st); if (!st.done) bjStand(s, st); } }
           else if (j < 0.8) expatriate(s, pick(EXPAT).ville);
-          else { const r = pick(s.relations.filter((x) => x.vivant)); if (r) sendMessage(s, r.prenom, pick(REPLIES)); }
+          else {
+            const m = s.phone.msgs.find((x) => x.ch && !x.answered); if (m) answer(s, m.id, chance(0.5) ? 0 : 1);
+            const r = pick(s.relations.filter((x) => x.vivant)); if (r && topicsFor(r).length) writeTo(s, r, pick(topicsFor(r))[0]);
+            const f = s.insta && instaFeed(s)[0]; if (f) instaComment(s, f.who, pick(['gentil', 'drole', 'mechant']));
+          }
         }
       }
       resolve(s);

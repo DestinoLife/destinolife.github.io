@@ -69,10 +69,10 @@ export const COTIERES = ['Marseille', 'Nice', 'Montpellier'];
 
 export const MILIEUX = {
   precaire: { nom: 'Précaire', logement: 'hlm', poche: 0, heritage: 0 },
-  modeste: { nom: 'Modeste', logement: 'hlm', poche: 250, heritage: 4000 },
-  moyenne: { nom: 'Classe moyenne', logement: 'appart', poche: 600, heritage: 40000 },
-  aisee: { nom: 'Aisée', logement: 'maison', poche: 1500, heritage: 180000 },
-  riche: { nom: 'Riche', logement: 'villa', poche: 6000, heritage: 1500000 },
+  modeste: { nom: 'Modeste', logement: 'hlm', poche: 120, heritage: 4000 },
+  moyenne: { nom: 'Classe moyenne', logement: 'appart', poche: 300, heritage: 40000 },
+  aisee: { nom: 'Aisée', logement: 'maison', poche: 600, heritage: 180000 },
+  riche: { nom: 'Riche', logement: 'villa', poche: 1200, heritage: 1500000 },
 };
 
 export const STATUTS = {

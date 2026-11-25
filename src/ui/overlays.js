@@ -4,7 +4,7 @@ import { euros } from '../engine/rng.js';
 import { fmtHeure } from '../engine/time.js';
 import { ASSETS, BUSINESS, ROLES, MISSIONS, destsFor, patrimoine, contactsOf } from '../engine/economy.js';
 import { lienNom } from '../engine/core.js';
-import { relActions } from '../engine/flow.js';
+import { relActions, impot, legalIncome } from '../engine/flow.js';
 import { messagesHTML, instaHTML, actusHTML, blackjackHTML, destinLabel } from './overlays3.js';
 
 const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -23,12 +23,8 @@ export function spark(values, color = '#5ff5d0', w = 220, h = 54) {
 const APPS = [
   ['messages', 'Messages', 'mail', '#34c759'],
   ['insta', 'Instapic', 'camera', 'linear-gradient(45deg,#feda75,#d62976,#4f5bd5)'],
-  ['actus', 'Actus', 'globe', '#5856d6'],
   ['contacts', 'Contacts', 'users', '#8e8e93'],
-  ['banque', 'Banque', 'euro', '#0a84ff'],
-  ['business', 'Business', 'trend', '#ff9f0a'],
-  ['reseau', 'Réseau', 'mask', '#ff375f'],
-  ['journal', 'Notes', 'file', '#ffd60a'],
+  ['actus', 'Actus', 'globe', '#5856d6'],
 ];
 export function phoneHTML(S, o) {
   const app = o.app;
@@ -36,7 +32,7 @@ export function phoneHTML(S, o) {
   let body = '';
   const back = (t, right = '') => `<div class="ph-head"><button data-a="phone" data-v="${o.conv || o.compose ? 'messages' : 'home'}">${icon('chevron', 16, 'flip')} Retour</button><b>${t}</b><span class="ph-right">${right}</span></div>`;
   if (!app || app === 'home') {
-    body = `<div class="ph-home"><div class="ph-clock">${fmtHeure(S.t)}</div><div class="ph-grid">${APPS.filter(([k]) => k !== 'reseau' || S.reseau).map(([k, n, i, c]) => `<button class="ph-app" data-a="phone" data-v="${k}"><span style="background:${c}">${icon(i, 26)}${k === 'messages' && S.phone.unread ? `<em>${S.phone.unread}</em>` : ''}</span>${n}</button>`).join('')}</div></div>`;
+    body = `<div class="ph-home"><div class="ph-clock">${fmtHeure(S.t)}</div>${S.phone.unread ? `<button class="ph-notif" data-a="phone" data-v="messages">${icon('mail', 16)} ${S.phone.unread} message${S.phone.unread > 1 ? 's' : ''} attend${S.phone.unread > 1 ? 'ent' : ''} ta réponse</button>` : '<p class="ph-calm">Aucun message en attente.</p>'}<div class="ph-grid">${APPS.filter(([k]) => k !== 'reseau' || S.reseau).map(([k, n, i, c]) => `<button class="ph-app" data-a="phone" data-v="${k}"><span style="background:${c}">${icon(i, 26)}${k === 'messages' && S.phone.unread ? `<em>${S.phone.unread}</em>` : ''}</span>${n}</button>`).join('')}</div></div>`;
   } else if (app === 'messages') {
     body = messagesHTML(S, o, back);
   } else if (app === 'insta') {
@@ -161,6 +157,15 @@ export function reseauStats(S) {
   return `<div class="job-card"><span class="lbl" style="margin:0">Ton réseau</span><dl class="kv"><dt>Points de deal</dt><dd>${n.points}</dd><dt>Guetteurs / vendeurs</dt><dd>${n.guetteurs} / ${n.vendeurs}</dd><dt>Fournisseur</dt><dd>${f ? `${esc(f.prenom)} (×${f.tarif})` : '<span style="color:var(--bad)">Aucun</span>'}</dd><dt>Dernière année</dt><dd>${n.hist.length ? euros(n.hist.at(-1).net) : '—'}</dd></dl>
     <div class="bar-s"><div class="t">Chaleur (attention de la police)<span>${n.chaleur}</span></div><div class="tr"><i style="width:${n.chaleur}%;background:${n.chaleur > 60 ? 'var(--bad)' : 'var(--warn)'}"></i></div></div>${n.hist.length > 1 ? spark(n.hist.map((h) => h.net), '#ff6b8b') : ''}</div>`;
 }
+export function crimeHubHTML(S) {
+  const c = S.carriere && ['reseau', 'escroc'].includes(S.carriere.id) ? S.carriere : null;
+  const rang = S.reseau ? 'Patron de ton réseau' : c ? (S.carriere.id === 'reseau' ? ['Guetteur', 'Charbonneur', 'Gérant de point', 'Semi-grossiste', 'Baron'] : ['Arnaqueur', 'Escroc', 'Fraudeur'])[c.niveau] : 'Indépendant';
+  const next = c && !S.reseau && c.niveau < 2 ? `Réputation ${30 + c.niveau * 15} pour monter en grade (tu as ${S.stats.reputation}).` : '';
+  return `<div class="hub"><div class="hub-h"><div><span class="lbl" style="margin:0">Mon business illégal</span><b>${rang}</b></div><span class="hub-sale" title="Argent sale à blanchir">${icon('cash', 15)} ${euros(S.sale)} sale</span></div>
+    <div class="hub-grid"><div><small>Recherché</small><b>${S.justice.recherche}/5</b></div><div><small>Réputation de rue</small><b>${S.stats.reputation}</b></div><div><small>Savoir-faire</small><b>${S.stats.crime}</b></div></div>
+    ${next ? `<p class="hint">${next}</p>` : ''}${S.sale > 0 ? '<p class="hint">Blanchis ton argent sale avec un business (onglet Biens) pour éviter le fisc.</p>' : ''}</div>${reseauHTML(S)}`;
+}
+
 export function reseauHTML(S) {
   if (!S.reseau) return '';
   const fours = contactsOf(S, 'fournisseur');
