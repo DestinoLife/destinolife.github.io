@@ -1,10 +1,15 @@
 # Notes de mise à jour de Destino
 
-Version actuelle : **v0.5.1**. Ces notes sont aussi visibles dans le jeu (écran titre, « Notes de mise à jour »).
+Version actuelle : **v0.5.2**. Ces notes sont aussi visibles dans le jeu (écran titre, « Notes de mise à jour »).
+
+## v0.5.2 · Nouvelle adresse
+
+- Nouvelle adresse du jeu : https://destinolife.github.io/ (organisation DestinoLife)
+- Le bouton « Signaler un bug » envoie vers le nouveau dépôt
 
 ## v0.5.1 · Destino en ligne
 
-- Le jeu est jouable en ligne : https://samyr13.github.io/Destino/
+- Le jeu est jouable en ligne : https://destinolife.github.io/
 - Bouton « Signaler un bug » (écran titre, onglet Vie, fin de vie) : ouvre un formulaire avec les infos de ta partie déjà remplies
 
 ## v0.5 · La mise à jour « Agenda et fisc »

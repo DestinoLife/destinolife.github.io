@@ -1,9 +1,13 @@
 // Notes de mise à jour affichées dans le jeu (même contenu que CHANGELOG.md).
-export const VERSION = 'v0.5.1';
+export const VERSION = 'v0.5.2';
 
 export const CHANGELOG = [
+  { v: 'v0.5.2', titre: 'Nouvelle adresse', items: [
+    'Nouvelle adresse du jeu : https://destinolife.github.io/ (organisation DestinoLife)',
+    'Le bouton « Signaler un bug » envoie vers le nouveau dépôt',
+  ] },
   { v: 'v0.5.1', titre: 'Destino en ligne', items: [
-    'Le jeu est jouable en ligne : https://samyr13.github.io/Destino/',
+    'Le jeu est jouable en ligne : https://destinolife.github.io/',
     'Bouton « Signaler un bug » (écran titre, onglet Vie, fin de vie) : ouvre un formulaire avec les infos de ta partie déjà remplies',
   ] },
   { v: 'v0.5', titre: 'La mise à jour « Agenda et fisc »', items: [

@@ -121,7 +121,7 @@ const gF = (s, h, f) => (s.id.genre === 'f' ? f : h);
 
 // ---------- Écran titre ----------
 // Signalement de bug : ouvre le formulaire GitHub prérempli avec l'état de la partie (aucune donnée perso).
-const REPO = 'https://github.com/samyr13/Destino';
+const REPO = 'https://github.com/DestinoLife/destinolife.github.io';
 function bugURL() {
   const lines = [`Version : ${VERSION}`, `Écran : ${innerWidth}×${innerHeight} · ${navigator.userAgent.match(/(Firefox|Edg|OPR|Chrome|Safari)\/[\d.]+/)?.[0] || 'navigateur inconnu'}${/Mobi/.test(navigator.userAgent) ? ' · mobile' : ''}`];
   if (S && screen === 'game') {
