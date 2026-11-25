@@ -86,7 +86,7 @@ function birth(s) {
   const kid = newPerson(s, 'enfant', { genre, age: 0, rel: 90, look, nom: s.id.nom });
   s.relations.push(kid);
   s.tmp.bebe = kid.prenom;
-  addLog(s, `Naissance de ${g(s, 'ton', 'ton')} ${genre === 'f' ? 'fille' : 'fils'}, ${kid.prenom}.`);
+  addLog(s, `Naissance de ${genre === 'f' ? 'ta fille' : 'ton fils'}, ${kid.prenom}.`);
 }
 
 // ---------- Carrière ----------

@@ -6,8 +6,8 @@ import {
 } from './core.js';
 import { EVENTS, EV } from '../data/events.js';
 import { ACTIVITIES, ACT } from '../data/activities.js';
-import { CAREERS, canApply } from '../data/careers.js';
-import { HOUSING } from '../data/housing.js';
+import { CAREERS, canApply, dipRank } from '../data/careers.js';
+import { HOUSING, originScene } from '../data/housing.js';
 import { MILIEUX, TRAITS, TALENTS } from '../data/identity.js';
 import { randomLook } from '../data/look.js';
 import { worldTick, migrate, patrimoine } from './economy.js';
@@ -32,15 +32,16 @@ export function advanceTime(s, days, hourRange) {
 export function currentScene(s) {
   if (!s.vivant) return 'rue';
   if (inPrison(s)) return 'prison';
-  if (s.lieu) return s.lieu;
-  if (s.voyage) return s.voyage.scene;
+  if (s.lieu) return s.lieu === 'pays' ? originScene(s.id.origine) : s.lieu;
+  if (s.voyage) return s.voyage.scene === 'pays' ? originScene(s.id.origine) : s.voyage.scene;
   if (s.cavale) return s.cavale.scene;
   if (s.expat && s.logement !== 'villa' && hourOf(s.t) >= 18) return s.expat.scene;
   const h = hourOf(s.t);
   const work = isWeekday(s.t) && h >= 9 && h < 18;
   if (work && s.carriere && s.age >= 16) return career(s).scene;
   if (work && s.age >= 3 && s.etudes.cursus && s.id.statut !== 'au_pays') return 'ecole';
-  return HOUSING[s.logement]?.scene || 'rue';
+  const sc = HOUSING[s.logement]?.scene || 'rue';
+  return sc === 'pays' ? originScene(s.id.origine) : sc;
 }
 
 export function outfitOf(s) {
@@ -362,11 +363,11 @@ function justiceTick(s) {
 
 function health(s) {
   const st = s.stats;
-  if (s.age > 30 && chance(0.5)) st.sante -= 1;
-  if (s.age > 50) st.sante -= rnd(0, 2);
-  if (s.age > 70) st.sante -= rnd(1, 4);
-  if (s.age < 50) st.sante += rnd(1, 4);
-  else if (s.age < 70) st.sante += rnd(0, 2);
+  if (s.age > 40 && chance(0.4)) st.sante -= 1;
+  if (s.age > 60) st.sante -= rnd(0, 2);
+  if (s.age > 75) st.sante -= rnd(1, 4);
+  if (s.age < 55) st.sante += rnd(1, 3);
+  else if (s.age < 72) st.sante += rnd(0, 2);
   if (s.flags.fumeur) st.sante -= 1;
   st.sante = clamp(st.sante);
   st.bonheur = clamp(st.bonheur + Math.round((55 - st.bonheur) * 0.12));
@@ -376,8 +377,8 @@ function health(s) {
     const add = Object.entries(s.addic || {}).sort((a, b) => b[1] - a[1])[0];
     return die(s, m ? DISEASE_NOM[m.id] : add && add[1] > 50 ? 'Épuisement dû aux addictions' : s.age > 70 ? 'Corps usé par l’âge' : 'Santé trop dégradée');
   }
-  let p = s.age < 45 ? 0.0012 : s.age < 60 ? 0.006 : s.age < 70 ? 0.018 : s.age < 80 ? 0.05 : s.age < 90 ? 0.13 : 0.32;
-  if (st.sante < 25) p *= 3;
+  let p = s.age < 50 ? 0.0006 : s.age < 65 ? 0.003 : s.age < 75 ? 0.012 : s.age < 83 ? 0.045 : s.age < 92 ? 0.13 : 0.32;
+  if (st.sante < 25) p *= 2.5;
   if (chance(p)) die(s, s.age >= 75 ? 'Mort paisible, de vieillesse' : pick(['Crise cardiaque', 'Accident vasculaire cérébral', 'Maladie foudroyante']));
 }
 
@@ -480,6 +481,7 @@ export function enroll(s, cursus) {
   if (!R) return { r: '', err: true };
   if (s.etudes.cursus) return { r: 'Tu es déjà en études.', err: true };
   if (inPrison(s)) return { r: 'Impossible en prison.', err: true };
+  if (dipRank(s.etudes.niveau) < dipRank(R.need)) return { r: `Diplôme requis : ${R.need.toUpperCase()}.`, err: true };
   if (R.intel && s.stats.intel < R.intel) return { r: `Intelligence ${R.intel} requise.`, err: true };
   s.etudes.cursus = cursus;
   s.etudes.reste = R.reste;
@@ -511,17 +513,15 @@ export function housingOptions(s) {
 export function moveTo(s, id, buy) {
   const o = housingOptions(s).find((h) => h.id === id);
   if (!o || !o.ok) return { r: o?.why || '', err: true };
-  if (s.proprio && HOUSING[s.logement]?.achat) {
-    const v = Math.round(HOUSING[s.logement].achat * 0.9);
-    s.money += v;
-    addLog(s, `Tu revends ton logement : ${euros(v)}.`);
-  }
   if (buy && !o.achat) return { r: 'Ce logement se loue uniquement.', err: true };
   if (!buy && !o.loyer && o.achat && o.id === 'villa') return { r: 'La villa s’achète uniquement.', err: true };
-  if (buy) {
-    if (s.money < o.achat) return { r: `Il te faut ${euros(o.achat)}.`, err: true };
-    s.money -= o.achat;
+  const saleVal = s.proprio && HOUSING[s.logement]?.achat ? Math.round(HOUSING[s.logement].achat * 0.9) : 0;
+  if (buy && s.money + saleVal < o.achat) return { r: `Il te faut ${euros(o.achat)}.`, err: true };
+  if (saleVal > 0) {
+    s.money += saleVal;
+    addLog(s, `Tu revends ton logement : ${euros(saleVal)}.`);
   }
+  if (buy) s.money -= o.achat;
   s.logement = id;
   s.chezParents = false;
   s.proprio = !!buy;
@@ -630,8 +630,9 @@ export function continueAsChild(s, rid) {
   const c = s.relations.find((x) => x.id === rid);
   if (!c || !c.vivant) return null;
   const heirs = childrenOf(s).filter((x) => x.vivant).length;
-  const part = Math.max(0, Math.round((s.money * 0.8) / heirs));
-  const milieu = part > 1000000 ? 'riche' : part > 150000 ? 'aisee' : part > 30000 ? 'moyenne' : part > 3000 ? 'modeste' : 'precaire';
+  const totalCash = Math.max(0, s.money) + Math.round((s.biens || []).reduce((t, b) => t + b.valeur, 0) * (heirs > 1 ? (heirs - 1) / heirs : 0));
+  const part = Math.max(0, Math.round((totalCash * 0.8) / heirs));
+  const milieu = part + patrimoine(s) > 1000000 ? 'riche' : part + patrimoine(s) > 150000 ? 'aisee' : part > 30000 ? 'moyenne' : part > 3000 ? 'modeste' : 'precaire';
   const traits = Object.keys(TRAITS).sort(() => Math.random() - 0.5).slice(0, 2);
   const ns = createLife({
     prenom: c.prenom, nom: c.nom, genre: c.genre, attirance: c.genre === 'f' ? 'h' : 'f', origine: s.id.origine, pays: s.id.pays,
@@ -643,6 +644,8 @@ export function continueAsChild(s, rid) {
   childrenOf(s).filter((x) => x.vivant && x.id !== rid).forEach((x) => ns.relations.push({ ...x, lien: 'fratrie', rel: rnd(40, 80) }));
   ns.uid = Math.max(...ns.relations.map((r) => r.id), 0) + 1;
   ns.money = part;
+  if (s.biens?.length) ns.biens = s.biens.map((b) => ({ ...b, uid: ns.uid++ }));
+  if (s.business?.length) ns.business = s.business.map((b) => ({ ...b, uid: ns.uid++, hist: [...(b.hist || [])] }));
   if (ns.age >= 18 && s.proprio) {
     ns.logement = s.logement;
     ns.proprio = true;

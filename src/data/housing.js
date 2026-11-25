@@ -13,5 +13,21 @@ export const HOUSING = {
 export const SCENE_NOM = {
   rue: 'Rue', cite: 'Cité des Rosiers', bidonville: 'Campement', appart: 'Centre-ville', maison: 'Quartier pavillonnaire',
   villa: 'Villa', plage: 'Plage', bureau: 'Bureau', chantier: 'Chantier', commissariat: 'Commissariat', hopital: 'Hôpital',
-  ecole: 'École', stade: 'Stade', studio: 'Studio', prison: 'Centre pénitentiaire', pays: 'Quartier familial', caserne: 'Caserne', casino: 'Casino', palais: 'Palais',
+  ecole: 'École', stade: 'Stade', studio: 'Studio', prison: 'Centre pénitentiaire', pays: 'Quartier familial',
+  pays_maghreb: 'Médina familiale', pays_afrique_ouest: 'Quartier natal', pays_afrique_centrale: 'Collines natales',
+  pays_antilles: 'Cases créoles', pays_portugal: 'Quartier de Lisbonne', pays_turquie: 'Rives du Bosphore',
+  pays_asie: 'Ruelle aux lanternes', pays_europe_est: 'Vieille ville', pays_amerique_latine: 'Quartier coloré',
+  caserne: 'Caserne', casino: 'Casino', palais: 'Palais',
 };
+
+export const originScene = (origine) => ({
+  maghreb: 'pays_maghreb',
+  afrique_ouest: 'pays_afrique_ouest',
+  afrique_centrale: 'pays_afrique_centrale',
+  antilles: 'pays_antilles',
+  portugal: 'pays_portugal',
+  turquie: 'pays_turquie',
+  asie: 'pays_asie',
+  europe_est: 'pays_europe_est',
+  amerique_latine: 'pays_amerique_latine',
+}[origine] || 'pays_maghreb');

@@ -12,17 +12,17 @@ const who = (s) => s.relations.find((r) => r.vivant && r.prenom === s.mem.rdv);
 
 export const EVENTS4 = [
   // ================= Rendez-vous fixés par message (ils se passent vraiment) =================
-  { id: 'rdv_famille', forced: 1, cat: 'Rendez-vous', avec: 'parents', pre: (s) => (s.tmp.p = s.mem.rdv), txt: 'Repas de famille chez {p}. L’odeur du plat t’accueille dès la porte.', ch: [
+  { id: 'rdv_famille', forced: 1, cond: (s) => s.justice.prison === 0, cat: 'Rendez-vous', avec: 'parents', pre: (s) => (s.tmp.p = s.mem.rdv), txt: 'Repas de famille chez {p}. L’odeur du plat t’accueille dès la porte.', ch: [
     { t: 'Profiter et parler de tout', fx: (s) => { const r = who(s); if (r) { r.rel = Math.min(100, r.rel + 8); r.conf = Math.min(100, (r.conf ?? 50) + 5); } return { bonheur: 7 }; }, r: 'Une soirée simple et précieuse.', days: 1, hour: [12, 14] },
     { t: 'Annoncer une grande nouvelle', fx: { bonheur: 4, charisme: 1 }, out: [{ p: 0.6, fx: { rel: { lien: 'parents', d: 6 } }, r: 'Tout le monde t’applaudit. Fierté.' }, { p: 1, fx: { rel: { lien: 'parents', d: -8 } }, r: 'Le repas tourne au débat houleux.' }], days: 1 },
     { t: 'Repartir avec un Tupperware', fx: { bonheur: 3, sante: 1 }, r: 'Trois jours de bons repas.', days: 1 },
   ] },
-  { id: 'rdv_ami', forced: 1, cat: 'Rendez-vous', avec: 'ami', pre: (s) => (s.tmp.p = s.mem.rdv), txt: 'Soirée avec {p} comme prévu. L’ambiance monte vite.', ch: [
+  { id: 'rdv_ami', forced: 1, cond: (s) => s.justice.prison === 0, cat: 'Rendez-vous', avec: 'ami', pre: (s) => (s.tmp.p = s.mem.rdv), txt: 'Soirée avec {p} comme prévu. L’ambiance monte vite.', ch: [
     { t: 'Faire la fête jusqu’au bout', fx: (s) => { const r = who(s); if (r) r.rel = Math.min(100, r.rel + 8); return { bonheur: 8, sante: -2 }; }, out: [{ p: 0.85, r: 'Grosse soirée. Vous en parlerez encore dans dix ans.' }, { p: 1, fx: { arrest: { motif: 'Tapage et ivresse', peine: [0, 0] } }, r: 'La police débarque à 3 h du matin.' }], days: 1, hour: [22, 23] },
     { t: 'Discuter de vos projets', fx: (s) => { const r = who(s); if (r) r.conf = Math.min(100, (r.conf ?? 50) + 10); return { bonheur: 5, intel: 1 }; }, r: 'Vous refaites le monde. {p} te confie ses rêves.', days: 1, hour: [20, 22] },
     { t: 'Repartir tôt', fx: { sante: 1 }, r: '{p} est un peu déçu, mais tu es en forme demain.', days: 1 },
   ] },
-  { id: 'rdv_couple', forced: 1, cat: 'Rendez-vous', avec: 'partenaire', pre: (s) => (s.tmp.p = s.mem.rdv), txt: 'Dîner en tête-à-tête avec {p}. Bougies, regards complices.', ch: [
+  { id: 'rdv_couple', forced: 1, cond: (s) => s.justice.prison === 0, cat: 'Rendez-vous', avec: 'partenaire', pre: (s) => (s.tmp.p = s.mem.rdv), txt: 'Dîner en tête-à-tête avec {p}. Bougies, regards complices.', ch: [
     { t: 'Sortir le grand jeu (300 €)', c: (s) => s.money >= 300, fx: (s) => { const r = who(s); if (r) { r.rel = Math.min(100, r.rel + 12); r.conf = Math.min(100, (r.conf ?? 50) + 6); } return { money: -300, bonheur: 10 }; }, r: 'Soirée parfaite. {p} te regarde avec des étoiles dans les yeux.', days: 1, hour: [21, 23] },
     { t: 'Parler de l’avenir', fx: (s) => { const r = who(s); if (r) r.conf = Math.min(100, (r.conf ?? 50) + 10); return { bonheur: 5 }; }, out: [{ p: 0.7, r: 'Vous voulez la même chose. Rassurant.' }, { p: 1, fx: { rel: { lien: 'partenaire', d: -8 } }, r: 'Vous ne voyez pas l’avenir pareil… malaise.' }], days: 1 },
     { t: 'Regarder ton téléphone', fx: { rel: { lien: 'partenaire', d: -10 }, confiance: { lien: 'partenaire', d: -5 } }, r: '« Tu m’écoutes au moins ? » Soirée gâchée.', days: 1 },
@@ -105,23 +105,23 @@ export const EVENTS4 = [
       { t: 'Rester', h: 'Argent ▲', fx: { bonheur: -5 }, r: 'Tu restes. Le compte en banque sourit, toi un peu moins.' },
     ] },
   // ---- Agenda : ce qui était prévu par message
-  { id: 'livraison_soir', forced: 1, cat: 'Rue · 22 h', txt: 'Derrière le Lidl. Un scooter t’attend, le sac est lourd. Une voiture banalisée tourne dans le quartier.', ch: [
+  { id: 'livraison_soir', forced: 1, cond: (s) => s.justice.prison === 0, cat: 'Rue · 22 h', txt: 'Derrière le Lidl. Un scooter t’attend, le sac est lourd. Une voiture banalisée tourne dans le quartier.', ch: [
     { t: 'Faire la livraison', h: 'Argent sale ▲ · risque', out: [
       { p: 0.85, fx: { money: 800, sale: 800, crime: 2, reputation: 4, perf: 10 }, r: 'Livré. 800 € cash et le grand te respecte un peu plus.' },
       { p: 1, fx: { arrest: { motif: 'Transport de stupéfiants', peine: [1, 3] } }, r: 'Contrôle. Le sac était sous le siège.' } ] },
     { t: 'Faire demi-tour', h: 'Réputation ▼', fx: { reputation: -6, perf: -8 }, r: 'Tu rentres. Le grand ne te le pardonnera pas facilement.' },
   ] },
-  { id: 'arrivage', forced: 1, cat: 'Réseau · jeudi soir', cond: (s) => !!s.reseau, txt: 'Jeudi, 23 h. La camionnette du fournisseur arrive au parking. Double stock, comme prévu.', ch: [
+  { id: 'arrivage', forced: 1, cat: 'Réseau · jeudi soir', cond: (s) => !!s.reseau && s.justice.prison === 0, txt: 'Jeudi, 23 h. La camionnette du fournisseur arrive au parking. Double stock, comme prévu.', ch: [
     { t: 'Vérifier la marchandise', h: 'Sûr', fx: (s) => { s.reseau.boost = 1.35; return { crime: 1 }; }, r: 'Tout est là, et de bonne qualité. Tes points vont tourner fort cette année.' },
     { t: 'Faire confiance et décharger vite', h: 'Rapide · risqué', out: [
       { p: 0.7, fx: (s) => { s.reseau.boost = 1.4; return { reputation: 2 }; }, r: 'Rapide et propre. Personne n’a rien vu.' },
       { p: 1, fx: (s) => { s.reseau.chaleur = Math.min(100, s.reseau.chaleur + 20); return { recherche: 1, motif: 'Trafic de stupéfiants' }; }, r: 'Un voisin a filmé la camionnette. La BAC va s’intéresser au parking.' } ] },
   ] },
-  { id: 'weekend_boss', forced: 1, cat: 'Travail · samedi', txt: 'Samedi matin, l’open space est vide. Ton boss t’attend avec deux cafés.', ch: [
+  { id: 'weekend_boss', forced: 1, cond: (s) => s.justice.prison === 0 && !!s.carriere, cat: 'Travail · samedi', txt: 'Samedi matin, l’open space est vide. Ton boss t’attend avec deux cafés.', ch: [
     { t: 'Tout donner', fx: (s) => ({ money: Math.round(salary(s) * 0.25), perf: 10, bonheur: -3 }), r: 'Le dossier est bouclé. Ton boss le notera à ton entretien.', days: 1 },
     { t: 'Faire le minimum et partir tôt', fx: { perf: 2, bonheur: 1 }, r: 'Tu es venu{e}, c’est déjà ça.' },
   ] },
-  { id: 'interview_media', forced: 1, cat: 'Politique · interview', txt: 'Plateau télé, 8 h. Le journaliste ouvre un dossier sur ton passé.', ch: [
+  { id: 'interview_media', forced: 1, cond: (s) => s.justice.prison === 0 && !!s.carriere, cat: 'Politique · interview', txt: 'Plateau télé, 8 h. Le journaliste ouvre un dossier sur ton passé.', ch: [
     { t: 'Répondre franchement', out: [{ p: (s) => 0.55 + s.stats.charisme / 400, fx: { notoriete: 7, reputation: 3 }, r: 'Ta franchise plaît. Les sondages montent.' }, { p: 1, fx: { notoriete: -6 }, r: 'L’extrait tourne en boucle sur les réseaux. Mauvaise journée.' }] },
     { t: 'Botter en touche', fx: { notoriete: -1 }, r: 'Langue de bois. Personne ne retiendra l’interview.' },
   ] },

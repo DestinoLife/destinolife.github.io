@@ -1,7 +1,17 @@
 // Avatar 2D détaillé en SVG (volumes, dégradés, reflets). Origine = pieds du perso (0,0), hauteur adulte ≈ 345.
 import { OUTFITS, BUILDS } from '../data/look.js';
 
-const rgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+const HEX6 = /^#[0-9a-f]{6}$/i;
+const safeHex = (h, fb = '#888888') => {
+  if (typeof h !== 'string') return fb;
+  if (HEX6.test(h)) return h;
+  if (/^#[0-9a-f]{3}$/i.test(h)) return '#' + h[1] + h[1] + h[2] + h[2] + h[3] + h[3];
+  return fb;
+};
+const rgb = (h) => {
+  const s = safeHex(h);
+  return [1, 3, 5].map((i) => parseInt(s.slice(i, i + 2), 16));
+};
 const hex = (c) => '#' + c.map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('');
 export const shade = (h, a) => hex(rgb(h).map((v) => (a < 0 ? v * (1 + a) : v + (255 - v) * a)));
 export const mix = (a, b, k) => {
@@ -10,11 +20,63 @@ export const mix = (a, b, k) => {
 };
 
 function dims(age) {
-  if (age < 3) return [0.36, 0.66];
+  if (age < 3) return [0.42, 0.72];
   if (age < 7) return [0.48, 0.76];
   if (age < 12) return [0.62, 0.85];
   if (age < 16) return [0.84, 0.95];
   return [1, 1];
+}
+
+// ---------- Vrai bébé (0-1 an) dans son berceau / tapis d'éveil ----------
+function babySVG(p, u) {
+  const { look, f, age } = p;
+  const skC = safeHex(look.peau, '#eabf9f');
+  const hcC = safeHex(look.cheveuxC, '#2b1b11');
+  const eyeC = safeHex(look.yeux, '#3b2414');
+  const line = shade(skC, -0.35);
+  const onesC = f ? '#f4a4c0' : '#7ec4f8';
+  const onesDk = shade(onesC, -0.22);
+  const blanketC = f ? '#ffe2ec' : '#dff0ff';
+  const sk = `url(#${u}sk)`;
+  const eye = (x) => `<ellipse cx="${x}" cy="2" rx="7.5" ry="8.5" fill="#fff"/><circle cx="${x}" cy="2.5" r="5.4" fill="url(#${u}ir)"/><circle cx="${x}" cy="2.5" r="2.8" fill="#090504"/><circle cx="${x + 2}" cy="-0.5" r="2.2" fill="#fff"/><circle cx="${x - 2}" cy="5" r="1" fill="#fff" opacity=".7"/>`;
+  const pacifier = age === 0
+    ? `<ellipse cx="0" cy="22" rx="11" ry="7.5" fill="${onesC}" stroke="${onesDk}" stroke-width="1.6"/><circle cx="0" cy="22" r="4.2" fill="${onesDk}"/><circle cx="0" cy="24" r="5.5" fill="none" stroke="#fff" stroke-width="2" opacity=".85"/>`
+    : `<path d="M-9 20 Q0 30 9 20" stroke="${mix(skC, '#8a3338', 0.7)}" stroke-width="2.6" fill="none" stroke-linecap="round"/><rect x="-3" y="21" width="6" height="3.2" rx="1.2" fill="#fff"/>`;
+  const tuft = `<path d="M-6 -39 Q0 -54 8 -46 Q14 -40 4 -36 Q-2 -42 -6 -39Z" fill="${hcC}"/><path d="M-14 -34 Q-10 -44 -2 -38" stroke="${hcC}" stroke-width="3" fill="none" stroke-linecap="round"/>`;
+  const defs = `<defs>
+    <radialGradient id="${u}sk" cx=".42" cy=".34" r=".72"><stop offset="0" stop-color="${shade(skC, 0.14)}"/><stop offset=".7" stop-color="${skC}"/><stop offset="1" stop-color="${shade(skC, -0.22)}"/></radialGradient>
+    <radialGradient id="${u}ir" cx=".45" cy=".4" r=".6"><stop offset="0" stop-color="${shade(eyeC, 0.35)}"/><stop offset="1" stop-color="${shade(eyeC, -0.4)}"/></radialGradient>
+  </defs>`;
+  // Berceau / couffin posé au sol (y = 0) pour 0 an, assis sur tapis d'éveil à 1 an
+  const base = age === 0
+    ? `<ellipse cx="0" cy="2" rx="74" ry="11" fill="#000" opacity=".26"/>
+       <path d="M-62 -16 Q0 4 62 -16" stroke="#8a5e3c" stroke-width="6" fill="none" stroke-linecap="round"/>
+       <path d="M-56 -56 H56 L48 -14 Q0 -4 -48 -14Z" fill="#d9b28a" stroke="#a87c52" stroke-width="3"/>
+       <path d="M-58 -56 Q0 -48 58 -56" stroke="#c09062" stroke-width="6" fill="none" stroke-linecap="round"/>
+       <path d="M-46 -52 Q0 -44 46 -52 L42 -18 Q0 -10 -42 -18Z" fill="${blanketC}"/>
+       <path d="M-44 -40 Q0 -32 44 -40" stroke="${onesC}" stroke-width="5" fill="none" opacity=".8"/>`
+    : `<ellipse cx="0" cy="2" rx="76" ry="13" fill="${blanketC}" stroke="${onesC}" stroke-width="3"/>
+       <ellipse cx="-26" cy="-14" rx="14" ry="10" fill="${onesC}"/><ellipse cx="26" cy="-14" rx="14" ry="10" fill="${onesC}"/>
+       <ellipse cx="-30" cy="-12" rx="7" ry="6" fill="${sk}"/><ellipse cx="30" cy="-12" rx="7" ry="6" fill="${sk}"/>
+       <path d="M-30 -64 Q0 -72 30 -64 L34 -14 Q0 -6 -34 -14Z" fill="${onesC}"/>
+       <circle cx="0" cy="-42" r="8" fill="#fff" opacity=".45"/>`;
+  const hy = age === 0 ? -74 : -92;
+  const hands = age === 0
+    ? `<circle cx="-28" cy="-48" r="9" fill="${sk}"/><circle cx="28" cy="-48" r="9" fill="${sk}"/>`
+    : `<path d="M-30 -56 Q-46 -44 -40 -28" stroke="${onesC}" stroke-width="14" stroke-linecap="round" fill="none"/><path d="M30 -56 Q46 -44 40 -28" stroke="${onesC}" stroke-width="14" stroke-linecap="round" fill="none"/><circle cx="-40" cy="-26" r="8.5" fill="${sk}"/><circle cx="40" cy="-26" r="8.5" fill="${sk}"/>`;
+  return `${defs}<g class="idle">${base}${hands}
+    <g transform="translate(0 ${hy}) scale(0.84)">
+      <ellipse cx="-38" cy="4" rx="7" ry="9" fill="${sk}"/><ellipse cx="38" cy="4" rx="7" ry="9" fill="${sk}"/>
+      <ellipse cx="0" cy="0" rx="40" ry="37" fill="${sk}"/>
+      <ellipse cx="-10" cy="-20" rx="14" ry="6" fill="#fff" opacity=".16"/>
+      ${tuft}
+      <g class="blink">${eye(-15)}${eye(15)}</g>
+      <path d="M-21 -12 q6 -3 12 0 M9 -12 q6 -3 12 0" stroke="${shade(hcC, -0.1)}" stroke-width="1.8" fill="none" stroke-linecap="round" opacity=".7"/>
+      <ellipse cx="-24" cy="14" rx="9" ry="5.5" fill="#ff7c94" opacity=".32"/><ellipse cx="24" cy="14" rx="9" ry="5.5" fill="#ff7c94" opacity=".32"/>
+      <path d="M-2 11 q2 3 4 0" stroke="${line}" stroke-width="1.8" fill="none" stroke-linecap="round" opacity=".7"/>
+      ${pacifier}
+    </g>
+  </g>`;
 }
 
 // ---------- Cheveux (repère de la tête : centre 0,0) ----------
@@ -87,7 +149,8 @@ function face(p, u) {
   const jaw = f
     ? 'M-32 -6 Q-33 -44 0 -46 Q33 -44 32 -6 Q31 18 16 33 Q0 43 -16 33 Q-31 18 -32 -6Z'
     : 'M-36 -4 Q-36 -44 0 -46 Q36 -44 36 -4 Q36 28 15 40 Q0 46 -15 40 Q-36 28 -36 -4Z';
-  const ears = look.coiffure === 'foulard' ? '' : `<ellipse cx="-35" cy="0" rx="6" ry="10" fill="${sk}"/><ellipse cx="35" cy="0" rx="6" ry="10" fill="${sk}"/><path d="M-35 -4 q-3 5 0 10 M35 -4 q3 5 0 10" stroke="${line}" stroke-width="1.6" fill="none" opacity=".6"/>`;
+  const hasFoulard = look.coiffure === 'foulard' && age >= 10;
+  const ears = hasFoulard ? '' : `<ellipse cx="-35" cy="0" rx="6" ry="10" fill="${sk}"/><ellipse cx="35" cy="0" rx="6" ry="10" fill="${sk}"/><path d="M-35 -4 q-3 5 0 10 M35 -4 q3 5 0 10" stroke="${line}" stroke-width="1.6" fill="none" opacity=".6"/>`;
   const browW = f ? 2 : 3.6;
   const hc = p.hairC;
   const eye = (x, s) => `<path d="M${x - 8 * s} 0 Q${x} -7 ${x + 8 * s} 0 Q${x} 5 ${x - 8 * s} 0Z" fill="#f6f3ec"/><circle cx="${x}" cy="-.5" r="4.3" fill="url(#${u}ir)"/><circle cx="${x}" cy="-.5" r="2" fill="#070403"/><circle cx="${x + 1.5}" cy="-2" r="1.3" fill="#fff"/><path d="M${x - 9 * s} 0 Q${x} -8.5 ${x + 9 * s} -.5" stroke="#120a05" stroke-width="${f ? 1.8 : 2}" fill="none" stroke-linecap="round"/>${f ? `<path d="M${x + 9 * s} -.5 l${2.4 * s} -2.4" stroke="#120a05" stroke-width="1.6" stroke-linecap="round"/>` : ''}`;
@@ -136,7 +199,7 @@ function body(p, u, o) {
   legs += shoe(-44) + shoe(4);
 
   const T = f ? 'M-41 -212 Q-40 -240 0 -242 Q40 -240 41 -212 Q31 -178 38 -152 Q46 -136 45 -124 Q0 -114 -45 -124 Q-46 -136 -38 -152 Q-31 -178 -41 -212 Z' : 'M-50 -208 Q-48 -240 0 -242 Q48 -240 50 -208 L54 -124 Q0 -110 -54 -124 Z';
-  const LONG = 'M-50 -208 Q-48 -240 0 -242 Q48 -240 50 -208 L58 -76 Q0 -64 -58 -76 Z';
+  const LONG = f ? 'M-42 -210 Q-40 -240 0 -242 Q40 -240 42 -210 L50 -76 Q0 -64 -50 -76 Z' : 'M-50 -208 Q-48 -240 0 -242 Q48 -240 50 -208 L58 -76 Q0 -64 -58 -76 Z';
   const shortSleeve = ['tshirt', 'jersey', 'gilet'].includes(o.type);
   const bare = o.type === 'tank';
   let arms;
@@ -176,7 +239,7 @@ function body(p, u, o) {
   }
   torso += `<path d="M22 -220 Q40 -180 40 -128" stroke="#000" stroke-width="6" opacity=".1" fill="none"/>`;
   const neck = f ? `<path d="M-9 -260 h18 v22 q-9 6 -18 0z" fill="${shade(look.peau, -0.18)}"/>` : `<path d="M-12 -260 h24 v22 q-12 8 -24 0z" fill="${shade(look.peau, -0.18)}"/>`;
-  if (p.etat?.ventre) torso += `<ellipse cx="0" cy="-148" rx="44" ry="24" fill="${top}"/><path d="M-38 -140 Q0 -120 38 -140" stroke="#000" stroke-width="3" opacity=".12" fill="none"/>`;
+  if (p.etat?.ventre) torso += `<path d="M-36 -140 Q0 -122 36 -140" stroke="#000" stroke-width="3.5" opacity=".14" fill="none"/>`;
   if (f) {
     arms = `<g transform="scale(.86 1)">${arms}</g>`;
     legs = `<g transform="scale(.9 1)">${legs}</g>`;
@@ -189,19 +252,29 @@ function body(p, u, o) {
 function hats(p, o) {
   let s = '';
   const acc = p.look.acc || [];
+  const hasFoulard = p.look.coiffure === 'foulard' && (p.age ?? 25) >= 10;
   if (o.cap) s += `<path d="M-40 -20 Q-42 -58 0 -62 Q42 -58 40 -20Z" fill="${o.cap}"/><rect x="-40" y="-28" width="80" height="9" fill="#0d0d10"/><path d="M-38 -20 Q0 -10 38 -20 L40 -14 Q0 -2 -40 -14Z" fill="#0d0d10"/><path d="M-6 -48 l6 -4 6 4 -2 8 -4 2 -4 -2z" fill="#e8c15a"/>`;
   else if (o.beret) s += `<path d="M-40 -24 Q-44 -56 4 -58 Q46 -54 40 -26 Q10 -34 -40 -24Z" fill="${o.beret}"/><circle cx="-26" cy="-34" r="4" fill="#e8c15a"/>`;
-  else if (acc.includes('casquette') && p.look.coiffure !== 'foulard') s += `<path d="M-40 -18 Q-42 -58 0 -58 Q42 -58 40 -18Z" fill="#1d1d24"/><path d="M-6 -20 Q30 -28 60 -14 Q30 -10 -6 -14Z" fill="#141419"/><circle cx="0" cy="-58" r="3" fill="#ff4f7b"/>`;
+  else if (acc.includes('casquette') && !hasFoulard) s += `<path d="M-40 -18 Q-42 -58 0 -58 Q42 -58 40 -18Z" fill="#1d1d24"/><path d="M-6 -20 Q30 -28 60 -14 Q30 -10 -6 -14Z" fill="#141419"/><circle cx="0" cy="-58" r="3" fill="#ff4f7b"/>`;
   if (acc.includes('lunettes')) s += `<rect x="-27" y="-8" width="22" height="15" rx="5" fill="#ffffff" fill-opacity=".1" stroke="#151515" stroke-width="2.4"/><rect x="5" y="-8" width="22" height="15" rx="5" fill="#ffffff" fill-opacity=".1" stroke="#151515" stroke-width="2.4"/><path d="M-5 -2 h10 M-27 -3 l-8 -2 M27 -3 l8 -2" stroke="#151515" stroke-width="2.2"/>`;
-  if (acc.includes('boucles') && p.look.coiffure !== 'foulard') s += `<circle cx="-36" cy="11" r="2.8" fill="#e8c15a"/><circle cx="36" cy="11" r="2.8" fill="#e8c15a"/>`;
+  if (acc.includes('boucles') && !hasFoulard) s += `<circle cx="-36" cy="11" r="2.8" fill="#e8c15a"/><circle cx="36" cy="11" r="2.8" fill="#e8c15a"/>`;
   return s;
 }
 
 // p : { look, genre, age, outfit }, u : préfixe unique pour les ids de dégradés.
 export function avatarSVG(p, u = 'av') {
-  const look = (p.age ?? 25) < 6 ? { ...p.look, acc: [] } : p.look;
-  const f = p.genre === 'f';
   const age = p.age ?? 25;
+  const f = p.genre === 'f';
+  const rawLook = p.look || {};
+  const look = {
+    ...rawLook,
+    peau: safeHex(rawLook.peau, '#eabf9f'),
+    cheveuxC: safeHex(rawLook.cheveuxC, '#2b1b11'),
+    yeux: safeHex(rawLook.yeux, '#3b2414'),
+    foulardC: safeHex(rawLook.foulardC, '#4b3a78'),
+    acc: age < 6 ? [] : (rawLook.acc || []),
+  };
+  if (age < 2) return babySVG({ look, f, age }, u);
   const o = OUTFITS[p.outfit] || OUTFITS.casual;
   let hairC = look.cheveuxC;
   if (age >= 72) hairC = '#d9d9de';
@@ -210,8 +283,8 @@ export function avatarSVG(p, u = 'av') {
   const [bs, hs] = dims(age);
   const build = (BUILDS.find((b) => b[0] === look.corpulence) || BUILDS[1])[2];
   const hy = bs * -258 - 34 * hs;
-  const style = age < 1 ? 'rase' : look.coiffure;
-  const hr = style === 'foulard' && age >= 10 ? foulard(look.foulardC || '#4b3a78') : hair(style === 'foulard' ? 'long' : style, hairC, u, f);
+  const style = look.coiffure;
+  const hr = style === 'foulard' && age >= 10 ? foulard(look.foulardC) : hair(style === 'foulard' ? 'long' : style, hairC, u, f);
   const sk = p.etat?.pale ? mix(look.peau, '#cfc7bd', 0.32) : look.peau;
   const defs = `<defs>
     <radialGradient id="${u}sk" cx=".42" cy=".36" r=".72"><stop offset="0" stop-color="${shade(sk, 0.12)}"/><stop offset=".7" stop-color="${sk}"/><stop offset="1" stop-color="${shade(sk, -0.25)}"/></radialGradient>
@@ -227,4 +300,30 @@ export function avatarSVG(p, u = 'av') {
     <g transform="scale(${(bs * build).toFixed(3)} ${bs})">${body(P, u, o)}</g>
     ${head}${face(P, u)}${hr.front}${hats(P, o)}</g>
   </g>`;
+}
+
+// Portrait léger (tête seule, sans corps ni animations) pour les vignettes Relations & le Guide.
+export function miniAvatarSVG(p, u = 'm') {
+  const age = p.age ?? 30;
+  const f = p.genre === 'f';
+  const rawLook = p.look || {};
+  const look = {
+    ...rawLook,
+    peau: safeHex(rawLook.peau, '#eabf9f'),
+    cheveuxC: safeHex(rawLook.cheveuxC, '#2b1b11'),
+    yeux: safeHex(rawLook.yeux, '#3b2414'),
+    foulardC: safeHex(rawLook.foulardC, '#4b3a78'),
+    acc: age < 6 ? [] : (rawLook.acc || []),
+  };
+  let hairC = look.cheveuxC;
+  if (age >= 72) hairC = '#d9d9de';
+  else if (age >= 56) hairC = mix(hairC, '#bfbfc7', 0.55);
+  const P = { look, f, age, hairC, etat: {} };
+  const hr = look.coiffure === 'foulard' && age >= 10 ? foulard(look.foulardC) : hair(look.coiffure === 'foulard' ? 'long' : look.coiffure, hairC, u, f);
+  const defs = `<defs>
+    <radialGradient id="${u}sk" cx=".42" cy=".36" r=".72"><stop offset="0" stop-color="${shade(look.peau, 0.12)}"/><stop offset=".7" stop-color="${look.peau}"/><stop offset="1" stop-color="${shade(look.peau, -0.25)}"/></radialGradient>
+    <linearGradient id="${u}hr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${shade(hairC, 0.12)}"/><stop offset="1" stop-color="${shade(hairC, -0.4)}"/></linearGradient>
+    <radialGradient id="${u}ir" cx=".45" cy=".4" r=".6"><stop offset="0" stop-color="${shade(look.yeux, 0.3)}"/><stop offset="1" stop-color="${shade(look.yeux, -0.45)}"/></radialGradient>
+  </defs>`;
+  return `${defs}<g transform="translate(0 8)">${hr.back || ''}${face(P, u)}${hr.front}${hats(P, {})}</g>`;
 }

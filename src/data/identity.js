@@ -15,7 +15,7 @@ export const ORIGINES = {
     noms: ['Benali', 'Haddad', 'Bouzid', 'Mansouri', 'Belkacem', 'Cherif', 'Amrani', 'Bensaïd', 'Khelifi', 'Ziani', 'Touati', 'El Idrissi'],
   },
   afrique_ouest: {
-    nom: "Afrique de l'Ouest", pays: ['Sénégal', 'Mali', "Côte d'Ivoire", 'Guinée'], peaux: [5, 6, 7],
+    nom: "Afrique de l'Ouest", pays: ['Sénégal', 'Mali', 'Côte d’Ivoire', 'Guinée'], peaux: [5, 6, 7],
     h: ['Moussa', 'Mamadou', 'Ibrahima', 'Ousmane', 'Seydou', 'Abdoulaye', 'Cheikh', 'Issa', 'Lamine', 'Souleymane', 'Boubacar', 'Modibo'],
     f: ['Aminata', 'Fatou', 'Awa', 'Mariam', 'Aïssatou', 'Kadiatou', 'Binta', 'Coumba', 'Hawa', 'Oumou', 'Djeneba', 'Ndeye'],
     noms: ['Diallo', 'Traoré', 'Koné', 'Diop', 'Camara', 'Sow', 'Ndiaye', 'Cissé', 'Touré', 'Keïta', 'Sylla', 'Fofana'],

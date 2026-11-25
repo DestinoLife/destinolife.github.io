@@ -266,7 +266,7 @@ export const EVENTS2 = [
   ] },
 
   // ================= BUSINESS =================
-  { id: 'biz_employe', cat: 'Business', cond: (s) => s.business.some((b) => b.type !== 'startup'), pre: (s) => (s.tmp.biz = biz(s).nom), txt: 'Ton gérant de « {biz} » se sert dans la caisse. Les chiffres ne mentent pas.', ch: [
+  { id: 'biz_employe', cat: 'Business', cond: (s) => s.business.some((b) => b.type !== 'startup'), pre: (s) => (s.tmp.biz = (s.business.find((b) => b.type !== 'startup') || biz(s)).nom), txt: 'Ton gérant de « {biz} » se sert dans la caisse. Les chiffres ne mentent pas.', ch: [
     { t: 'Le licencier', fx: { money: -3000 }, r: 'Indemnités payées, problème réglé.' },
     { t: 'Porter plainte', out: [{ p: 0.6, fx: { money: 8000 }, r: 'Il rembourse sous la pression.' }, { p: 1, r: 'Procédure interminable.' }] },
   ] },

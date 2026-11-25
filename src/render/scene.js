@@ -8,8 +8,8 @@ const SKY = {
 };
 const STARS = Array.from({ length: 46 }, (_, i) => [((i * 197) % 1000), ((i * 89) % 260) + 8, (i % 3) * 0.5 + 0.8]);
 
-let E; // environnement courant { tod, meteo }
-const night = () => E.tod === 'nuit' || E.tod === 'soir';
+let E = { tod: 'jour', meteo: 'soleil' }; // environnement courant { tod, meteo }
+const night = () => E?.tod === 'nuit' || E?.tod === 'soir';
 const lit = (i) => night() && (i * 37) % 10 < 6;
 const W = (x, y, w, h, i = 0, frame = '#2e2350') =>
   `<rect x="${x - 2}" y="${y - 2}" width="${w + 4}" height="${h + 4}" rx="3" fill="${frame}"/><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="2" fill="url(#${lit(i) ? 'wL' : 'wD'})"/>${lit(i) ? '' : `<path d="M${x + 3} ${y + h - 4} L${x + w * 0.55} ${y + 3}" stroke="#fff" stroke-width="2" opacity=".25"/>`}`;
@@ -116,9 +116,9 @@ const S = {
     <rect x="300" y="300" width="330" height="190" fill="#f3ece1"/><path d="M280 306 L465 196 L650 306Z" fill="#c4553e"/><path d="M280 306 L465 196 L650 306" stroke="#933d2c" stroke-width="6" fill="none"/>
     ${W(330, 340, 60, 56, 1, '#7a6a5a')}${W(540, 340, 60, 56, 2, '#7a6a5a')}${W(436, 240, 56, 44, 5, '#7a6a5a')}<rect x="436" y="400" width="56" height="90" rx="3" fill="#3f5a7a"/><circle cx="482" cy="446" r="3" fill="#e8c15a"/>
     <rect x="650" y="370" width="150" height="120" fill="#e8e0d2"/><path d="M640 372 h170 l-10 -20 h-150z" fill="#a54a36"/><rect x="666" y="392" width="118" height="98" fill="#bcb5aa"/><path d="M666 412 h118 M666 432 h118 M666 452 h118 M666 472 h118" stroke="#9a948a" stroke-width="2"/>
-    ${car(900, 500, '#2f5fc4', 0.85)}
     <path d="M0 490 L1000 482 V560 H0Z" fill="url(#grass)"/><g fill="#fff" opacity=".8">${[60, 90, 120, 150, 180, 210, 240].map((x) => `<rect x="${x}" y="452" width="10" height="40" rx="3"/>`).join('')}<rect x="50" y="462" width="210" height="6"/></g>
-    <path d="M430 490 L470 490 L520 560 L380 560Z" fill="#d8cfc0"/>`,
+    <path d="M430 490 L470 490 L520 560 L380 560Z" fill="#d8cfc0"/>
+    ${car(900, 502, '#2f5fc4', 0.85)}`,
 
   villa: () => `${sky()}${E.tod !== 'nuit' ? '<path d="M600 360 H1000 V400 H600Z" fill="url(#sea)"/>' : ''}
     ${palm(90, 490, 1.2)}${palm(940, 490, 1.05)}
@@ -152,8 +152,7 @@ const S = {
 
   commissariat: () => `${sky()}${skyline(320)}${facade(170, 200, 660, 290, '#d9dde6', 'POLICE', '#ffffff', '#1d3a8a')}
     ${grid(200, 280, 7, 2, 50, 50, 88, 80, '#9aa3b6')}<rect x="455" y="410" width="90" height="80" fill="#2a3550"/><rect x="455" y="400" width="90" height="10" fill="#1d3a8a"/>
-    ${flag(120, 230)}${flag(860, 230)}${car(820, 500, '#f4f4f6', 0.9)}<rect x="752" y="460" width="150" height="8" fill="#1d3a8a"/><rect x="790" y="430" width="40" height="8" rx="3" fill="${night() ? '#4d7bff' : '#3a5fd0'}"/>
-    ${sidewalk('url(#asph)', '#a7a3b8')}`,
+    ${flag(120, 230)}${flag(860, 230)}${sidewalk('url(#asph)', '#a7a3b8')}${car(820, 502, '#f4f4f6', 0.9)}<rect x="752" y="462" width="150" height="8" fill="#1d3a8a"/><rect x="790" y="432" width="40" height="8" rx="3" fill="${night() ? '#4d7bff' : '#3a5fd0'}"/>`,
 
   hopital: () => `${sky()}${skyline(330)}${facade(150, 170, 700, 320, '#f1f3f7', 'HÔPITAL', '#ffffff', '#1f63c9')}
     ${grid(180, 240, 8, 3, 48, 42, 84, 64, '#a9b4c7')}<rect x="440" y="420" width="120" height="70" fill="url(#wD)"/><path d="M500 420 v70" stroke="#fff" stroke-width="3"/>
@@ -188,11 +187,56 @@ const S = {
     <path d="M0 490 H1000 V560 H0Z" fill="#6c6e78"/><path d="M0 490 H1000" stroke="#5a5c66" stroke-width="4"/>
     <g stroke="#26282f" stroke-width="10" opacity=".9">${[20, 980].map((x) => `<path d="M${x} 0 V560"/>`).join('')}</g>`,
 
-  pays: () => `${sky()}<path d="M0 360 Q300 330 600 352 T1000 340 V420 H0Z" fill="#d9a76c" opacity=".6"/>
+  pays: () => S.pays_maghreb(),
+
+  pays_maghreb: () => `${sky()}<path d="M0 360 Q280 310 580 348 T1000 330 V420 H0Z" fill="#d9a76c" opacity=".65"/>
+    <g fill="#ebd4ae"><rect x="468" y="196" width="28" height="140"/><path d="M464 196 h36 l-18 -26Z"/><ellipse cx="526" cy="280" rx="34" ry="26"/><rect x="492" y="280" width="68" height="60"/></g>
     ${[[10, 300, 200, '#f1e2c4'], [230, 330, 170, '#e9c99a'], [620, 310, 190, '#f4e8d0'], [830, 290, 170, '#e7bf8a']].map(([x, y, w, c], k) => `<rect x="${x}" y="${y}" width="${w}" height="${490 - y}" fill="${c}"/><rect x="${x - 4}" y="${y - 8}" width="${w + 8}" height="10" fill="#00000022"/><path d="M${x + 30} ${490} V${y + 120} a24 24 0 0 1 48 0 V490Z" fill="${['#2a6fb0', '#1f8a70', '#2a6fb0', '#b3132f'][k]}"/>${W(x + w - 70, y + 40, 40, 40, k + 2, '#8a6a4a')}`).join('')}
-    ${palm(470, 492, 1.15)}
+    ${palm(440, 492, 1.15)}
     <g transform="translate(500 492)"><rect x="40" y="-70" width="150" height="70" fill="#8a5a3a"/><path d="M30 -76 h170 l-14 -26 h-142z" fill="#ff6a2b"/>${['#ff4f7b', '#ffd36e', '#7ccf5a', '#ff8a3d', '#d8283c'].map((c, i) => `<circle cx="${60 + i * 26}" cy="-74" r="10" fill="${c}"/>`).join('')}</g>
     <path d="M0 492 Q500 480 1000 486 V560 H0Z" fill="#d6b07a"/>`,
+
+  pays_afrique_ouest: () => `${sky()}<path d="M0 370 Q320 330 680 356 T1000 344 V440 H0Z" fill="#c97d48" opacity=".65"/>
+    <g transform="translate(820 492)"><path d="M-24 0 Q-34 -90 -18 -170 L-60 -210 L-22 -185 L-10 -220 L4 -185 L52 -214 L22 -165 Q30 -90 22 0Z" fill="#7d563c"/><ellipse cx="-46" cy="-212" rx="46" ry="22" fill="#4f8f47"/><ellipse cx="14" cy="-224" rx="52" ry="24" fill="#3f7d3a"/><ellipse cx="56" cy="-206" rx="42" ry="20" fill="#5aa04e"/></g>
+    ${[[20, 310, 185, '#f2c37c'], [220, 340, 165, '#e89062'], [590, 326, 175, '#f2d38a']].map(([x, y, w, c], k) => `<rect x="${x}" y="${y}" width="${w}" height="${490 - y}" fill="${c}"/><path d="M${x - 8} ${y} L${x + w + 8} ${y - 12} L${x + w + 8} ${y + 6} L${x - 8} ${y + 12}Z" fill="#8b4228"/>${W(x + 24, y + 36, 36, 40, k, '#6b3a24')}<rect x="${x + w - 62}" y="${y + 74}" width="44" height="${416 - y}" fill="#3b261d"/>`).join('')}
+    <g transform="translate(410 492)"><rect x="0" y="-66" width="150" height="66" fill="#7c4b2c"/><path d="M-10 -70 h170 l-12 -24 h-146z" fill="#e63946"/>${['#ffb703', '#2a9d8f', '#e76f51', '#457b9d', '#f4a261'].map((c, i) => `<rect x="${8 + i * 28}" y="-66" width="22" height="32" rx="3" fill="${c}"/>`).join('')}</g>
+    <path d="M0 492 Q500 478 1000 486 V560 H0Z" fill="#b86238"/>`,
+
+  pays_afrique_centrale: () => `${sky()}<path d="M0 320 Q240 240 500 296 T1000 270 V440 H0Z" fill="#2d6e46" opacity=".82"/><path d="M0 370 Q320 320 660 360 T1000 340 V480 H0Z" fill="#3a8a52" opacity=".9"/>
+    ${palm(110, 488, 1.25)}${palm(890, 488, 1.15)}${tree(230, 488, 1.05)}
+    ${[[270, 326, 175, '#f0d8a8'], [610, 318, 195, '#e8b982']].map(([x, y, w, c], k) => `<rect x="${x}" y="${y}" width="${w}" height="${490 - y}" fill="${c}"/><path d="M${x - 10} ${y + 4} L${x + w / 2} ${y - 28} L${x + w + 10} ${y + 4}Z" fill="#a84432"/>${W(x + 22, y + 36, 38, 38, k + 1, '#5c3424')}<rect x="${x + w - 64}" y="${y + 72}" width="46" height="${418 - y}" fill="#2b4c6f"/>`).join('')}
+    <path d="M0 492 Q500 480 1000 488 V560 H0Z" fill="#a8683e"/>`,
+
+  pays_antilles: () => `${sky()}<path d="M0 320 Q180 210 380 300 T740 280 L1000 340 V410 H0Z" fill="${night() ? '#1d3640' : '#3a8c66'}" opacity=".85"/>
+    <rect x="0" y="382" width="1000" height="110" fill="url(#sea)"/>
+    ${palm(76, 492, 1.22)}${palm(930, 492, 1.18)}
+    ${[[130, 320, 190, '#44c2c9', '#ff6b6b'], [640, 310, 210, '#ffd166', '#2a7fd0']].map(([x, y, w, wall, roof], k) => `<rect x="${x}" y="${y}" width="${w}" height="${490 - y}" fill="${wall}"/><path d="M${x - 12} ${y + 4} L${x + w / 2} ${y - 36} L${x + w + 12} ${y + 4}Z" fill="${roof}"/><rect x="${x + 12}" y="${y + 92}" width="${w - 24}" height="8" fill="#fff" opacity=".85"/>${W(x + 26, y + 34, 42, 46, k, '#fff')}<rect x="${x + w - 66}" y="${y + 72}" width="44" height="${418 - y}" fill="#fff" opacity=".9"/>`).join('')}
+    <path d="M0 490 Q500 478 1000 486 V560 H0Z" fill="url(#sand)"/>`,
+
+  pays_portugal: () => `${sky()}<path d="M0 360 Q260 320 520 350 T1000 330 V430 H0Z" fill="#7c96b8" opacity=".45"/>
+    ${[[20, 190, 200, '#f4f6fa', '#2e68b8'], [230, 230, 175, '#f6d88c', '#c9563c'], [610, 200, 185, '#f2f5fa', '#2e68b8'], [805, 220, 190, '#f0a68b', '#c9563c']].map(([x, y, w, wall, roof], k) => `<rect x="${x}" y="${y}" width="${w}" height="${490 - y}" fill="${wall}"/>${k % 2 === 0 ? `<rect x="${x}" y="${y}" width="${w}" height="${490 - y}" fill="#2e68b8" opacity=".12"/>` : ''}<path d="M${x - 6} ${y + 4} L${x + w / 2} ${y - 26} L${x + w + 6} ${y + 4}Z" fill="${roof}"/>${grid(x + 24, y + 30, 3, 2, 34, 44, 52, 74, '#2e68b8')}<rect x="${x + w / 2 - 22}" y="410" width="44" height="80" rx="22" fill="#4a3728"/>`).join('')}
+    <g transform="translate(495 486)"><rect x="-70" y="-92" width="140" height="78" rx="10" fill="#f7c93b"/><rect x="-70" y="-92" width="140" height="22" rx="8" fill="#fff"/><rect x="-56" y="-66" width="32" height="26" rx="3" fill="url(#wD)"/><rect x="-16" y="-66" width="32" height="26" rx="3" fill="url(#wD)"/><rect x="24" y="-66" width="32" height="26" rx="3" fill="url(#wD)"/><path d="M-20 -92 L0 -122 L20 -92" stroke="#444" stroke-width="3" fill="none"/><circle cx="-42" cy="-8" r="10" fill="#222"/><circle cx="42" cy="-8" r="10" fill="#222"/></g>
+    ${sidewalk('url(#walk)', '#e8e2d5')}`,
+
+  pays_turquie: () => `${sky()}<rect x="0" y="388" width="1000" height="104" fill="url(#sea)"/>
+    <g fill="${night() ? '#231f42' : '#7b6e94'}" opacity=".85"><ellipse cx="500" cy="340" rx="95" ry="52"/><ellipse cx="430" cy="356" rx="44" ry="26"/><ellipse cx="570" cy="356" rx="44" ry="26"/><rect x="370" y="210" width="12" height="180"/><path d="M368 210 h16 l-8 -30Z"/><rect x="618" y="210" width="12" height="180"/><path d="M616 210 h16 l-8 -30Z"/></g>
+    ${[[14, 250, 195, '#e89a78'], [216, 286, 155, '#f2d9a0'], [635, 276, 165, '#8ec3c9'], [808, 246, 185, '#e2887c']].map(([x, y, w, c], k) => `<rect x="${x}" y="${y}" width="${w}" height="${490 - y}" fill="${c}"/><path d="M${x - 8} ${y + 4} L${x + w / 2} ${y - 26} L${x + w + 8} ${y + 4}Z" fill="#a84232"/>${grid(x + 22, y + 28, 2, 2, 42, 46, 68, 76, '#5c3b2c')}<rect x="${x + w / 2 - 22}" y="410" width="44" height="80" fill="#3a2822"/>`).join('')}
+    ${sidewalk('url(#walk)', '#dcd3c6')}`,
+
+  pays_asie: () => `${sky()}<path d="M0 350 Q160 230 330 320 T680 280 T1000 330 V450 H0Z" fill="${night() ? '#1f234a' : '#7c8db8'}" opacity=".55"/>
+    ${[[24, 240, 200, '#e8dcc8'], [240, 290, 165, '#d9cbb4'], [600, 276, 175, '#ebe0cc'], [790, 236, 195, '#dfd0b8']].map(([x, y, w, c], k) => `<rect x="${x}" y="${y}" width="${w}" height="${490 - y}" fill="${c}"/><path d="M${x - 24} ${y + 10} Q${x + w / 2} ${y - 44} ${x + w + 24} ${y + 10} Q${x + w / 2} ${y - 10} ${x - 24} ${y + 10}Z" fill="#2c3042"/>${grid(x + 26, y + 34, 2, 2, 42, 42, 70, 74, '#8c2d2d')}<rect x="${x + w / 2 - 24}" y="408" width="48" height="82" fill="#8c2d2d"/>`).join('')}
+    <path d="M180 260 Q500 320 820 260" stroke="#222" stroke-width="2" fill="none"/>
+    ${[260, 350, 440, 560, 650, 740].map((x, i) => `<g transform="translate(${x} ${276 + Math.abs(3 - i) * -6 + 18})"><ellipse cx="0" cy="0" rx="14" ry="18" fill="#e63946"/><rect x="-7" y="-20" width="14" height="5" fill="#ffd166"/><rect x="-7" y="16" width="14" height="5" fill="#ffd166"/></g>`).join('')}
+    ${sidewalk('url(#asph)', '#b5adbf')}`,
+
+  pays_europe_est: () => `${sky()}<path d="M0 380 Q280 340 560 370 T1000 350 V440 H0Z" fill="#6f809c" opacity=".5"/>
+    <g fill="#5b6d8a"><rect x="480" y="180" width="40" height="200"/><path d="M474 180 L500 120 L526 180Z"/><circle cx="500" cy="216" r="10" fill="#ffd36e"/></g>
+    ${[[18, 220, 175, '#f2c894', '#a84232'], [200, 240, 165, '#c6d9e8', '#3c5a7a'], [620, 236, 175, '#f0b6a8', '#9c3a3a'], [805, 214, 180, '#d8e3c4', '#466a4a']].map(([x, y, w, wall, roof], k) => `<rect x="${x}" y="${y}" width="${w}" height="${490 - y}" fill="${wall}"/><path d="M${x} ${y} Q${x + w / 2} ${y - 68} ${x + w} ${y}Z" fill="${roof}"/>${grid(x + 24, y + 32, 2, 2, 38, 46, 68, 76, '#ffffff')}<rect x="${x + w / 2 - 22}" y="410" width="44" height="80" rx="22" fill="#4a382c"/>`).join('')}
+    ${tree(418, 490, 0.92)}${sidewalk('url(#walk)', '#d6d2de')}`,
+
+  pays_amerique_latine: () => `${sky()}<path d="M0 320 Q180 180 390 290 T780 240 L1000 310 V430 H0Z" fill="${night() ? '#23284f' : '#4a7c66'}" opacity=".78"/>
+    ${[[10, 290, 165, '#ff6b6b'], [182, 320, 155, '#ffd166'], [344, 344, 120, '#4ecdc4'], [580, 326, 160, '#f4a261'], [748, 286, 165, '#3a86ff'], [918, 310, 82, '#e76f51']].map(([x, y, w, c], k) => `<rect x="${x}" y="${y}" width="${w}" height="${490 - y}" fill="${c}"/><rect x="${x - 4}" y="${y - 6}" width="${w + 8}" height="8" fill="#00000022"/>${W(x + 20, y + 30, 32, 38, k, '#fff')}<rect x="${x + w - 54}" y="${y + 72}" width="36" height="${418 - y}" fill="#2b2638"/>`).join('')}
+    ${palm(518, 492, 1.15)}<path d="M0 492 Q500 480 1000 486 V560 H0Z" fill="#b8a898"/>`,
 
   casino: () => `<rect width="1000" height="560" fill="#1c0a14"/><rect y="0" width="1000" height="300" fill="#2a0e1c"/>${Array.from({ length: 9 }, (_, i) => `<g class="twinkle"><circle cx="${60 + i * 110}" cy="60" r="26" fill="#ffd36e" opacity=".85"/><circle cx="${60 + i * 110}" cy="60" r="60" fill="url(#glow)"/></g>`).join('')}
     <rect x="60" y="150" width="160" height="230" rx="14" fill="#3a1226"/><rect x="80" y="180" width="120" height="70" rx="6" fill="#0d0d12"/><text x="140" y="228" text-anchor="middle" font-family="Sora, sans-serif" font-weight="800" font-size="34" fill="#ffd36e">777</text><rect x="90" y="270" width="100" height="16" rx="8" fill="#ff4f7b"/>
@@ -210,14 +254,14 @@ const S = {
   caserne: () => `${sky()}${skyline(320)}${facade(170, 220, 660, 270, '#c8c4a8', '2ᵉ RÉGIMENT ÉTRANGER', '#f2efe0', '#3e4a2e')}${grid(200, 300, 7, 2, 46, 40, 88, 70, '#6e6a50')}<rect x="450" y="420" width="100" height="70" fill="#3e4a2e"/>${flag(110, 250)}${sidewalk('url(#asph)', '#a7a3b8')}`,
 };
 
-const STREET = ['rue', 'cite', 'appart', 'commissariat', 'hopital', 'maison', 'ecole', 'pays', 'chantier', 'caserne'];
+const STREET = ['rue', 'cite', 'appart', 'commissariat', 'hopital', 'maison', 'ecole', 'pays', 'pays_maghreb', 'pays_portugal', 'pays_turquie', 'pays_asie', 'pays_europe_est', 'pays_amerique_latine', 'chantier', 'caserne'];
 function ambient(key) {
   let s = '';
   const outdoor = !['bureau', 'studio', 'prison', 'casino'].includes(key);
   if (outdoor && (E.tod === 'jour' || E.tod === 'aube') && E.meteo !== 'pluie')
     s += `<g class="fly"><path d="M0 0 q8 -8 16 0 q8 -8 16 0 M40 20 q6 -6 12 0 q6 -6 12 0 M-30 26 q6 -6 12 0 q6 -6 12 0" stroke="#2a2440" stroke-width="2.5" fill="none" stroke-linecap="round" transform="translate(0 120)"/></g>`;
-  if (STREET.includes(key)) s += `<g class="pass">${carSVG(0, 478, pickColor(key), 0.55, key === 'pays' ? 'citadine' : 'compacte')}</g><g class="pass p2">${carSVG(0, 478, '#e8e8ee', 0.5, 'suv')}</g>`;
-  if (key === 'plage') s += `<g class="wave" stroke="#fff" stroke-width="3" fill="none" opacity=".55"><path d="M60 420 q30 -10 60 0 t60 0"/><path d="M420 400 q30 -10 60 0 t60 0"/><path d="M760 430 q30 -10 60 0 t60 0"/></g>`;
+  if (STREET.includes(key)) s += `<g class="pass">${carSVG(0, 478, pickColor(key), 0.55, key.startsWith('pays') ? 'citadine' : 'compacte')}</g><g class="pass p2"><g transform="scale(-1 1)">${carSVG(0, 478, '#e8e8ee', 0.5, 'suv')}</g></g>`;
+  if (key === 'plage' || key === 'pays_antilles') s += `<g class="wave" stroke="#fff" stroke-width="3" fill="none" opacity=".55"><path d="M60 420 q30 -10 60 0 t60 0"/><path d="M420 400 q30 -10 60 0 t60 0"/><path d="M760 430 q30 -10 60 0 t60 0"/></g>`;
   if (key === 'villa') s += `<g class="wave" stroke="#fff" stroke-width="3" fill="none" opacity=".6"><path d="M90 470 q25 -8 50 0 t50 0"/><path d="M230 500 q25 -8 50 0 t50 0"/></g>`;
   return s;
 }

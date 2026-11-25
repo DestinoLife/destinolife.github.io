@@ -145,7 +145,7 @@ export const ACTIVITIES = [
     cond: (s) => ['lycee', 'cap', 'fac', 'bts', 'master', 'medecine', 'droit'].includes(s.etudes.cursus) || 'Tu n’es pas scolarisé.',
     run: () => ({ fx: { etudes: { cursus: null, reste: null }, bonheur: 4 }, r: 'Tu quittes les études. Place à la vraie vie.' }) },
   { id: 'politique', tab: 'pro', nom: 'Se lancer en politique', desc: 'Municipales · décision majeure', icon: 'flag', age: [18, 75], days: [0, 1],
-    cond: (s) => (s.carriere?.cat === 'politique' ? 'Tu fais déjà de la politique.' : !['ne_france', 'naturalise'].includes(s.id.statut) ? 'Il faut la nationalité française.' : s.stats.charisme < 40 && s.stats.notoriete < 40 ? 'Charisme ou notoriété de 40 requis.' : true),
+    cond: (s) => (jobCat(s) === 'politique' ? 'Tu fais déjà de la politique.' : !['ne_france', 'naturalise'].includes(s.id.statut) ? 'Il faut la nationalité française.' : s.stats.charisme < 40 && s.stats.notoriete < 40 ? 'Charisme ou notoriété de 40 requis.' : true),
     run: () => ({ r: 'Tu déposes ta candidature à la mairie.', queue: 'municipales' }) },
   { id: 'regul', tab: 'pro', nom: 'Démarches à la préfecture', desc: 'Régularisation', icon: 'file', age: [18, 99], days: [1, 3], hour: [8, 12],
     cond: (s) => (s.id.statut === 'sans_papiers' ? true : 'Réservé aux personnes sans papiers.'),

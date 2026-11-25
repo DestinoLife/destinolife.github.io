@@ -1,7 +1,17 @@
 // Notes de mise à jour affichées dans le jeu (même contenu que CHANGELOG.md).
-export const VERSION = 'v0.5.3';
+export const VERSION = 'v0.6';
 
 export const CHANGELOG = [
+  { v: 'v0.6', titre: 'La mise à jour « Renaissance & PWA »', items: [
+    'Vrai bébé à 0–1 an : berceau, tétine, visage rond et tapis d’éveil, puis croissance naturelle',
+    '9 paysages dédiés selon le pays de naissance (Maghreb, Afrique de l’Ouest/Centrale, Antilles, Portugal, Turquie, Asie, Europe de l’Est, Amérique latine)',
+    'Guide interactif façon Clash Royale : ta mère t’accueille et t’explique l’interface étape par étape avec spotlight',
+    '24 Défis & Succès persistants entre tes vies, avec points et bannière de déblocage',
+    'Storytelling petite enfance enrichi (premier mot, berceuse au pays, fête familiale, doudou)',
+    'Équilibrage réaliste : espérance de vie ~75–80 ans, start-ups encadrées, héritage complet des biens et entreprises',
+    'Application PWA installable sur PC et iPhone (écran d’accueil propre, sans zoom ni swipe accidentel)',
+    'Corrections majeures : exploits immobiliers/start-up, carrière politique, rendez-vous en prison, Côte d’Ivoire, performances Relations',
+  ] },
   { v: 'v0.5.3', titre: 'Partage du lien', items: [
     'Joli aperçu quand on partage le lien (Discord, WhatsApp, X…) : image, titre et description',
     'Meilleur référencement sur Google (description, sitemap, données structurées)',

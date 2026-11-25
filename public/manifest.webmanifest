@@ -1,0 +1,26 @@
+{
+  "name": "Destino — Simulation de vie",
+  "short_name": "Destino",
+  "description": "Une vie. Mille destins. Chaque choix fait évoluer ton personnage, son décor et son destin.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0b0a12",
+  "theme_color": "#0b0a12",
+  "lang": "fr",
+  "icons": [
+    {
+      "src": "./apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

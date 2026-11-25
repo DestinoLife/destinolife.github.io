@@ -14,6 +14,23 @@ const elec = (s, bonus = 0) => 0.25 + st(s, 'charisme') / 250 + st(s, 'notoriete
 
 export const EVENTS3 = [
   // ================= PETITE ENFANCE (début de partie plus varié) =================
+  { id: 'premier_mot', cat: 'Enfance', age: [0, 1], once: 1, avec: 'parents', txt: 'Dans ton berceau, tu babilles devant tes parents émerveillés. Tout à coup, un premier vrai mot sort.', ch: [
+    { t: 'Dire « Maman »', fx: { rel: { lien: 'mere', d: 10 }, bonheur: 4 }, r: 'Ta mère a les larmes aux yeux. Elle appelle toute la famille.' },
+    { t: 'Dire « Papa »', fx: { rel: { lien: 'pere', d: 10 }, bonheur: 4 }, r: 'Ton père bombe le torse de fierté pendant une semaine.' },
+    { t: 'Éclater de rire sans rien dire', fx: { charisme: 3, bonheur: 5 }, r: 'Ton rire contagieux fait fondre toute la pièce.' },
+  ] },
+  { id: 'berceuse_pays', cat: 'Racines', age: [0, 2], once: 1, cond: (s) => s.id.statut === 'au_pays', avec: 'parents', txt: 'Le soir tombe sur {pays}. Depuis la fenêtre ouverte montent les voix du quartier, les épices et une berceuse que ta mère fredonne.', ch: [
+    { t: 'T’endormir contre elle', fx: { bonheur: 5, rel: { lien: 'mere', d: 8 }, sante: 2 }, r: 'Tu garderas cette mélodie en toi toute ta vie.' },
+    { t: 'Regarder les lumières dehors', fx: { intel: 2, art: 2, bonheur: 3 }, r: 'Déjà curieux{|se} du grand monde qui t’entoure.' },
+  ] },
+  { id: 'fete_pays', cat: 'Racines', age: [3, 9], once: 1, cond: (s) => s.id.statut === 'au_pays', avec: 'parents', txt: 'Grande fête familiale à {pays} : cousins partout, musique jusqu’à minuit, plats qui débordent de la table.', ch: [
+    { t: 'Danser au milieu du cercle', fx: { charisme: 4, bonheur: 6, art: 2 }, r: 'Tout le monde tape dans ses mains. Tu es la star de la soirée.' },
+    { t: 'Écouter les histoires des anciens', fx: { intel: 4, karma: 3 }, r: 'Tu découvres d’où vient ta famille et les rêves qu’elle porte.' },
+  ] },
+  { id: 'doudou_perdu', cat: 'Enfance', age: [1, 3], once: 1, w: 0.8, avec: 'parents', txt: 'Drame absolu : ton doudou préféré a disparu avant l’heure de dormir.', ch: [
+    { t: 'Pleurer jusqu’à ce qu’on retourne tout', fx: { bonheur: -2, rel: { lien: 'parents', d: -2 } }, out: [{ p: 0.7, fx: { bonheur: 6 }, r: 'Retrouvé sous le canapé ! Nuit paisible.' }, { p: 1, fx: { bonheur: -4 }, r: 'Introuvable. Ta mère t’en achète un neuf le lendemain.' }] },
+    { t: 'Faire le grand et dormir sans', fx: { karma: 2, charisme: 2, bonheur: 2 }, r: 'Tes parents sont bluffés par ton calme.' },
+  ] },
   { id: 'premiers_pas', cat: 'Enfance', age: [0, 1], once: 1, avec: 'parents', txt: 'Tu te lèves en t’accrochant au canapé. Tout le salon retient son souffle.', ch: [
     { t: 'Faire tes premiers pas', fx: { forme: 3, bonheur: 4 }, r: 'Trois pas, puis tu tombes dans les bras de ta mère. Ovation.' },
     { t: 'Te rasseoir et réclamer à manger', fx: { bonheur: 2 }, r: 'Chaque chose en son temps.' },

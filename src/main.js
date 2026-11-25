@@ -4,7 +4,7 @@ import './style-v3.css';
 import './style-v4.css';
 import { icon, logo, logoMark } from './ui/icons.js';
 import { sceneSVG } from './render/scene.js';
-import { avatarSVG } from './render/avatar.js';
+import { avatarSVG, miniAvatarSVG } from './render/avatar.js';
 import { createLife, tpl, jobTitle, salary, career, partnerOf, lienNom, childrenOf, g } from './engine/core.js';
 import { randomConfig } from './engine/random.js';
 import { euros, pick } from './engine/rng.js';
@@ -16,11 +16,13 @@ import {
 import { canApply, DIPLOME_NOM } from './data/careers.js';
 import { impot, legalIncome, fiscalite } from './engine/flow.js';
 import { ROLES } from './data/world.js';
-import { HOUSING, SCENE_NOM } from './data/housing.js';
+import { HOUSING, SCENE_NOM, originScene } from './data/housing.js';
 import { ORIGINES, VILLES, MILIEUX, TRAITS, TALENTS, STATUTS } from './data/identity.js';
 import { SKINS, HAIR_COLORS, EYES, HAIRSTYLES, BEARDS, BUILDS, STYLES, ACCS, FOULARDS } from './data/look.js';
 import { save, load, clearSave } from './engine/save.js';
-import { migrate, buyAsset, sellAsset, createBusiness, businessAction, networkAction, travel, flee, roulette, slots, moveCity, readAll, bestCar, ASSETS } from './engine/economy.js';
+import { migrate, buyAsset, sellAsset, createBusiness, businessAction, networkAction, travel, flee, roulette, slots, moveCity, readAll, bestCar, patrimoine, ASSETS } from './engine/economy.js';
+import { checkAchievements, achievementsSummary } from './engine/achievements.js';
+import { guideHTML, guideSteps, positionGuide, hasSeenGuide, markGuideDone, achievementsModalHTML } from './ui/guide.js';
 import { phoneHTML, pcHTML, casinoHTML, travelHTML, biensHTML, crimeHubHTML } from './ui/overlays.js';
 import { answer, writeTo, nextPlan, quand } from './engine/messages.js';
 import { instaComment } from './engine/life2.js';
@@ -102,7 +104,7 @@ function updateWorld() {
 }
 
 const miniAv = (look, genre, id) =>
-  look ? `<svg viewBox="-56 -352 112 112" width="38" height="38">${avatarSVG({ look, genre, age: 30, outfit: 'casual' }, 'm' + id)}</svg>` : '';
+  look ? `<svg viewBox="-56 -62 112 112" width="38" height="38">${miniAvatarSVG({ look, genre, age: 30 }, 'm' + id)}</svg>` : '';
 
 // ---------- Utilitaires UI ----------
 function toast(txt, kind = '') {
@@ -120,7 +122,7 @@ const bar = (label, v, color) => `<div class="bar-s"><div class="t">${label}<spa
 const gF = (s, h, f) => (s.id.genre === 'f' ? f : h);
 
 // ---------- Écran titre ----------
-// Signalement de bug : ouvre le formulaire GitHub prérempli avec l'état de la partie (aucune donnée perso).
+// Lien « Signaler un bug » pré-rempli avec l'état de la partie (aucune donnée perso).
 const REPO = 'https://github.com/DestinoLife/destinolife.github.io';
 function bugURL() {
   const lines = [`Version : ${VERSION}`, `Écran : ${innerWidth}×${innerHeight} · ${navigator.userAgent.match(/(Firefox|Edg|OPR|Chrome|Safari)\/[\d.]+/)?.[0] || 'navigateur inconnu'}${/Mobi/.test(navigator.userAgent) ? ' · mobile' : ''}`];
@@ -138,6 +140,7 @@ function bugURL() {
 function renderTitle() {
   const cfg = randomConfig();
   const saved = load();
+  const ach = achievementsSummary();
   const env = { tod: pick(['soir', 'nuit']), meteo: 'soleil' };
   app.innerHTML = `<div class="title">${worldHTML(pick(['rue', 'appart', 'cite']), env, { look: cfg.look, genre: cfg.genre, age: 26, outfit: cfg.look.style }, 'tt')}
     <div class="title-box">${logo(54)}
@@ -146,11 +149,13 @@ function renderTitle() {
         ${saved && saved.vivant ? `<button class="btn primary" data-a="continue">${icon('play', 18)} Continuer la vie de ${esc(saved.id.prenom)}</button>` : ''}
         <button class="btn ${saved && saved.vivant ? '' : 'primary'}" data-a="new">${icon('user', 18)} Créer mon personnage</button>
         <button class="btn" data-a="random">${icon('dice', 18)} Vie aléatoire</button>
+        <button class="btn" data-a="ach">${icon('trophy', 18)} Défis & Succès (${ach.count}/${ach.total})</button>
       </div>
       <div class="badge18"><b>18+</b> Violence, drogue, crime. Contenu destiné aux adultes.</div>
       <button class="ver" data-a="changelog">${VERSION} · Notes de mise à jour</button>
       <button class="ver" data-a="bug">Signaler un bug ou proposer une idée</button>
-    </div></div>`;
+    </div><div id="overlay"></div></div>`;
+  if (OV?.t === 'ach') document.getElementById('overlay').innerHTML = achievementsModalHTML(ach);
 }
 
 function showChangelog() {
@@ -163,8 +168,9 @@ function showChangelog() {
 }
 
 // ---------- Créateur ----------
+const creatorScene = () => (C.statut !== 'ne_france' ? originScene(C.origine) : HOUSING[MILIEUX[C.milieu].logement].scene);
 function renderCreator() {
-  const sc = HOUSING[MILIEUX[C.milieu].logement].scene;
+  const sc = creatorScene();
   const av = { look: C.look, genre: C.genre, age: 24, outfit: C.look.style };
   app.innerHTML = `<div class="creator">
     <div class="preview">${worldHTML(sc, { tod: 'soir', meteo: 'soleil' }, av, 'cr', false)}<div class="logo-wrap">${logo(34)}</div></div>
@@ -172,7 +178,7 @@ function renderCreator() {
       <div class="tabs">${[['identite', 'Identité'], ['origines', 'Origines'], ['apparence', 'Apparence'], ['perso', 'Personnalité']].map(([k, t]) => `<button class="${cTab === k ? 'on' : ''}" data-a="ctab" data-v="${k}">${t}</button>`).join('')}</div>
       <div class="form">${creatorForm()}</div>
       <div class="panel-foot"><button class="btn" data-a="back">Retour</button><button class="btn" data-a="reroll" title="Tout aléatoire">${icon('dice', 18)}</button><button class="btn primary" data-a="start">Commencer ma vie ${icon('chevron', 16)}</button></div>
-    </div></div>`;
+    </div><div class="toasts" id="toasts"></div></div>`;
 }
 const chip = (k, v, label, on, off) => `<button class="chip ${on ? 'on' : ''} ${off ? 'off' : ''}" data-a="cset" data-k="${k}" data-v="${esc(v)}" ${off ? 'disabled' : ''}>${label}</button>`;
 const sw = (k, color, on, title) => `<button class="sw ${on ? 'on' : ''}" style="background:${color}" data-a="cset" data-k="${k}" data-v="${color}" title="${title || ''}" aria-label="${title || color}"></button>`;
@@ -229,7 +235,7 @@ function refreshCreator() {
   const form = app.querySelector('.form');
   if (!form) return renderCreator();
   const top = form.scrollTop;
-  app.querySelector('.preview svg').outerHTML = worldHTML(HOUSING[MILIEUX[C.milieu].logement].scene, { tod: 'soir', meteo: 'soleil' }, { look: C.look, genre: C.genre, age: 24, outfit: C.look.style }, 'cr', false);
+  app.querySelector('.preview svg').outerHTML = worldHTML(creatorScene(), { tod: 'soir', meteo: 'soleil' }, { look: C.look, genre: C.genre, age: 24, outfit: C.look.style }, 'cr', false);
   form.innerHTML = creatorForm();
   form.scrollTop = top;
 }
@@ -318,12 +324,17 @@ function updateGame() {
   const mk = S.current ? S.current.id : S.result ? 'r' : '';
   if (mk && mk === lastModal) document.querySelector('#modal .modal')?.classList.add('still');
   lastSheet = tab; lastOvKey = OV ? `${OV.t}|${OV.app}|${OV.conv}|${OV.itab}` : ''; lastModal = mk;
+  if (OV?.t === 'guide') requestAnimationFrame(() => positionGuide(S, OV.step));
+  const unlocked = checkAchievements(S);
+  unlocked.forEach((a) => toast(`🏆 Défi débloqué : ${a.nom} (+${a.pts} pts)`, 'ach'));
   save(S);
 }
 
 function overlayHTML() {
+  if (OV?.t === 'ach') return achievementsModalHTML(achievementsSummary());
   if (!OV || !S) return '';
   if (OV.t === 'intro') return introHTML(S);
+  if (OV.t === 'guide') return guideHTML(S, OV.step || 0);
   if (OV.t === 'tips')
     return `<div class="intro"><div class="tips-card glass"><h2>Comment jouer</h2><ol>
       <li><b>Vieillir</b> fait passer une année. Les grandes décisions, elles, se jouent sur quelques jours.</li>
@@ -358,7 +369,7 @@ function deathHTML() {
   const deathY = new Date(m.t).getUTCFullYear();
   return `<div class="death"><div class="card glass">${logoMark(44, 'dl')}
     <h1>${esc(S.id.prenom)} ${esc(S.id.nom)}</h1><p class="cause">${birthY} – ${deathY} · ${esc(m.cause)}</p>
-    <dl class="kv"><dt>Âge</dt><dd>${m.age} ans</dd><dt>Fortune</dt><dd>${euros(S.money)}</dd><dt>Dernier métier</dt><dd>${esc(jobTitle(S) || '—')}</dd><dt>Casier</dt><dd>${S.justice.casier.length ? `${S.justice.casier.length} mention${S.justice.casier.length > 1 ? 's' : ''}` : 'Vierge'}</dd><dt>Enfants</dt><dd>${childrenOf(S).length}</dd><dt>Génération</dt><dd>${S.gen}</dd></dl>
+    <dl class="kv"><dt>Âge</dt><dd>${m.age} ans</dd><dt>Patrimoine</dt><dd>${euros(S.money + patrimoine(S))}</dd><dt>Dernier métier</dt><dd>${esc(jobTitle(S) || '—')}</dd><dt>Casier</dt><dd>${S.justice.casier.length ? `${S.justice.casier.length} mention${S.justice.casier.length > 1 ? 's' : ''}` : 'Vierge'}</dd><dt>Enfants</dt><dd>${childrenOf(S).length}</dd><dt>Génération</dt><dd>${S.gen}</dd></dl>
     <div class="menu">${kids.map((k) => `<button class="btn primary" data-a="heir" data-v="${k.id}">${icon('play', 16)} Continuer avec ${esc(k.prenom)} (${k.age} ans)</button>`).join('')}
     <button class="btn" data-a="new">${icon('user', 16)} Nouvelle vie</button><button class="btn" data-a="random">${icon('dice', 16)} Vie aléatoire</button></div><button class="ver" data-a="bug">Signaler un bug</button></div></div>`;
 }
@@ -387,7 +398,7 @@ function sheetHTML() {
         ${S.justice.casier.length ? `<div class="list" style="margin-top:8px">${S.justice.casier.slice(-6).reverse().map((c) => `<div class="li"><div class="grow"><b>${esc(c.motif)}</b><small>${c.age} ans · ${esc(c.peine)}</small></div></div>`).join('')}</div>` : ''}</div>
       <div class="sec"><h3>Identité</h3><dl class="kv"><dt>Origine</dt><dd>${o.nom}${S.id.origine !== 'france' ? ` (${esc(S.id.pays)})` : ''}</dd><dt>Statut</dt><dd>${STATUTS[S.id.statut][S.id.genre === 'f' ? 1 : 0]}</dd><dt>Milieu d’origine</dt><dd>${MILIEUX[S.milieu].nom}</dd><dt>Diplôme</dt><dd>${DIPLOME_NOM[S.etudes.niveau]}</dd><dt>Logement</dt><dd>${S.chezParents ? 'Chez tes parents' : HOUSING[S.logement]?.nom || '—'}</dd><dt>Traits</dt><dd>${S.traits.map((t) => (S.id.genre === 'f' ? TRAITS[t].f : TRAITS[t].nom)).join(', ')}</dd><dt>Talent</dt><dd>${TALENTS[S.talent]}</dd></dl></div>
       <div class="sec"><h3>Journal</h3><div class="journal">${S.log.slice(-60).reverse().map((l) => `<div><b>${l.age} ans</b><span>${esc(l.txt)}</span></div>`).join('')}</div></div>
-      <button class="btn sm" data-a="quit">${icon('save', 16)} Sauvegarder et revenir au menu</button></div>`;
+      <div class="vie-foot"><button class="btn sm" data-a="ach">${icon('trophy', 16)} Défis (${achievementsSummary().count}/${achievementsSummary().total})</button><button class="btn sm" data-a="guideopen">${icon('sparkle', 16)} Revoir le guide</button><button class="btn sm" data-a="quit">${icon('save', 16)} Sauvegarder et quitter</button></div></div>`;
   }
   if (tab === 'act' || tab === 'crime') {
     const list = ACTIVITIES.filter((a) => (inPrison(S) ? a.tab === 'prison' : a.tab === tab));
@@ -506,11 +517,11 @@ function handle(a, v, el) {
       if (!C.prenom.trim() || !C.nom.trim()) {
         cTab = 'identite';
         renderCreator();
-        return alert('Donne un prénom et un nom à ton personnage.');
+        return toast('Donne un prénom et un nom à ton personnage.', 'err');
       }
       return startLife({ ...C, prenom: C.prenom.trim(), nom: C.nom.trim() });
     case 'closeall':
-      if (OV?.t === 'intro' || OV?.t === 'tips') return;
+      if (OV?.t === 'intro' || OV?.t === 'tips' || OV?.t === 'guide') return;
       if (!tab && !OV) return;
       tab = null;
       OV = null;
@@ -641,9 +652,28 @@ function handle(a, v, el) {
       return updateGame();
     }
     case 'introgo':
-      OV = localStorage.getItem('destino.tips') ? null : { t: 'tips' };
-      localStorage.setItem('destino.tips', '1');
+      OV = hasSeenGuide() ? null : { t: 'guide', step: 0 };
       return updateGame();
+    case 'guidenext': {
+      const next = Number(v);
+      if (next >= guideSteps(S).length) {
+        markGuideDone();
+        OV = null;
+      } else OV = { t: 'guide', step: next };
+      return updateGame();
+    }
+    case 'guideskip':
+      markGuideDone();
+      OV = null;
+      return updateGame();
+    case 'guideopen':
+      tab = null;
+      OV = { t: 'guide', step: 0 };
+      return updateGame();
+    case 'ach':
+      tab = null;
+      OV = { t: 'ach' };
+      return screen === 'title' ? renderTitle() : updateGame();
     case 'expat': {
       const r = expatriate(S, v);
       toast(r.r, r.err ? 'err' : 'good');
@@ -678,7 +708,7 @@ function handle(a, v, el) {
     case 'pcclose':
     case 'overlay':
       OV = null;
-      return updateGame();
+      return screen === 'title' ? renderTitle() : updateGame();
     case 'cgame':
       OV.game = v;
       OV.res = null;
@@ -767,8 +797,14 @@ app.addEventListener('change', (e) => {
   if (screen === 'creator' && e.target.tagName === 'SELECT') creatorSet(e.target.dataset.k, e.target.value);
 });
 document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && OV?.t === 'ach') {
+    OV = null;
+    return screen === 'title' ? renderTitle() : updateGame();
+  }
   if (screen !== 'game' || !S) return;
   if (e.key === 'Escape' && OV) {
+    if (OV.t === 'intro') return;
+    if (OV.t === 'guide') markGuideDone();
     OV = null;
     return updateGame();
   }
@@ -776,11 +812,17 @@ document.addEventListener('keydown', (e) => {
     tab = null;
     updateGame();
   }
-  if (e.key === ' ' && e.target === document.body && !busy(S)) {
+  if (e.key === ' ' && e.target === document.body && !busy(S) && !OV) {
     e.preventDefault();
     handle('age');
   }
 });
+window.addEventListener('resize', () => {
+  if (OV?.t === 'guide' && S) positionGuide(S, OV.step || 0);
+});
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
 
 // Compteur de FPS en mode développement (?dev)
 if (dev) {

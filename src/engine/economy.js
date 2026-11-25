@@ -62,10 +62,11 @@ export function sellAsset(s, uid) {
   if (i < 0) return { r: '', err: true };
   const b = s.biens[i];
   const rec = s.relations.find((r) => r.vivant && r.role === 'receleur');
-  s.money += b.valeur;
+  const prix = rec ? Math.round(b.valeur * 1.15) : b.valeur;
+  s.money += prix;
   s.biens.splice(i, 1);
-  addLog(s, `Vente : ${ASSETS[b.id].nom} pour ${euros(b.valeur)}.`);
-  return { r: `Vendu ${euros(b.valeur)} (${b.valeur >= b.achat ? '+' : ''}${euros(b.valeur - b.achat)}).${rec ? '' : ''}`, good: b.valeur >= b.achat };
+  addLog(s, `Vente : ${ASSETS[b.id].nom} pour ${euros(prix)}.`);
+  return { r: `Vendu ${euros(prix)} (${prix >= b.achat ? '+' : ''}${euros(prix - b.achat)})${rec ? ' · +15 % grâce à ton receleur' : ''}.`, good: prix >= b.achat };
 }
 export const bestCar = (s) => s.biens.filter((b) => ASSETS[b.id].car).sort((a, b) => b.valeur - a.valeur)[0];
 export const patrimoine = (s) => s.biens.reduce((t, b) => t + b.valeur, 0) + s.business.reduce((t, b) => t + b.valo, 0);
@@ -141,10 +142,14 @@ export function businessAction(s, uid, act) {
     }
     case 'lever': {
       if (!B.startup) return { r: '', err: true };
+      if (b.leveAn === s.age) return { r: 'Tu as déjà tenté une levée de fonds cette année.', err: true };
+      if (s.energie <= 0) return { r: 'Plus d’énergie cette année.', err: true };
+      s.energie--;
+      b.leveAn = s.age;
       if (chance(0.25 + b.users / 400000)) {
-        const m = Math.round(b.valo * (0.15 + Math.random() * 0.1));
+        const m = Math.min(25000000, Math.round(b.valo * (0.15 + Math.random() * 0.1)));
         b.cash += m;
-        b.valo = Math.round(b.valo * 1.4);
+        b.valo = Math.min(400000000, Math.round(b.valo * 1.25));
         return { r: `Levée de fonds réussie : ${euros(m)} !`, good: true };
       }
       return { r: 'Les investisseurs ne sont pas convaincus.', err: true };
@@ -159,13 +164,13 @@ function businessTick(s) {
     b.annees++;
     b.lave = 0;
     if (B.startup) {
-      const growth = 1.3 + gauss() * 0.5 + b.rep / 200 + (s.stats.intel - 50) / 200;
-      const room = Math.max(0, 1 - b.users / 80000000);
+      const growth = 1.25 + gauss() * 0.4 + b.rep / 240 + (s.stats.intel - 50) / 240;
+      const room = Math.max(0, 1 - b.users / 5000000);
       b.users = Math.max(50, Math.round(b.users * (1 + (growth - 1) * room)));
-      b.mrr = Math.round(b.users * 6);
-      b.burn = Math.round(2500 * b.niveau + b.emp * 1200);
+      b.mrr = Math.round(b.users * 3);
+      b.burn = Math.round(2500 * b.niveau + b.emp * 1200 + b.users * 0.8);
       b.cash += (b.mrr - b.burn) * 12;
-      b.valo = Math.max(50000, Math.round(b.mrr * 12 * (8 + b.rep / 10)));
+      b.valo = Math.min(500000000, Math.max(50000, Math.round(b.mrr * 12 * (4 + b.rep / 30))));
       b.ca = b.mrr * 12;
       b.benef = (b.mrr - b.burn) * 12;
       if (b.cash < 0) {
@@ -393,12 +398,12 @@ function settle(s, bet, mult, res) {
 
 // ---------- Santé : le sport et le médecin deviennent essentiels ----------
 function healthTick(s) {
-  if (s.age >= 14) {
+  if (s.age >= 16) {
     if (!s.annee.sport) {
-      s.stats.forme = clamp(s.stats.forme - rnd(2, 5));
-      s.stats.sante = clamp(s.stats.sante - (s.age > 35 ? rnd(1, 3) : 1));
+      s.stats.forme = clamp(s.stats.forme - rnd(1, 3));
+      if (s.age > 35 && s.stats.forme < 30) s.stats.sante = clamp(s.stats.sante - 1);
     } else s.stats.sante = clamp(s.stats.sante + Math.min(3, s.annee.sport));
-    if (s.age > 45 && !s.annee.medecin) s.stats.sante = clamp(s.stats.sante - rnd(1, 3));
+    if (s.age > 55 && !s.annee.medecin && chance(0.5)) s.stats.sante = clamp(s.stats.sante - rnd(1, 2));
   }
   s.annee = { sport: 0, medecin: 0, use: {}, posts: 0 };
 }

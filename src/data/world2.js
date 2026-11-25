@@ -52,7 +52,8 @@ export const PLAGE_PROCHE = {
 export const PAYS = {
   France: {}, Espagne: {}, Maroc: {}, Algérie: {}, Tunisie: {}, Portugal: {}, Grèce: {}, 'Émirats': {}, Indonésie: {}, Thaïlande: {},
   Brésil: {}, 'États-Unis': {}, Japon: {}, Belgique: {}, 'Royaume-Uni': {}, Canada: {}, Turquie: {}, Sénégal: {}, Mali: {},
-  'Côte d’Ivoire': {}, Cameroun: {}, Vietnam: {}, Chine: {}, Roumanie: {}, Pologne: {}, Ukraine: {}, Colombie: {}, Pérou: {},
+  'Côte d’Ivoire': {}, Guinée: {}, Cameroun: {}, Congo: {}, 'RD Congo': {}, Gabon: {}, Guadeloupe: {}, Martinique: {},
+  Vietnam: {}, Chine: {}, Cambodge: {}, Roumanie: {}, Pologne: {}, Ukraine: {}, Colombie: {}, Pérou: {},
   Zarkovie: { fic: true }, 'Valmorie': { fic: true },
 };
 export const SITUATIONS = {
@@ -66,10 +67,10 @@ export const SITUATIONS = {
 export const EXPAT = [
   { ville: 'Londres', pays: 'Royaume-Uni', scene: 'appart', prix: 15000 },
   { ville: 'Montréal', pays: 'Canada', scene: 'appart', prix: 12000 },
-  { ville: 'Lisbonne', pays: 'Portugal', scene: 'appart', prix: 6000 },
+  { ville: 'Lisbonne', pays: 'Portugal', scene: 'pays_portugal', prix: 6000 },
   { ville: 'Dubaï', pays: 'Émirats', scene: 'villa', prix: 40000 },
   { ville: 'New York', pays: 'États-Unis', scene: 'appart', prix: 30000 },
-  { ville: 'Istanbul', pays: 'Turquie', scene: 'appart', prix: 5000 },
-  { ville: 'Dakar', pays: 'Sénégal', scene: 'pays', prix: 4000 },
-  { ville: 'Novagrad', pays: 'Zarkovie', scene: 'pays', prix: 3000 },
+  { ville: 'Istanbul', pays: 'Turquie', scene: 'pays_turquie', prix: 5000 },
+  { ville: 'Dakar', pays: 'Sénégal', scene: 'pays_afrique_ouest', prix: 4000 },
+  { ville: 'Novagrad', pays: 'Zarkovie', scene: 'pays_europe_est', prix: 3000 },
 ];

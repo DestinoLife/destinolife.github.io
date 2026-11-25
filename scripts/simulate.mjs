@@ -105,7 +105,7 @@ for (let i = 0; i < N; i++) {
     if (s.business.length) stats.biz = (stats.biz || 0) + 1;
     if (s.reseau) stats.res = (stats.res || 0) + 1;
     if (s.cavale) stats.cav = (stats.cav || 0) + 1;
-    if (s.carriere?.cat === 'politique') stats.pol = (stats.pol || 0) + 1;
+    if (s.carriere && CAREERS[s.carriere.id]?.cat === 'politique') stats.pol = (stats.pol || 0) + 1;
     if (Math.max(...Object.values(s.addic)) > 50) stats.add = (stats.add || 0) + 1;
     if (s.maladies.length) stats.mal = (stats.mal || 0) + 1;
     let g2 = 0;
