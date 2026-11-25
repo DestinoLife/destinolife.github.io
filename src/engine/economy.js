@@ -128,11 +128,11 @@ export function businessAction(s, uid, act) {
       s.sale -= m;
       b.lave += m;
       s.justice.recherche = Math.max(0, s.justice.recherche - (m > 30000 ? 1 : 0));
-      if (chance(0.06)) {
+      if (chance(B.startup ? 0.12 : 0.06)) {
         apply(s, { arrest: { motif: 'Blanchiment d’argent', peine: [1, 4] } });
-        return { r: 'Un contrôle URSSAF tombe pile ce jour-là…', err: true };
+        return { r: B.startup ? 'Tes « investisseurs » n’existent pas. Tracfin a vérifié…' : 'Un contrôle URSSAF tombe pile ce jour-là…', err: true };
       }
-      return { r: `${euros(m)} blanchis via ${b.nom}.`, good: true };
+      return { r: B.startup ? `${euros(m)} blanchis via de faux investisseurs dans ${b.nom}. Plus risqué qu’un resto.` : `${euros(m)} blanchis via ${b.nom}.`, good: true };
     }
     case 'vendre': {
       s.money += b.valo;

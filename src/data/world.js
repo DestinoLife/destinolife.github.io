@@ -25,7 +25,7 @@ export const BUSINESS = {
   salle: { nom: 'Salle de sport', prix: 120000, base: 190000, marge: 0.2, lav: 40000, emp: 5, scene: 'stade', desc: 'Abonnements récurrents' },
   kebab: { nom: 'Snack / kebab', prix: 35000, base: 110000, marge: 0.14, lav: 45000, emp: 3, scene: 'rue', desc: 'Cash, beaucoup de cash' },
   label: { nom: 'Label de musique', prix: 150000, base: 120000, marge: 0.25, lav: 30000, emp: 5, scene: 'studio', desc: 'Signe des artistes', cond: (s) => s.carriere?.id === 'rappeur' || s.stats.notoriete >= 50 || 'Il faut être connu dans la musique.' },
-  startup: { nom: 'Start-up tech', prix: 30000, base: 0, marge: 0, lav: 0, emp: 3, scene: 'bureau', desc: 'Utilisateurs, levées de fonds, licorne ?', startup: true },
+  startup: { nom: 'Start-up tech', prix: 30000, base: 0, marge: 0, lav: 25000, emp: 3, scene: 'bureau', desc: 'Utilisateurs, levées de fonds, licorne ?', startup: true },
 };
 
 // ---------- Contacts (relations « pro ») ----------

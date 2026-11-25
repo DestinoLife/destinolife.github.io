@@ -337,7 +337,7 @@ export function createLife(cfg, opts = {}) {
     carriere: null, pension: 0,
     justice: { recherche: 0, casier: [], prison: 0, peineTotale: 0, pending: null, motif: null },
     relations: [], flags: {}, seen: {}, lastSeen: {}, relUsed: {}, mem: {}, log: [], queue: [], current: null, result: null, tmp: {},
-    energie: 4, meteo: { type: 'soleil', temp: 20 }, vivant: true, mort: null,
+    energie: startAge < 3 ? 0 : startAge < 6 ? 1 : startAge < 12 ? 2 : startAge < 16 ? 3 : 4, meteo: { type: 'soleil', temp: 20 }, vivant: true, mort: null,
     biens: [], business: [], reseau: null, phone: { msgs: [], unread: 0 }, voyage: null, cavale: null, securite: 0, sale: 0,
     annee: { sport: 0, medecin: 0 }, avec: [], casino: { perdu: 0, gagne: 0 },
   };

@@ -13,6 +13,7 @@ import { randomLook } from '../data/look.js';
 import { worldTick, migrate, patrimoine } from './economy.js';
 import { life2Tick, migrate3, DISEASES, friendService } from './life2.js';
 import { messagesTick, runPlan } from './messages.js';
+import { energieMax } from '../data/unlocks.js';
 const DISEASE_NOM = new Proxy({}, { get: (_, k) => DISEASES[k]?.nom || 'Maladie' });
 
 export const busy = (s) => !!(s.current || s.result);
@@ -177,7 +178,7 @@ export function ageUp(s) {
   s.age++;
   s.t = setHour(birthdayAt(s.birthT, s.age), rnd(8, 21));
   s.lieu = null;
-  s.energie = inPrison(s) ? 3 : 4;
+  s.energie = inPrison(s) ? Math.min(3, energieMax(s.age)) : energieMax(s.age);
   s.relUsed = {};
   s.meteo = rollMeteo(s.t, s.id.ville);
   s.relations.forEach((r) => r.vivant && r.age++);

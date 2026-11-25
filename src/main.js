@@ -25,6 +25,7 @@ import { checkAchievements, achievementsSummary } from './engine/achievements.js
 import { guideHTML, guideSteps, positionGuide, hasSeenGuide, markGuideDone, achievementsModalHTML } from './ui/guide.js';
 import { phoneHTML, pcHTML, casinoHTML, travelHTML, biensHTML, crimeHubHTML } from './ui/overlays.js';
 import { answer, writeTo, nextPlan, quand } from './engine/messages.js';
+import { TAB_AGE, UNLOCKS, energieMax } from './data/unlocks.js';
 import { instaComment } from './engine/life2.js';
 import { VERSION, CHANGELOG } from './data/changelog.js';
 import { nameFor } from './data/identity.js';
@@ -297,11 +298,13 @@ function updateGame() {
   const job = inPrison(S) ? `Détenu${S.id.genre === 'f' ? 'e' : ''} · ${S.justice.prison} an${S.justice.prison > 1 ? 's' : ''} restant${S.justice.prison > 1 ? 's' : ''}` : jobTitle(S) || (S.age < 3 ? 'Bébé' : S.age < 6 ? 'Maternelle' : S.etudes.cursus ? (S.etudes.cursus === 'ecole' ? (S.age < 11 ? 'Élève en primaire' : 'Élève au collège') : S.etudes.cursus === 'lycee' ? 'Lycéen' + (S.id.genre === 'f' ? 'ne' : '') : S.etudes.cursus === 'cap' ? 'En lycée pro' : gF(S, 'Étudiant', 'Étudiante')) : S.age < 16 ? 'Enfant' : 'Sans emploi');
   const stars = S.justice.recherche ? `<span class="pill glass" title="Niveau de recherche"><span class="stars">${[1, 2, 3, 4, 5].map((i) => icon('star', 13, i <= S.justice.recherche ? 'on' : '')).join('')}</span></span>` : '';
   document.getElementById('hudtr').innerHTML = `<div class="id-card glass"><b>${esc(S.id.prenom)} ${esc(S.id.nom)}</b><span>${S.age} an${S.age > 1 ? 's' : ''} · ${esc(job)}</span></div>
-    <div class="pills">${stars}<span class="pill glass ${S.money < 0 ? 'neg' : 'money'}" title="${S.age < 18 ? 'Argent de poche' : 'Compte en banque'}">${icon('euro', 15)} ${S.age < 18 ? 'Poche · ' : ''}${euros(S.money)}</span><span class="pill glass" title="Énergie de l’année"><span class="energy">${[1, 2, 3, 4].map((i) => `<i class="${i <= S.energie ? 'on' : ''}"></i>`).join('')}</span></span></div>`;
-  const tabs = [['vie', 'Vie', 'user'], ['act', 'Activités', 'zap'], ['pro', 'Carrière', 'briefcase'], ['crime', 'Crime', 'mask'], ['rel', 'Relations', 'heart'], ['biens', 'Biens', 'home']];
+    <div class="pills">${stars}<span class="pill glass ${S.money < 0 ? 'neg' : 'money'}" title="${S.age < 18 ? 'Argent de poche' : 'Compte en banque'}">${icon('euro', 15)} ${S.age < 18 ? 'Poche · ' : ''}${euros(S.money)}</span>${energieMax(S.age) ? `<span class="pill glass" title="Énergie : ${S.energie} action${S.energie > 1 ? 's' : ''} restante${S.energie > 1 ? 's' : ''} cette année"><span class="energy">${Array.from({ length: Math.max(energieMax(S.age), S.energie) }, (_, i) => `<i class="${i < S.energie ? 'on' : ''}"></i>`).join('')}</span></span>` : ''}</div>`;
+  const tabs = [['vie', 'Vie', 'user'], ['act', 'Activités', 'zap'], ['pro', S.age < 16 ? 'École' : 'Carrière', 'briefcase'], ['crime', 'Crime', 'mask'], ['rel', 'Relations', 'heart'], ['biens', 'Biens', 'home']].filter(([k]) => S.age >= TAB_AGE[k] || inPrison(S));
+  if (tab && !tabs.some(([k]) => k === tab)) tab = null;
+  const nouv = (k) => (S.newTabs?.[k] ? '<i class="new-dot"></i>' : '');
   const blocked = busy(S) || !S.vivant;
-  document.getElementById('dock').innerHTML = tabs.map(([k, t, i]) => `<button class="tab ${tab === k ? 'on' : ''} ${k === 'crime' ? 'crime' : ''}" data-a="tab" data-v="${k}" aria-label="${t}">${icon(i, 22)}${t}</button>`).join('') +
-    `<button class="tab phone-tab ${OV?.t === 'phone' ? 'on' : ''}" data-a="phone" data-v="home" aria-label="Téléphone">${icon('phone', 22)}Téléphone${S.phone.unread ? `<em>${S.phone.unread}</em>` : ''}</button>` +
+  document.getElementById('dock').innerHTML = tabs.map(([k, t, i]) => `<button class="tab ${tab === k ? 'on' : ''} ${k === 'crime' ? 'crime' : ''}" data-a="tab" data-v="${k}" aria-label="${t}">${icon(i, 22)}${t}${nouv(k)}</button>`).join('') +
+    (S.age >= TAB_AGE.phone ? `<button class="tab phone-tab ${OV?.t === 'phone' ? 'on' : ''}" data-a="phone" data-v="home" aria-label="Téléphone">${icon('phone', 22)}Téléphone${S.phone.unread ? `<em>${S.phone.unread}</em>` : nouv('phone')}</button>` : '') +
     (nextPlan(S) ? `<button class="age-btn plan ${blocked ? 'off' : ''}" data-a="age" aria-label="Avancer jusqu’au prochain rendez-vous" title="${esc(S.plans.map((p) => `${quand(S, p.at)} : ${p.label}`).join(' · '))}">${icon('forward', 20)}<span>Avancer<small>${esc(quand(S, nextPlan(S).at))} · ${esc(nextPlan(S).label)}</small></span></button>` : `<button class="age-btn ${blocked ? 'off' : ''}" data-a="age" aria-label="Avancer d’un an">${icon('forward', 20)}<span>Vieillir<small>+1 an · ${S.age} → ${S.age + 1}</small></span></button>`);
   const keep = (sel) => document.querySelector(sel)?.scrollTop || 0;
   const sbTop = keep('#sheet .sheet-b'), phTop = keep('.ph-screen'), ovTop = keep('#overlay .sheet-b');
@@ -338,7 +341,7 @@ function overlayHTML() {
   if (OV.t === 'tips')
     return `<div class="intro"><div class="tips-card glass"><h2>Comment jouer</h2><ol>
       <li><b>Vieillir</b> fait passer une année. Les grandes décisions, elles, se jouent sur quelques jours.</li>
-      <li>Tu as <b>4 énergies par an</b> pour les activités, le travail ou les coups. Choisis bien.</li>
+      <li>Tu as des <b>énergies</b> chaque année (1 petit, jusqu’à 4 adulte) pour les activités, le travail ou les coups. Le menu s’enrichit en grandissant : école, téléphone, crime, biens…</li>
       <li>Le menu du bas gère ta vie : Activités, Carrière, Crime, Relations, Biens.</li>
       <li>Le <b>téléphone</b> sert à parler aux gens : réponds aux messages, sinon tes proches s’éloignent.</li>
     </ol><button class="btn primary" data-a="tipsgo">C’est parti</button></div></div>`;
@@ -377,7 +380,7 @@ function deathHTML() {
 // ---------- Onglets ----------
 const TIPS = {
   vie: 'Ta fiche : santé, addictions, justice et journal. Surveille les symptômes : un médecin peut te sauver.',
-  act: 'Chaque activité coûte 1 énergie (4 par an) et fait avancer le temps. Sans sport, ta santé baisse chaque année.',
+  act: 'Chaque activité coûte 1 énergie (plus tu grandis, plus tu en as) et fait avancer le temps. Sans sport, ta santé baisse chaque année.',
   pro: 'Postule, étudie ou lance-toi (sport, musique, politique). Ta performance fait monter ta carrière.',
   crime: 'Tout l’illégal se gère ici. Ça rapporte gros, mais chaque coup fait monter ton niveau de recherche.',
   rel: 'Affection et confiance comptent. Tes amis d’enfance deviendront des contacts utiles.',
@@ -403,7 +406,7 @@ function sheetHTML() {
   if (tab === 'act' || tab === 'crime') {
     const list = ACTIVITIES.filter((a) => (inPrison(S) ? a.tab === 'prison' : a.tab === tab));
     const warn = tab === 'crime' && !inPrison(S) ? `<div class="note warn">Chaque délit peut augmenter ton niveau de recherche. Plus il est haut, plus la police risque de frapper à ta porte.</div>` : '';
-    return head(inPrison(S) ? 'Vie en détention' : tab === 'act' ? 'Activités' : 'Crime', `Énergie : ${S.energie}/4 · chaque action fait avancer le temps`) + `<div class="sheet-b">${tab === 'crime' && !inPrison(S) ? crimeHubHTML(S) : ''}${warn}${tab === 'crime' && !inPrison(S) && S.justice.recherche ? `<div class="note warn">Recherché${S.id.genre === 'f' ? 'e' : ''} : ${S.justice.recherche}/5 · ${esc(S.justice.motif || '')}</div>` : ''}<div class="acts">${list.map((a) => actCard(a)).join('')}</div></div>`;
+    return head(inPrison(S) ? 'Vie en détention' : tab === 'act' ? 'Activités' : 'Crime', `Énergie : ${S.energie}/${energieMax(S.age)} · chaque action fait avancer le temps`) + `<div class="sheet-b">${tab === 'crime' && !inPrison(S) ? crimeHubHTML(S) : ''}${warn}${tab === 'crime' && !inPrison(S) && S.justice.recherche ? `<div class="note warn">Recherché${S.id.genre === 'f' ? 'e' : ''} : ${S.justice.recherche}/5 · ${esc(S.justice.motif || '')}</div>` : ''}<div class="acts">${list.map((a) => actCard(a)).join('')}</div></div>`;
   }
   if (tab === 'pro') return head('Carrière et études', DIPLOME_NOM[S.etudes.niveau]) + `<div class="sheet-b">${footHTML(S)}${proHTML()}</div>`;
   if (tab === 'rel') return head('Relations', partnerOf(S) ? `En couple avec ${esc(partnerOf(S).prenom)}` : 'Célibataire') + `<div class="sheet-b">${relHTML()}</div>`;
@@ -555,6 +558,7 @@ function handle(a, v, el) {
       OV = null;
       return updateGame();
     case 'tab':
+      if (S.newTabs) delete S.newTabs[v];
       if (OV && OV.t !== 'intro') OV = null;
       tab = tab === v ? null : v;
       openRel = null;
@@ -562,6 +566,7 @@ function handle(a, v, el) {
     case 'age': {
       if (busy(S) || !S.vivant) return;
       const rep = ageUp(S);
+      if (rep) UNLOCKS.filter((u) => u.age === S.age).forEach((u) => { if (u.key) (S.newTabs ||= {})[u.key] = 1; toast(`Nouveau · ${u.txt}`, 'good'); });
       if (rep) toast(`${S.age} ans${rep.revenus || rep.depenses ? ` · ${euros(rep.revenus - rep.depenses)} sur l’année` : ''}${rep.impots ? ` · dont ${euros(rep.impots)} d’impôts` : ''}`, rep.revenus - rep.depenses >= 0 ? 'good' : 'err');
       return updateGame();
     }
@@ -624,6 +629,8 @@ function handle(a, v, el) {
       return;
     }
     case 'phone':
+      if (OV?.t === 'phone' && el?.closest('.dock')) { OV = null; return updateGame(); }
+      if (S.newTabs) delete S.newTabs.phone;
       if (inPrison(S) && !S.flags.tel_prison) return toast('Pas de téléphone en détention. Il faut en acheter un au marché noir.', 'err');
       if (!S.vivant) return;
       tab = null;

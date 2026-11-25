@@ -134,3 +134,52 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 .ach-item b small { color: #ffd36e; font-weight: 600; }
 .ach-item p { font-size: 12px; color: var(--muted); line-height: 1.4; margin-top: 2px; }
 .ach-item em { display: block; font-style: normal; font-size: 11px; color: #5ff5d0; margin-top: 4px; }
+/* v0.7 : barre de sécurité des destinations (ne recouvre plus le prix) */
+.dest-b .bar-s, .dest-b .bar-s .tr { display: block; }
+.dest-b .bar-s .t { display: flex; justify-content: space-between; }
+.dest-b .bar-s .tr i { height: 5px; }
+.dest-b em { display: block; margin-top: 2px; }
+/* Pastille « Nouveau » sur un onglet qui vient de se débloquer */
+.tab { position: relative; }
+.tab .new-dot { position: absolute; top: 4px; right: 10px; width: 9px; height: 9px; border-radius: 50%; background: #4fd18b; box-shadow: 0 0 0 2px #0e0c17; }
+/* Barres de défilement sombres */
+.sheet-b, .ph-screen, #overlay .sheet-b { scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.2) transparent; }
+
+/* =================== v0.7 : version mobile jouable =================== */
+@media (max-width: 600px) {
+  :root { --bar: calc(112px + env(safe-area-inset-bottom)); }
+  .bar { display: block; padding: 6px 6px calc(4px + env(safe-area-inset-bottom)); overflow: visible; }
+  .dock { display: flex; flex-wrap: wrap; gap: 2px; width: 100%; }
+  .dock .tab { flex: 1 1 0; width: auto; min-width: 0; height: 52px; font-size: 9.5px; gap: 2px; }
+  .dock .tab svg { width: 20px; height: 20px; }
+  .dock .tab .new-dot { right: 6px; }
+  .age-btn { order: -1; flex: 1 0 100%; height: 46px; margin: 0 0 4px; justify-content: center; font-size: 15px; }
+  .age-btn small { display: inline; margin-left: 8px; font-size: 11px; }
+  .age-btn span { display: flex; align-items: baseline; }
+  .age-btn.plan small { max-width: 52vw; }
+  /* Haut de l'écran : compact, rien ne se chevauche */
+  .hud-tl { top: calc(8px + env(safe-area-inset-top, 0px)); left: 8px; padding: 8px 10px; gap: 2px; max-width: calc(100% - 168px); border-radius: 12px; }
+  .hud-place { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .hud-time { gap: 8px; }
+  .hud-time .h { font-size: 20px; }
+  .hud-meteo { font-size: 11px; }
+  .hud-date { display: none; }
+  .hud-tr { top: calc(8px + env(safe-area-inset-top, 0px)); right: 8px; gap: 4px; max-width: 156px; }
+  .id-card { display: block; padding: 6px 10px; border-radius: 10px; }
+  .id-card b { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .id-card span { font-size: 10.5px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pills { gap: 4px; }
+  .pill { font-size: 11px; padding: 4px 8px; }
+  /* Panneaux et choix : plein écran bas, lisibles au pouce */
+  .sheet, .modal { left: 6px; right: 6px; bottom: 6px; max-height: calc(100% - 100px); background: rgba(16, 14, 28, 0.985); }
+  .sheet { top: auto; height: calc(100% - 100px); }
+  .modal { padding: 16px; }
+  .choice { min-height: 46px; }
+  .sheet-h h2 { font-size: 18px; }
+  .casino, .travel { top: 64px; left: 6px; right: 6px; bottom: 6px; }
+  .phone-wrap { padding: 6px; align-items: stretch; }
+  .phone { height: 100%; max-height: none; border-radius: 30px; border-width: 6px; }
+  .pnotifs { top: calc(6px + env(safe-area-inset-top, 0px)); left: 6px; right: 6px; width: auto; transform: none; }
+  .toasts { top: 100px; width: calc(100% - 24px); }
+  .toast { max-width: none; }
+}

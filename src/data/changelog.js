@@ -1,7 +1,16 @@
 // Notes de mise à jour affichées dans le jeu (même contenu que CHANGELOG.md).
-export const VERSION = 'v0.6';
+export const VERSION = 'v0.7';
 
 export const CHANGELOG = [
+  { v: 'v0.7', titre: 'La mise à jour « Grandir »', items: [
+    'Le menu grandit avec toi : Vie et Relations à la naissance, Activités et École à 3 ans, téléphone à 11 ans, Crime à 12 ans, Carrière et Biens à 16 ans',
+    'L’énergie augmente avec l’âge : 1 action par an petit, jusqu’à 4 adulte, puis moins en vieillissant',
+    'Chaque déblocage est annoncé, avec une pastille « Nouveau » sur l’onglet',
+    'Version mobile jouable : « Vieillir » en grand au-dessus du menu, tous les onglets visibles, haut d’écran compact, panneaux lisibles',
+    'Le bouton Téléphone ouvre et referme le téléphone',
+    'On peut blanchir avec une start-up (via de faux investisseurs, plus risqué qu’un restaurant)',
+    'Correction : dans « Fuir à l’étranger », la barre de sécurité ne recouvre plus le prix',
+  ] },
   { v: 'v0.6', titre: 'La mise à jour « Renaissance & PWA »', items: [
     'Vrai bébé à 0–1 an : berceau, tétine, visage rond et tapis d’éveil, puis croissance naturelle',
     '9 paysages dédiés selon le pays de naissance (Maghreb, Afrique de l’Ouest/Centrale, Antilles, Portugal, Turquie, Asie, Europe de l’Est, Amérique latine)',

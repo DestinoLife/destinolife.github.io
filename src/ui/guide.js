@@ -57,7 +57,7 @@ export function guideSteps(s) {
     {
       target: '#dock',
       title: 'Gère toute ta vie depuis le menu',
-      txt: 'Activités, Carrière, Crime, Relations, Biens… et ton Téléphone pour répondre à tes proches. Pense aussi aux Défis dans l’onglet Vie !',
+      txt: 'Pour l’instant : Vie et Relations. Le menu grandit avec toi : Activités et École à 3 ans, Téléphone à 11, Crime à 12, Carrière et Biens à 16. Pense aussi aux Défis dans l’onglet Vie !',
       cta: 'Dernière étape →',
     },
     {
