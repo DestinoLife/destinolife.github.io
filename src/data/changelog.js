@@ -1,7 +1,12 @@
 // Notes de mise à jour affichées dans le jeu (même contenu que CHANGELOG.md).
-export const VERSION = 'v0.5.2';
+export const VERSION = 'v0.5.3';
 
 export const CHANGELOG = [
+  { v: 'v0.5.3', titre: 'Partage du lien', items: [
+    'Joli aperçu quand on partage le lien (Discord, WhatsApp, X…) : image, titre et description',
+    'Meilleur référencement sur Google (description, sitemap, données structurées)',
+    'Icône propre quand on ajoute le jeu à l’écran d’accueil de l’iPhone',
+  ] },
   { v: 'v0.5.2', titre: 'Nouvelle adresse', items: [
     'Nouvelle adresse du jeu : https://destinolife.github.io/ (organisation DestinoLife)',
     'Le bouton « Signaler un bug » envoie vers le nouveau dépôt',

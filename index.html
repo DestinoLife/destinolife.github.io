@@ -3,15 +3,67 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#0b0a12" />
-  <title>Destino</title>
+  <meta name="theme-color" content="#ff6b8b" />
+  <title>Destino · Simulateur de vie gratuit (PC et mobile)</title>
+  <meta name="description" content="Destino est un jeu de simulation de vie gratuit en 2D. Braqueur, rappeur, médecin, footballeur, président ou SDF : chaque choix change ta vie, ton décor et ton destin. Jouable sur PC et mobile, sans téléchargement. 18+." />
+  <meta name="keywords" content="Destino, jeu de simulation de vie, simulateur de vie, jeu de choix, jeu navigateur gratuit, life simulator, jeu mobile gratuit" />
+  <meta name="author" content="DestinoLife" />
+  <meta name="rating" content="adult" />
+  <link rel="canonical" href="https://destinolife.github.io/" />
+
+  <!-- Aperçu des liens : Discord, WhatsApp, Facebook, LinkedIn -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Destino" />
+  <meta property="og:locale" content="fr_FR" />
+  <meta property="og:url" content="https://destinolife.github.io/" />
+  <meta property="og:title" content="Destino · Une vie. Des milliers de destins." />
+  <meta property="og:description" content="Braqueur, rappeur, médecin, président ou SDF : chaque choix change ta vie… et ton décor. Gratuit, sur PC et mobile." />
+  <meta property="og:image" content="https://destinolife.github.io/og.png" />
+  <meta property="og:image:type" content="image/png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="Destino : deux personnages devant une villa au coucher du soleil" />
+
+  <!-- X / Twitter -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Destino · Une vie. Des milliers de destins." />
+  <meta name="twitter:description" content="Simulateur de vie gratuit : chaque choix change ta vie et ton décor. PC et mobile." />
+  <meta name="twitter:image" content="https://destinolife.github.io/og.png" />
+
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@600;700;800&display=swap" rel="stylesheet" />
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "VideoGame",
+    "name": "Destino",
+    "url": "https://destinolife.github.io/",
+    "image": "https://destinolife.github.io/og.png",
+    "description": "Jeu de simulation de vie gratuit en 2D : chaque choix change ta vie, ton décor et ton destin.",
+    "genre": ["Simulation de vie", "Jeu de choix"],
+    "inLanguage": "fr",
+    "gamePlatform": ["Navigateur web", "PC", "Mobile"],
+    "applicationCategory": "Game",
+    "operatingSystem": "Tous",
+    "contentRating": "18+",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" },
+    "author": { "@type": "Organization", "name": "DestinoLife", "url": "https://github.com/DestinoLife" }
+  }
+  </script>
 </head>
 <body>
-  <div id="app"></div>
+  <div id="app">
+    <!-- Texte lu par les moteurs de recherche ; remplacé par le jeu au chargement -->
+    <main style="max-width:640px;margin:15vh auto;padding:0 20px;font-family:system-ui,sans-serif;color:#e4dff2">
+      <h1>Destino, le simulateur de vie</h1>
+      <p>Naître quelque part, grandir, choisir. Braqueur, rappeur, médecin, footballeur, président ou SDF : dans Destino, chaque choix change ta vie, ton décor et ton destin. Jeu gratuit, en français, jouable sur PC et mobile sans téléchargement. Déconseillé aux moins de 18 ans.</p>
+    </main>
+  </div>
+  <noscript>Active JavaScript pour jouer à Destino.</noscript>
   <script type="module" src="/src/main.js"></script>
 </body>
 </html>

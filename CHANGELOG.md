@@ -1,6 +1,12 @@
 # Notes de mise à jour de Destino
 
-Version actuelle : **v0.5.2**. Ces notes sont aussi visibles dans le jeu (écran titre, « Notes de mise à jour »).
+Version actuelle : **v0.5.3**. Ces notes sont aussi visibles dans le jeu (écran titre, « Notes de mise à jour »).
+
+## v0.5.3 · Partage du lien
+
+- Joli aperçu quand on partage le lien (Discord, WhatsApp, X…) : image, titre et description
+- Meilleur référencement sur Google (description, sitemap, données structurées)
+- Icône propre quand on ajoute le jeu à l’écran d’accueil de l’iPhone
 
 ## v0.5.2 · Nouvelle adresse
 
