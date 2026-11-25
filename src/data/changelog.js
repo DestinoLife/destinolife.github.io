@@ -1,7 +1,12 @@
 // Notes de mise à jour affichées dans le jeu (même contenu que CHANGELOG.md).
-export const VERSION = 'v0.4.1';
+export const VERSION = 'v0.4.2';
 
 export const CHANGELOG = [
+  { v: 'v0.4.2', titre: 'Correctif « Notifications » 2', items: [
+    'Les messages reçus pendant un choix s’affichent sur la carte du choix, plus par-dessus',
+    'Un événement qui arrive par message n’est plus affiché en double',
+    'Correction de l’icône de notification qui débordait sur le texte',
+  ] },
   { v: 'v0.4.1', titre: 'Correctif « Notifications »', items: [
     'Un nouveau message s’affiche en notification en bas à droite (en haut sur mobile), avec son texte',
     'Cliquer sur la notification ouvre directement la conversation',

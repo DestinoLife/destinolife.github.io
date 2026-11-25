@@ -223,7 +223,7 @@ function renderGameShell() {
   app.innerHTML = `<div class="game">
     <div class="stage">${worldHTML('rue', { tod: 'jour', meteo: 'soleil' }, null)}
       <div class="hud-tl glass" id="hudtl"></div><div class="hud-tr" id="hudtr"></div>
-      <div id="sheet"></div><div id="modal"></div><div id="overlay"></div><div class="toasts" id="toasts"></div><div class="notifs" id="notifs"></div><div id="death"></div>
+      <div id="sheet"></div><div id="modal"></div><div id="overlay"></div><div class="toasts" id="toasts"></div><div class="pnotifs" id="notifs"></div><div id="death"></div>
     </div>
     <nav class="bar">${logo(30)}<div class="dock" id="dock"></div></nav></div>${dev ? '<div id="fps"></div>' : ''}`;
   lastBg = lastAv = '';
@@ -232,20 +232,27 @@ function renderGameShell() {
 }
 
 // Notification façon iPhone en bas à droite quand un message arrive (clic = ouvre la conversation)
-let seenMsgs = -1, lastThread = '';
+// Pendant un choix (événement ouvert), les messages reçus s'affichent sur la carte du choix au lieu de flotter par-dessus.
+let seenMsgs = -1, lastThread = '', held = [];
 function notifyNew() {
   const msgs = S.phone.msgs;
   if (seenMsgs < 0 || seenMsgs > msgs.length) seenMsgs = msgs.length;
-  const fresh = msgs.slice(seenMsgs).filter((m) => !m.mine && !(OV?.t === 'phone' && OV.conv === m.from));
+  const evFrom = S.current?.sms;
+  const fresh = msgs.slice(seenMsgs).filter((m) => !m.mine && m.from !== evFrom && !(OV?.t === 'phone' && OV.conv === m.from));
   seenMsgs = msgs.length;
   const box = document.getElementById('notifs');
-  if (!box || !fresh.length || (inPrison(S) && !S.flags.tel_prison)) return;
+  if (!box) return;
+  const modalOpen = !!(S.current || S.result);
+  if (inPrison(S) && !S.flags.tel_prison) return;
+  if (modalOpen) { held.push(...fresh); box.innerHTML = ''; return; }
+  held = [];
+  if (!fresh.length) return;
   fresh.slice(-2).forEach((m) => {
     const el = document.createElement('button');
-    el.className = 'notif glass';
+    el.className = 'pnotif glass';
     el.dataset.a = 'notif';
     el.dataset.v = m.from;
-    el.innerHTML = `<span class="notif-app">${icon('phone', 13)} Messages<small>maintenant</small></span><span class="notif-b"><span class="ph-av sm">${esc(m.from[0])}</span><span><b>${esc(m.from)}</b><span>${esc(m.txt)}</span>${m.ch && !m.answered ? '<em>Attend ta réponse</em>' : ''}</span></span>`;
+    el.innerHTML = `<span class="pnotif-app">${icon('phone', 13)} Messages<small>maintenant</small></span><span class="pnotif-b"><span class="ph-av sm">${esc(m.from[0])}</span><span><b>${esc(m.from)}</b><span>${esc(m.txt)}</span>${m.ch && !m.answered ? '<em>Attend ta réponse</em>' : ''}</span></span>`;
     box.prepend(el);
     setTimeout(() => el.classList.add('out'), 6000);
     setTimeout(() => el.remove(), 6400);
@@ -278,7 +285,10 @@ function updateGame() {
   const sbTop = keep('#sheet .sheet-b'), phTop = keep('.ph-screen'), ovTop = keep('#overlay .sheet-b');
   const sameSheet = lastSheet === tab, sameOv = lastOvKey === (OV ? `${OV.t}|${OV.app}|${OV.conv}|${OV.itab}` : '');
   document.getElementById('sheet').innerHTML = tab ? `<div class="sheet glass ${sameSheet ? 'still' : ''}">${sheetHTML()}</div>` : '';
+  notifyNew();
   document.getElementById('modal').innerHTML = modalHTML();
+  const md = document.querySelector('#modal .modal');
+  if (md && held.length) md.insertAdjacentHTML('afterbegin', `<div class="m-notifs"><small>${icon('phone', 13)} ${held.length > 1 ? `${held.length} nouveaux messages` : 'Nouveau message'} · à lire dans le téléphone</small>${held.slice(-2).map((m) => `<div class="m-notif"><span class="ph-av sm">${esc(m.from[0])}</span><span><b>${esc(m.from)}</b> · ${esc(m.txt)}${m.ch && !m.answered ? ' <em>Attend ta réponse</em>' : ''}</span></div>`).join('')}</div>`);
   document.getElementById('death').innerHTML = !S.vivant && !busy(S) ? deathHTML() : '';
   document.getElementById('overlay').innerHTML = overlayHTML();
   if (sameOv) document.querySelectorAll('#overlay .phone, #overlay .casino, #overlay .travel, #overlay .pc').forEach((e) => e.classList.add('still'));
@@ -289,7 +299,6 @@ function updateGame() {
   const thread = OV?.t === 'phone' && OV.conv ? `${OV.conv}|${S.phone.msgs.length}|${OV.compose ? 1 : 0}` : '';
   if (thread && thread !== lastThread) { const sc = document.querySelector('.ph-screen'); if (sc) sc.scrollTop = sc.scrollHeight; }
   lastThread = thread;
-  notifyNew();
   const mk = S.current ? S.current.id : S.result ? 'r' : '';
   if (mk && mk === lastModal) document.querySelector('#modal .modal')?.classList.add('still');
   lastSheet = tab; lastOvKey = OV ? `${OV.t}|${OV.app}|${OV.conv}|${OV.itab}` : ''; lastModal = mk;

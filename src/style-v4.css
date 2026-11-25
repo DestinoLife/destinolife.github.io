@@ -46,16 +46,24 @@
 .changelog ul { padding-left: 18px; display: grid; gap: 5px; font-size: 13px; color: #d9d4ec; line-height: 1.45; }
 
 /* v0.4.1 : notification de message en bas à droite */
-.notifs { position: absolute; right: 16px; bottom: 16px; z-index: 8; display: grid; gap: 8px; width: min(340px, calc(100% - 32px)); pointer-events: none; }
-.notif { pointer-events: auto; background: rgba(24, 20, 38, 0.9); border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35); display: grid; gap: 6px; padding: 10px 12px 12px; border-radius: 18px; text-align: left; color: var(--text); animation: notif-in 0.35s cubic-bezier(.2, .9, .3, 1.2) both; transition: opacity 0.4s, transform 0.4s; }
-.notif:hover { transform: translateY(-2px); }
-.notif.out { opacity: 0; transform: translateX(24px); }
-.notif-app { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
-.notif-app small { margin-left: auto; text-transform: none; letter-spacing: 0; font-weight: 400; }
-.notif-b { display: flex; gap: 10px; align-items: flex-start; }
-.notif-b > span:last-child { display: grid; gap: 2px; min-width: 0; font-size: 13px; line-height: 1.35; }
-.notif-b > span:last-child > span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; color: #e4dff2; }
-.notif-b em { font-style: normal; font-size: 11px; font-weight: 600; color: #0a84ff; }
-@keyframes notif-in { from { opacity: 0; transform: translateY(16px) scale(0.96); } to { opacity: 1; transform: none; } }
-@media (max-width: 760px) { .notifs { top: 12px; bottom: auto; right: 50%; transform: translateX(50%); } }
-@media (prefers-reduced-motion: reduce) { .notif { animation: none; transition: opacity 0.3s; } .notif.out { transform: none; } }
+.pnotifs { position: absolute; right: 16px; bottom: 16px; z-index: 8; display: grid; gap: 8px; width: min(340px, calc(100% - 32px)); pointer-events: none; }
+.pnotif { pointer-events: auto; background: rgba(24, 20, 38, 0.9); border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35); display: grid; gap: 6px; padding: 10px 12px 12px; border-radius: 18px; text-align: left; color: var(--text); animation: pnotif-in 0.35s cubic-bezier(.2, .9, .3, 1.2) both; transition: opacity 0.4s, transform 0.4s; }
+.pnotif:hover { transform: translateY(-2px); }
+.pnotif.out { opacity: 0; transform: translateX(24px); }
+.pnotif-app { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.pnotif-app small { margin-left: auto; text-transform: none; letter-spacing: 0; font-weight: 400; }
+.pnotif-b { display: flex; gap: 10px; align-items: flex-start; }
+.pnotif-b > span:last-child { display: grid; gap: 2px; min-width: 0; font-size: 13px; line-height: 1.35; }
+.pnotif-b > span:last-child > span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; color: #e4dff2; }
+.pnotif-b em { font-style: normal; font-size: 11px; font-weight: 600; color: #0a84ff; }
+@keyframes pnotif-in { from { opacity: 0; transform: translateY(16px) scale(0.96); } to { opacity: 1; transform: none; } }
+@media (max-width: 760px) { .pnotifs { top: 12px; bottom: auto; right: 50%; transform: translateX(50%); } }
+@media (prefers-reduced-motion: reduce) { .pnotif { animation: none; transition: opacity 0.3s; } .pnotif.out { transform: none; } }
+
+/* Messages reçus pendant un choix : affichés sur la carte du choix, pas par-dessus */
+.m-notifs { display: grid; gap: 6px; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.m-notifs > small { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.m-notif { display: flex; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 12px; background: rgba(255, 255, 255, 0.05); font-size: 13px; line-height: 1.35; }
+.m-notif > span:last-child { min-width: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; color: #e4dff2; }
+.m-notif b { color: var(--text); }
+.m-notif em { font-style: normal; font-weight: 600; color: #0a84ff; white-space: nowrap; }

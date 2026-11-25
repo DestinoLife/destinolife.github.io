@@ -1,6 +1,12 @@
 # Notes de mise à jour de Destino
 
-Version actuelle : **v0.4.1**. Ces notes sont aussi visibles dans le jeu (écran titre, « Notes de mise à jour »).
+Version actuelle : **v0.4.2**. Ces notes sont aussi visibles dans le jeu (écran titre, « Notes de mise à jour »).
+
+## v0.4.2 · Correctif « Notifications » 2
+
+- Les messages reçus pendant un choix s’affichent sur la carte du choix, plus par-dessus
+- Un événement qui arrive par message n’est plus affiché en double
+- Correction de l’icône de notification qui débordait sur le texte
 
 ## v0.4.1 · Correctif « Notifications »
 
