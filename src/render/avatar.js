@@ -32,11 +32,16 @@ function hair(style, c, u, f) {
       const pts = [[-30, -30, 11], [-17, -45, 12], [0, -51, 12], [17, -45, 12], [30, -30, 11], [-37, -14, 9], [37, -14, 9], [-8, -38, 9], [10, -38, 9], [-24, -40, 9], [24, -40, 9]];
       return { front: `<path d="M-38 -4 Q-42 -50 0 -52 Q42 -50 38 -4 Q34 -24 0 -26 Q-34 -24 -38 -4Z" fill="${dk}"/>${pts.map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${H}"/><circle cx="${x - 3}" cy="${y - 3}" r="${r / 3}" fill="${lt}" opacity=".35"/>`).join('')}` };
     }
-    case 'afro':
+    case 'afro': {
+      const ring = Array.from({ length: 16 }, (_, i) => {
+        const a = Math.PI * (0.92 + (i / 15) * 1.16);
+        return `<circle cx="${(Math.cos(a) * 52).toFixed(1)}" cy="${(-24 + Math.sin(a) * 44).toFixed(1)}" r="14" fill="${H}"/>`;
+      }).join('');
       return {
-        back: `<ellipse cx="0" cy="-22" rx="58" ry="48" fill="${H}"/><ellipse cx="-14" cy="-46" rx="22" ry="12" fill="${lt}" opacity=".25"/>`,
-        front: `<path d="M-40 -8 Q-46 -30 -30 -36 Q-20 -46 -6 -40 Q6 -48 18 -40 Q32 -44 38 -30 Q46 -20 40 -8 Q34 -28 0 -30 Q-34 -28 -40 -8Z" fill="${H}"/>`,
+        back: `<ellipse cx="0" cy="-24" rx="54" ry="46" fill="${H}"/>${ring}<circle cx="-20" cy="-52" r="9" fill="${lt}" opacity=".22"/><circle cx="14" cy="-58" r="6" fill="${lt}" opacity=".18"/>`,
+        front: `<path d="M-37 -2 Q-40 -46 0 -48 Q40 -46 37 -2 Q33 -30 0 -33 Q-33 -30 -37 -2Z" fill="${dk}"/><path d="M-30 -30 q30 -12 60 0" stroke="${lt}" stroke-width="2" fill="none" opacity=".25"/>`,
       };
+    }
     case 'long':
       return {
         back: `<path d="M-42 -6 Q-47 -60 0 -60 Q47 -60 42 -6 L48 74 Q36 86 24 66 L-24 66 Q-36 86 -48 74Z" fill="${H}"/>`,

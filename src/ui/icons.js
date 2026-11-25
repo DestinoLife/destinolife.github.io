@@ -48,6 +48,8 @@ const P = {
   plus: '<path d="M12 5v14M5 12h14"/>',
   chevron: '<path d="M9 6l6 6-6 6"/>',
   play: '<path d="M7 4l13 8-13 8z"/>',
+  mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>',
+  phone: '<rect x="6.5" y="2" width="11" height="20" rx="2.5"/><path d="M11 18.5h2"/>',
 };
 
 export const icon = (n, size = 20, cls = '') =>

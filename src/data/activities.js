@@ -3,6 +3,7 @@
 import { rnd, pick, chance, euros } from '../engine/rng.js';
 import { COTIERES } from './identity.js';
 import { CAREERS } from './careers.js';
+import { startNetwork, comeBack } from '../engine/economy.js';
 
 const coast = (s) => COTIERES.includes(s.id.ville) || s.id.statut === 'au_pays';
 const single = (s) => !s.relations.some((r) => r.vivant && (r.lien === 'partenaire' || r.lien === 'conjoint'));
@@ -16,10 +17,12 @@ function crime({ id, nom, desc, icon, age, p, gain, motif, peine, rech = 0.35, c
       const bonus = (s.traits.includes('malin') ? 0.06 : 0) + (s.traits.includes('impulsif') ? -0.05 : 0);
       if (chance(Math.min(0.95, p(s) + bonus))) {
         const g = rnd(gain[0], gain[1]);
-        const fx = { money: g, crime: rnd(2, 4), karma, reputation: rnd(1, 3) };
+        const boost = s.relations.some((r) => r.vivant && (r.role === 'receleur' || r.role === 'ferrailleur')) ? 1.3 : 1;
+        const g2 = Math.round(g * boost);
+        const fx = { money: g2, sale: g2, crime: rnd(2, 4), karma, reputation: rnd(1, 3) };
         if (chance(rech)) Object.assign(fx, { recherche: 1, motif });
         if (extra) Object.assign(fx, extra);
-        return { fx, r: g ? `${nom} : réussi. +${euros(g)}.` : `${nom} : réussi.`, good: true };
+        return { fx, r: g ? `${nom} : réussi. +${euros(g2)}${boost > 1 ? " (ton receleur paie mieux)" : ""}.` : `${nom} : réussi.`, good: true };
       }
       if (chance(0.55)) return { fx: { arrest: { motif, peine } }, r: `${nom} : raté. Pris{e} sur le fait.` };
       return { fx: { recherche: 1, motif, karma: -2 }, r: `${nom} : raté, mais tu t’enfuis.` };
@@ -50,7 +53,7 @@ export const ACTIVITIES = [
     } },
   { id: 'dating', tab: 'act', nom: 'Faire des rencontres', desc: 'Amour', icon: 'heart', age: [16, 85], days: [3, 10], hour: [19, 22], cond: (s) => single(s) || 'Tu es déjà en couple.',
     run: () => ({ r: 'Tu swipes, tu discutes, tu sors.', queue: 'rencontre' }) },
-  { id: 'voyage', tab: 'act', nom: 'Partir en vacances', desc: 'Grand bonheur', icon: 'plane', age: [18, 95], cost: 1600, days: [7, 15], hour: [12, 19],
+  { id: 'voyage', tab: 'act', ui: 'voyage', nom: 'Voyager', desc: '11 destinations dans le monde', icon: 'plane', age: [16, 95], days: [7, 15], hour: [12, 19],
     cond: (s) => (s.id.statut === 'sans_papiers' ? 'Impossible de voyager sans papiers.' : true),
     run: (s) => {
       const d = s.id.origine !== 'france' && s.id.statut !== 'au_pays' && chance(0.5) ? 'pays' : 'plage';
@@ -64,12 +67,8 @@ export const ACTIVITIES = [
     run: () => ({ fx: { bonheur: rnd(3, 5), karma: 1, sante: 1 }, r: 'Respiration, silence. Ça fait du bien.' }) },
   { id: 'benevolat', tab: 'act', nom: 'Bénévolat', desc: 'Karma, charisme', icon: 'hand', age: [12, 95], days: [2, 6], hour: [9, 18],
     run: () => ({ fx: { karma: rnd(4, 7), bonheur: 3, charisme: 1 }, r: 'Distribution de repas aux Restos. Les sourires valent tout.' }) },
-  { id: 'casino', tab: 'act', nom: 'Casino', desc: 'Quitte ou double', icon: 'dice', age: [18, 100], days: [1, 2], hour: [21, 23], cond: (s) => s.money >= 200 || 'Il te faut au moins 200 €.',
-    run: (s) => {
-      const bet = Math.min(Math.round(s.money * 0.25), 20000);
-      if (chance(0.45)) return { fx: { money: bet, bonheur: 6 }, r: `Rouge ! Tu gagnes ${euros(bet)}.`, good: true };
-      return { fx: { money: -bet, bonheur: -5 }, r: `Noir. Tu perds ${euros(bet)}.` };
-    } },
+  { id: 'casino', tab: 'act', ui: 'casino', nom: 'Casino', desc: 'Roulette et machines à sous', icon: 'dice', age: [18, 100], days: [0, 1], hour: [22, 23], lieu: 'casino', cond: (s) => (s.flags.interdit_casino ? 'Tu es interdit de casino.' : s.money >= 50 || 'Il te faut au moins 50 €.'),
+    run: () => ({ r: 'Lumières tamisées, tapis verts. Faites vos jeux.' }) },
   { id: 'loto', tab: 'act', nom: 'Jouer au loto', desc: '1 chance sur… beaucoup', icon: 'ticket', age: [18, 110], cost: 3, free: true, days: [0, 1],
     run: () => {
       if (chance(1 / 20000)) return { fx: { money: 4000000, bonheur: 40 }, r: 'JACKPOT ! 4 000 000 € ! Ta vie bascule.', good: true };
@@ -139,6 +138,19 @@ export const ACTIVITIES = [
     cond: (s) => (s.carriere?.id === 'police' ? 'Tu es flic.' : s.stats.crime < 15 ? 'Savoir-faire criminel 15 requis.' : true),
     run: () => ({ r: 'Le plan se met en place avec {ami}.', queue: 'braquage_j1' }) },
 
+  { id: 'fuite', tab: 'crime', ui: 'cavale', nom: 'Fuir à l’étranger', desc: 'Choisis ta planque selon la sécurité', icon: 'plane', age: [16, 90], free: true,
+    cond: (s) => (s.cavale ? 'Tu es déjà en cavale.' : s.justice.recherche < 1 ? 'Personne ne te recherche.' : true), run: () => ({}) },
+  { id: 'revenir', tab: 'crime', nom: 'Rentrer en France', desc: 'Fin de cavale, risque d’arrestation', icon: 'home', age: [16, 99], days: [1, 2], cond: (s) => !!s.cavale || 'Tu n’es pas en cavale.',
+    run: (s) => ({ r: comeBack(s).r }) },
+  { id: 'contact', tab: 'crime', nom: 'Chercher un contact', desc: 'Receleur, fournisseur, faussaire…', icon: 'users', age: [16, 90], days: [2, 6], hour: [19, 23],
+    run: () => ({ fx: { contact: true }, r: 'Un pote te file un numéro. Regarde ton téléphone.' }) },
+  { id: 'monter_reseau', tab: 'crime', nom: 'Monter ton propre réseau', desc: '15 000 € de mise · tu deviens le boss', icon: 'cash', age: [18, 70], days: [3, 10],
+    cond: (s) => (s.reseau ? 'Ton réseau tourne déjà.' : s.carriere?.id === 'police' ? 'Tu es flic.' : true), run: (s) => { const r = startNetwork(s); return { r: r.r, good: r.good }; } },
+  { id: 'clip', tab: 'pro', nom: 'Tourner un clip', desc: 'Choisis le lieu et le budget', icon: 'camera', age: [14, 70], days: [0, 1], cond: (s) => s.carriere?.id === 'rappeur' || 'Il faut être rappeur.',
+    run: () => ({ r: 'Ton réalisateur attend tes consignes.', queue: 'clip' }) },
+  { id: 'manche', tab: 'act', nom: 'Faire la manche', desc: 'Quelques pièces pour survivre', icon: 'hand', age: [10, 99], days: [1, 3], hour: [9, 19], cond: (s) => (s.logement === 'rue' && !s.chezParents) || 'Seulement si tu vis dans la rue.',
+    run: (s) => ({ fx: { money: rnd(10, 45) + Math.round(s.stats.charisme / 3), bonheur: -2 }, r: 'Une journée sur le trottoir. Quelques pièces, beaucoup d’indifférence.' }) },
+
   // ---------- Prison ----------
   { id: 'muscu_prison', tab: 'prison', prison: true, nom: 'Muscu en cellule', desc: 'Forme', icon: 'dumbbell', days: [10, 30],
     run: () => ({ fx: { forme: rnd(3, 6), bonheur: 1 }, r: 'Pompes, tractions, gainage. Tous les jours.' }) },
@@ -148,6 +160,16 @@ export const ACTIVITIES = [
     run: () => ({ fx: { money: rnd(200, 450), karma: 2 }, r: 'Quelques euros pour cantiner.' }) },
   { id: 'bagarre_prison', tab: 'prison', prison: true, nom: 'Provoquer une bagarre', desc: 'Réputation ▲, risque', icon: 'fist', days: [3, 10],
     run: (s) => (chance(0.4 + s.stats.forme / 220) ? { fx: { reputation: rnd(6, 12), crime: 2 }, r: 'Tu gagnes. Tout le bâtiment le sait.' } : { fx: { sante: -15, prisonAdd: chance(0.4) ? 1 : 0 }, r: 'Tu finis à l’infirmerie, puis au mitard.' }) },
+  { id: 'cantiner', tab: 'prison', prison: true, nom: 'Cantiner', desc: 'Améliorer le quotidien', icon: 'bag', cost: 150, days: [5, 15],
+    run: () => ({ fx: { bonheur: rnd(4, 8), sante: 1 }, r: 'Chocolat, café, une vraie poêle. Le luxe.' }) },
+  { id: 'trafic_prison', tab: 'prison', prison: true, nom: 'Trafiquer en détention', desc: 'Argent ▲, risque de rallonge', icon: 'cash', days: [10, 30],
+    run: (s) => (chance(0.6 + s.stats.crime / 300) ? { fx: { money: rnd(800, 3000), crime: 3, reputation: 4 }, r: 'Cigarettes et téléphones. Ça rapporte.' } : { fx: { prisonAdd: 1 }, r: 'Surpris par un surveillant. Un an de plus.' }) },
+  { id: 'foot_prison', tab: 'prison', prison: true, nom: 'Tournoi de foot', desc: 'Forme, réputation', icon: 'ball', days: [5, 15],
+    run: () => ({ fx: { forme: rnd(2, 4), reputation: rnd(1, 4), bonheur: 3 }, r: 'Ton équipe gagne le tournoi du bâtiment.' }) },
+  { id: 'lettres', tab: 'prison', prison: true, nom: 'Écrire à tes proches', desc: 'Bonheur, relations', icon: 'file', days: [3, 10],
+    run: () => ({ fx: { bonheur: 4, rel: { lien: 'parents', d: 6 }, karma: 2 }, r: 'Tu écris des pages entières. Ça fait du bien.' }) },
+  { id: 'demander_amenagement', tab: 'prison', prison: true, nom: 'Demander un aménagement', desc: 'Bracelet électronique ?', icon: 'scale', days: [5, 20], cond: (s) => s.justice.prison >= 2 || 'Peine trop courte.',
+    run: () => ({ r: 'Ton avocat dépose la demande.', queue: 'prison_amenagement' }) },
   { id: 'evasion', tab: 'prison', prison: true, nom: 'Préparer une évasion', desc: 'Décision majeure', icon: 'key', days: [1, 3], hour: [22, 23],
     run: () => ({ r: 'Ton codétenu te glisse un plan à l’oreille.', queue: 'evasion_j1' }) },
 ];

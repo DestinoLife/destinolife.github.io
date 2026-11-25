@@ -10,6 +10,7 @@ import { CAREERS, canApply } from '../data/careers.js';
 import { HOUSING } from '../data/housing.js';
 import { MILIEUX, TRAITS, TALENTS } from '../data/identity.js';
 import { randomLook } from '../data/look.js';
+import { worldTick, migrate } from './economy.js';
 
 export const busy = (s) => !!(s.current || s.result);
 export const inPrison = (s) => s.justice.prison > 0;
@@ -29,6 +30,8 @@ export function currentScene(s) {
   if (!s.vivant) return 'rue';
   if (inPrison(s)) return 'prison';
   if (s.lieu) return s.lieu;
+  if (s.voyage) return s.voyage.scene;
+  if (s.cavale) return s.cavale.scene;
   const h = hourOf(s.t);
   const work = isWeekday(s.t) && h >= 9 && h < 18;
   if (work && s.carriere && s.age >= 16) return career(s).scene;
@@ -97,9 +100,24 @@ export function presentNext(s) {
     if (ev.pre) ev.pre(s);
     s.seen[id] = true;
     s.lastSeen[id] = s.age;
-    s.current = { id, txt: tpl(ev.txt, s), cat: tpl(ev.cat || 'Vie', s), major: ev.major || 0 };
+    if (ev.avec) s.avec = avecIds(s, ev.avec);
+    if (ev.sms) {
+      const from = tpl(ev.sms, s);
+      apply(s, { sms: { from, txt: typeof ev.txt === 'function' ? ev.txt(s) : ev.txt } });
+    }
+    s.current = { id, txt: tpl(ev.txt, s), cat: tpl(ev.cat || 'Vie', s), major: ev.major || 0, sms: ev.sms ? tpl(ev.sms, s) : null };
     return;
   }
+}
+
+function avecIds(s, k) {
+  const alive = s.relations.filter((r) => r.vivant);
+  if (k === 'partenaire') return alive.filter((r) => r.lien === 'partenaire' || r.lien === 'conjoint').map((r) => r.id).slice(0, 1);
+  if (k === 'enfant') return alive.filter((r) => r.lien === 'enfant').map((r) => r.id).slice(0, 2);
+  if (k === 'famille') return alive.filter((r) => ['partenaire', 'conjoint', 'enfant'].includes(r.lien)).map((r) => r.id).slice(0, 3);
+  if (k === 'parents') return alive.filter((r) => r.lien === 'mere' || r.lien === 'pere').map((r) => r.id).slice(0, 2);
+  if (k === 'ami') return alive.filter((r) => r.lien === 'ami').map((r) => r.id).slice(0, 1);
+  return [];
 }
 
 export function choicesView(s) {
@@ -160,6 +178,7 @@ export function ageUp(s) {
   school(s);
   careerTick(s);
   finances(s, rep);
+  worldTick(s);
   justiceTick(s);
   health(s);
   family(s);
@@ -262,7 +281,7 @@ function justiceTick(s) {
     }
     return;
   }
-  if (j.recherche > 0) {
+  if (j.recherche > 0 && !s.cavale) {
     if (chance(j.recherche * 0.11)) s.queue.unshift('interpellation');
     else if (chance(0.45)) j.recherche--;
   }
@@ -331,6 +350,9 @@ export function doActivity(s, id) {
   if (ok !== true) return { r: ok, err: true };
   if (!a.free && s.energie <= 0) return { r: 'Plus d’énergie cette année. Passe à l’année suivante.', err: true };
   if (!a.free) s.energie--;
+  s.avec = [];
+  if (['sport', 'courir', 'muscu_prison', 'foot_prison', 'jouer'].includes(a.id)) s.annee.sport++;
+  if (a.id === 'medecin') s.annee.medecin++;
   const cost = typeof a.cost === 'function' ? a.cost(s) : a.cost || 0;
   s.money -= cost;
   s.tmp = baseTmp(s);
@@ -435,6 +457,7 @@ export function moveTo(s, id, buy) {
 // ---------- Relations ----------
 export function relActions(s, r) {
   if (!r.vivant) return [];
+  if (r.lien === 'contact') return [['temps', 'Boire un verre'], ['negocier', 'Négocier le tarif'], ['supprimer', 'Supprimer le contact']].map(([a, t]) => ({ a, t, ok: !s.relUsed[`${r.id}:${a}`] && !inPrison(s) }));
   const used = (a) => s.relUsed[`${r.id}:${a}`];
   const list = [['temps', 'Passer du temps']];
   if (['mere', 'pere'].includes(r.lien)) list.push(['argent', 'Demander de l’argent']);
@@ -450,6 +473,7 @@ export function relAction(s, rid, a) {
   const r = s.relations.find((x) => x.id === rid);
   if (!r || !r.vivant || busy(s)) return { r: '' };
   s.relUsed[`${r.id}:${a}`] = true;
+  s.avec = r.lien === 'contact' ? [] : [r.id];
   let out = '';
   if (a === 'temps') {
     r.rel = clamp(r.rel + rnd(4, 12));
@@ -488,6 +512,18 @@ export function relAction(s, rid, a) {
       apply(s, { enfant: true, bonheur: 10 });
       out = `Bienvenue à ${s.tmp.bebe} !`;
     } else out = 'Pas de bébé cette année.';
+  } else if (a === 'negocier') {
+    if (chance(0.35 + s.stats.charisme / 250 + r.rel / 300)) {
+      r.tarif = Math.max(0.55, Math.round((r.tarif - 0.1) * 100) / 100);
+      out = `${r.prenom} baisse son tarif.`;
+    } else {
+      r.rel = clamp(r.rel - 8);
+      out = `${r.prenom} refuse : « C’est déjà un prix d’ami. »`;
+    }
+  } else if (a === 'supprimer') {
+    s.relations = s.relations.filter((x) => x !== r);
+    if (s.reseau?.fournisseur === r.id) s.reseau.fournisseur = null;
+    out = `${r.prenom} est supprimé de tes contacts.`;
   } else if (a === 'rompre') {
     apply(s, { rupture: true, bonheur: -8 });
     out = `C’est fini avec ${r.prenom}.`;
@@ -527,4 +563,4 @@ export function continueAsChild(s, rid) {
   return ns;
 }
 
-export { ACTIVITIES, CAREERS };
+export { ACTIVITIES, CAREERS, migrate };

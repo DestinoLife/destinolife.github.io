@@ -35,12 +35,21 @@ export const LIENS = {
 };
 export const lienNom = (r) => (LIENS[r.lien] || ['Proche', 'Proche'])[r.genre === 'f' ? 1 : 0];
 
+function uniqueName(s, origine, genre) {
+  const used = new Set([s.id.prenom, ...s.relations.map((r) => r.prenom)]);
+  for (let i = 0; i < 25; i++) {
+    const n = nameFor(i < 15 ? origine : pick(['france', 'maghreb', 'portugal', 'afrique_ouest', 'asie']), genre);
+    if (!used.has(n)) return n;
+  }
+  return nameFor(origine, genre) + ' ' + String.fromCharCode(65 + rnd(0, 25)) + '.';
+}
+
 export function newPerson(s, lien, o = {}) {
   const genre = o.genre || pick(['h', 'f']);
   const origine = o.origine || s.id.origine;
   return {
     id: s.uid++, lien, genre,
-    prenom: o.prenom || nameFor(origine, genre),
+    prenom: o.prenom || uniqueName(s, origine, genre),
     nom: o.nom || (['mere', 'pere', 'fratrie', 'enfant'].includes(lien) ? s.id.nom : surnameFor(origine)),
     age: o.age ?? s.age, rel: o.rel ?? rnd(55, 85), vivant: true, depuis: s.age,
     look: o.look || randomLook(genre, origine),
@@ -254,6 +263,17 @@ const FX = {
     if (s.carriere && career(s).cat !== 'sport') setCareer(s, null);
     addLog(s, 'Retour au pays : {pays}.');
   },
+  sms: (s, v) => {
+    s.phone.msgs.push({ from: tpl(v.from, s), role: v.role || '', txt: tpl(v.txt, s), age: s.age, t: s.t, read: false });
+    s.phone.unread = s.phone.msgs.filter((m) => !m.read).length;
+  },
+  sale: (s, v) => (s.sale = Math.max(0, s.sale + v)),
+  avec: (s, v) => (s.avec = [].concat(v)),
+  securite: (s, v) => (s.securite = Math.max(0, s.securite + v)),
+  cavaleFin: (s) => {
+    s.cavale = null;
+    delete s.flags.cavale;
+  },
   revenir: (s, v) => {
     s.id.ville = s.id.villeCible;
     s.id.statut = v;
@@ -262,6 +282,10 @@ const FX = {
     addLog(s, 'Tu reviens en France, à {ville}.');
   },
 };
+
+// Permet à d'autres modules (économie) d'ajouter des effets sans import circulaire.
+const EXTRA_FX = {};
+export const registerFx = (k, fn) => (EXTRA_FX[k] = fn);
 
 export function apply(s, fx) {
   if (!fx) return;
@@ -274,6 +298,7 @@ export function apply(s, fx) {
     if (!s.vivant && k !== 'log') break;
     if (FX[k]) FX[k](s, v);
     else if (STATS.includes(k)) s.stats[k] = clamp(s.stats[k] + v);
+    else if (EXTRA_FX[k]) EXTRA_FX[k](s, v);
     else console.warn('Effet inconnu :', k);
   }
 }
@@ -311,6 +336,8 @@ export function createLife(cfg, opts = {}) {
     justice: { recherche: 0, casier: [], prison: 0, peineTotale: 0, pending: null, motif: null },
     relations: [], flags: {}, seen: {}, lastSeen: {}, relUsed: {}, mem: {}, log: [], queue: [], current: null, result: null, tmp: {},
     energie: 4, meteo: { type: 'soleil', temp: 20 }, vivant: true, mort: null,
+    biens: [], business: [], reseau: null, phone: { msgs: [], unread: 0 }, voyage: null, cavale: null, securite: 0, sale: 0,
+    annee: { sport: 0, medecin: 0 }, avec: [], casino: { perdu: 0, gagne: 0 },
   };
   if (immigrant) s.logementFamille = cfg.milieu === 'riche' || cfg.milieu === 'aisee' ? s.logementFamille : 'pays';
   if (cfg.milieu === 'precaire' && cfg.statut === 'sans_papiers') s.logementFamille = 'pays';

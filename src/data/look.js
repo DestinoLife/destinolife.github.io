@@ -35,6 +35,7 @@ export const OUTFITS = {
   basket: { type: 'tank', top: '#1f4fd1', num: '23', numC: '#ffffff', bas: 'short', basC: '#1f4fd1', shoes: '#f2f2f2' },
   boxe: { type: 'tank', top: '#b3132f', bas: 'short', basC: '#b3132f', shoes: '#111' },
   plage: { type: 'tshirt', top: '#ff9f5a', bas: 'short', basC: '#2a7fd0', shoes: '#f2f2f2' },
+  garde: { type: 'blazer', top: '#111216', shirt: '#f2f2f2', tie: '#111216', bas: 'costume', basC: '#111216', shoes: '#0a0a0a' },
   bebe: { type: 'tshirt', top: '#8fc7ff', bas: 'jean', basC: '#6d87c9', shoes: '#ffffff' },
 };
 

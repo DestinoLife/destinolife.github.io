@@ -41,7 +41,7 @@ function defs() {
 
 function sky() {
   let s = `<rect width="1000" height="560" fill="url(#sky)"/>`;
-  if (E.tod === 'nuit') s += STARS.map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="#fff" opacity=".7"/>`).join('') + `<circle cx="820" cy="96" r="26" fill="#f4f1e2"/><circle cx="832" cy="88" r="24" fill="${SKY.nuit[0]}" opacity=".85"/>`;
+  if (E.tod === 'nuit') s += STARS.map(([x, y, r], i) => `<circle class="${i % 3 ? '' : 'twinkle'}" cx="${x}" cy="${y}" r="${r}" fill="#fff" opacity=".7"/>`).join('') + `<circle cx="820" cy="96" r="26" fill="#f4f1e2"/><circle cx="832" cy="88" r="24" fill="${SKY.nuit[0]}" opacity=".85"/>`;
   else {
     const [x, y, r] = { aube: [190, 330, 34], jour: [790, 110, 40], soir: [760, 330, 42] }[E.tod];
     s += `<circle cx="${x}" cy="${y}" r="${r * 4}" fill="url(#sun)"/><circle cx="${x}" cy="${y}" r="${r}" fill="#fff3cf"/>`;
@@ -50,7 +50,7 @@ function sky() {
     const c = E.meteo === 'pluie' ? '#7d84a3' : night() ? '#3a3a6a' : '#ffffff';
     const op = E.meteo === 'pluie' ? 0.9 : 0.75;
     const cl = (x, y, k) => `<g opacity="${op}" fill="${c}"><ellipse cx="${x}" cy="${y}" rx="${70 * k}" ry="${22 * k}"/><circle cx="${x - 28 * k}" cy="${y - 12 * k}" r="${24 * k}"/><circle cx="${x + 14 * k}" cy="${y - 20 * k}" r="${30 * k}"/></g>`;
-    s += cl(160, 110, 1) + cl(520, 80, 1.3) + cl(860, 140, 0.9);
+    s += `<g class="drift">${cl(160, 110, 1)}${cl(860, 140, 0.9)}</g><g class="drift slow">${cl(520, 80, 1.3)}</g>`;
     if (E.meteo === 'pluie') s += `<rect width="1000" height="560" fill="#1f2840" opacity=".28"/>`;
   }
   return s;
@@ -61,7 +61,21 @@ const sidewalk = (c1 = 'url(#walk)', edge = '#e7d9f0') => `<path d="M0 492 L1000
 const tree = (x, y, k = 1) => `<g transform="translate(${x} ${y}) scale(${k})"><ellipse cx="0" cy="2" rx="40" ry="6" fill="#000" opacity=".18"/><path d="M-6 0 C-8 -40 -10 -60 -6 -90 h14 c2 30 0 50 -2 90z" fill="url(#trunk)"/><circle cx="-30" cy="-110" r="30" fill="url(#leaf)"/><circle cx="28" cy="-112" r="30" fill="url(#leaf)"/><circle cx="0" cy="-142" r="36" fill="url(#leaf)"/><circle cx="-10" cy="-150" r="8" fill="#b6f0a8" opacity=".45"/></g>`;
 const palm = (x, y, k = 1) => `<g transform="translate(${x} ${y}) scale(${k})"><path d="M-4 0 Q-10 -90 6 -180 L14 -178 Q4 -90 8 0Z" fill="url(#trunk)"/>${[[-70, -150], [-60, -200], [10, -230], [70, -200], [76, -150]].map(([dx, dy]) => `<path d="M10 -180 Q${dx / 2} ${dy - 10} ${dx} ${dy} Q${dx / 2 + 6} ${dy + 6} 10 -176Z" fill="#2f9a57"/>`).join('')}<circle cx="6" cy="-176" r="7" fill="#6b4a22"/></g>`;
 const lamp = (x) => `${night() ? `<circle cx="${x}" cy="327" r="60" fill="url(#glow)"/>` : ''}<rect x="${x - 3}" y="330" width="6" height="160" rx="3" fill="#2d2245"/><path d="M${x - 12} 329 h24 l-4 -10 h-16z" fill="#2d2245"/><circle cx="${x}" cy="332" r="5" fill="${night() ? '#fff1c9' : '#cfd3e6'}"/>`;
-const car = (x, y, c, k = 1) => `<g transform="translate(${x} ${y}) scale(${k})"><ellipse cx="0" cy="2" rx="88" ry="7" fill="#000" opacity=".25"/><path d="M-86 -12 Q-86 -36 -64 -40 L-40 -64 Q-30 -72 10 -72 Q40 -72 56 -48 L78 -42 Q90 -38 90 -16 L90 -8 L-86 -8Z" fill="${c}"/><path d="M-36 -60 L-20 -66 H8 V-46 H-48Z M16 -66 Q36 -66 48 -46 H16Z" fill="${night() ? '#26304f' : '#a9d3ec'}"/><circle cx="-50" cy="-6" r="16" fill="#1a1a22"/><circle cx="-50" cy="-6" r="7" fill="#8a8a98"/><circle cx="54" cy="-6" r="16" fill="#1a1a22"/><circle cx="54" cy="-6" r="7" fill="#8a8a98"/><rect x="82" y="-34" width="8" height="6" rx="2" fill="${night() ? '#fff4c2' : '#f2f2f2'}"/></g>`;
+const car = (x, y, c, k = 1, type = 'citadine') => carSVG(x, y, c, k, type);
+export function carSVG(x, y, c, k = 1, type = 'citadine') {
+  const glass = night() ? '#26304f' : '#a9d3ec';
+  const wheel = (wx, r = 16) => `<circle cx="${wx}" cy="-6" r="${r}" fill="#15151b"/><circle cx="${wx}" cy="-6" r="${r * 0.45}" fill="#9a9aa8"/>`;
+  const light = night() ? '#fff4c2' : '#f2f2f2';
+  const body = {
+    citadine: `<path d="M-86 -12 Q-86 -36 -64 -40 L-40 -64 Q-30 -72 10 -72 Q40 -72 56 -48 L78 -42 Q90 -38 90 -16 L90 -8 L-86 -8Z" fill="${c}"/><path d="M-36 -60 L-20 -66 H8 V-46 H-48Z M16 -66 Q36 -66 48 -46 H16Z" fill="${glass}"/>${wheel(-50)}${wheel(54)}`,
+    compacte: `<path d="M-92 -12 Q-92 -34 -70 -38 L-44 -62 Q-34 -68 14 -68 Q42 -68 60 -44 L86 -38 Q96 -34 96 -14 L96 -8 L-92 -8Z" fill="${c}"/><path d="M-40 -58 L-26 -63 H10 V-44 H-52Z M18 -63 Q38 -63 52 -44 H18Z" fill="${glass}"/><path d="M-92 -22 H96" stroke="#fff" stroke-width="3" opacity=".5"/>${wheel(-54, 17)}${wheel(58, 17)}`,
+    suv: `<path d="M-98 -14 Q-98 -50 -80 -54 L-58 -86 Q-50 -92 20 -92 Q52 -92 66 -60 L92 -54 Q102 -50 102 -18 L102 -8 L-98 -8Z" fill="${c}"/><path d="M-52 -82 H10 V-58 H-68Z M18 -82 Q46 -82 56 -58 H18Z" fill="${glass}"/><rect x="-98" y="-28" width="200" height="6" fill="#000" opacity=".25"/>${wheel(-58, 20)}${wheel(62, 20)}`,
+    sport: `<path d="M-104 -12 Q-104 -28 -84 -32 L-40 -52 Q-20 -60 20 -58 Q56 -56 84 -36 L102 -30 Q110 -26 108 -12 L108 -8 L-104 -8Z" fill="${c}"/><path d="M-30 -50 Q-14 -56 18 -54 L40 -36 H-46Z" fill="${glass}"/><path d="M-104 -20 L108 -20" stroke="#000" stroke-width="2" opacity=".3"/><rect x="-108" y="-36" width="18" height="6" rx="2" fill="#111"/>${wheel(-62, 15)}${wheel(66, 15)}`,
+    collection: `<path d="M-96 -12 Q-98 -30 -80 -36 Q-70 -40 -58 -40 Q-40 -72 6 -72 Q44 -72 58 -42 Q86 -40 98 -30 Q104 -22 100 -10 L-96 -10Z" fill="${c}"/><path d="M-44 -44 Q-30 -66 2 -66 V-44Z M10 -66 Q38 -66 48 -44 H10Z" fill="${glass}"/><path d="M-96 -16 H100" stroke="#d8d8d8" stroke-width="3"/>${wheel(-56, 17)}${wheel(60, 17)}`,
+  }[type] || '';
+  return `<g transform="translate(${x} ${y}) scale(${k})"><ellipse cx="0" cy="2" rx="100" ry="8" fill="#000" opacity=".25"/>${body}<rect x="${type === 'suv' ? 94 : 84}" y="-34" width="8" height="6" rx="2" fill="${light}"/></g>`;
+}
+
 const facade = (x, y, w, h, wall, sign, signC, signBg) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${wall}"/><rect x="${x - 6}" y="${y - 8}" width="${w + 12}" height="12" rx="3" fill="${shade2(wall)}"/>${sign ? `<rect x="${x + w / 2 - 110}" y="${y + 18}" width="220" height="38" rx="6" fill="${signBg}"/><text x="${x + w / 2}" y="${y + 44}" text-anchor="middle" font-family="Sora, sans-serif" font-weight="800" font-size="20" letter-spacing="3" fill="${signC}">${sign}</text>` : ''}`;
 const shade2 = (c) => (c.startsWith('#') ? '#00000055' : c);
 const flag = (x, y) => `<rect x="${x}" y="${y}" width="4" height="110" fill="#9aa0b0"/><rect x="${x + 4}" y="${y + 4}" width="22" height="34" fill="#2a4bb0"/><rect x="${x + 26}" y="${y + 4}" width="22" height="34" fill="#f4f4f6"/><rect x="${x + 48}" y="${y + 4}" width="22" height="34" fill="#d8283c"/>`;
@@ -180,17 +194,31 @@ const S = {
     <g transform="translate(500 492)"><rect x="40" y="-70" width="150" height="70" fill="#8a5a3a"/><path d="M30 -76 h170 l-14 -26 h-142z" fill="#ff6a2b"/>${['#ff4f7b', '#ffd36e', '#7ccf5a', '#ff8a3d', '#d8283c'].map((c, i) => `<circle cx="${60 + i * 26}" cy="-74" r="10" fill="${c}"/>`).join('')}</g>
     <path d="M0 492 Q500 480 1000 486 V560 H0Z" fill="#d6b07a"/>`,
 
+  casino: () => `<rect width="1000" height="560" fill="#1c0a14"/><rect y="0" width="1000" height="300" fill="#2a0e1c"/>${Array.from({ length: 9 }, (_, i) => `<g class="twinkle"><circle cx="${60 + i * 110}" cy="60" r="26" fill="#ffd36e" opacity=".85"/><circle cx="${60 + i * 110}" cy="60" r="60" fill="url(#glow)"/></g>`).join('')}
+    <rect x="60" y="150" width="160" height="230" rx="14" fill="#3a1226"/><rect x="80" y="180" width="120" height="70" rx="6" fill="#0d0d12"/><text x="140" y="228" text-anchor="middle" font-family="Sora, sans-serif" font-weight="800" font-size="34" fill="#ffd36e">777</text><rect x="90" y="270" width="100" height="16" rx="8" fill="#ff4f7b"/>
+    <rect x="780" y="150" width="160" height="230" rx="14" fill="#3a1226"/><rect x="800" y="180" width="120" height="70" rx="6" fill="#0d0d12"/><text x="860" y="228" text-anchor="middle" font-family="Sora, sans-serif" font-weight="800" font-size="30" fill="#5ff5d0">BAR</text><rect x="810" y="270" width="100" height="16" rx="8" fill="#5ff5d0"/>
+    <ellipse cx="500" cy="440" rx="330" ry="70" fill="#0f5a3a"/><ellipse cx="500" cy="430" rx="330" ry="70" fill="#137a4d"/><circle cx="300" cy="420" r="44" fill="#4a2a12"/><circle cx="300" cy="420" r="34" fill="#c9a227"/><circle cx="300" cy="420" r="14" fill="#4a2a12"/>
+    ${[0, 1, 2, 3, 4].map((i) => `<circle cx="${620 + i * 30}" cy="${410 + (i % 2) * 18}" r="10" fill="${['#d8283c', '#111', '#2a6fb0', '#ffd36e', '#ffffff'][i]}" stroke="#fff" stroke-width="2"/>`).join('')}
+    <rect x="0" y="490" width="1000" height="70" fill="#2a0b18"/><path d="M0 490 H1000" stroke="#c9a227" stroke-width="3"/>
+    <text x="500" y="120" text-anchor="middle" font-family="Sora, sans-serif" font-weight="800" font-size="40" letter-spacing="10" fill="#ffd36e">CASINO</text>`,
+
   caserne: () => `${sky()}${skyline(320)}${facade(170, 220, 660, 270, '#c8c4a8', '2ᵉ RÉGIMENT ÉTRANGER', '#f2efe0', '#3e4a2e')}${grid(200, 300, 7, 2, 46, 40, 88, 70, '#6e6a50')}<rect x="450" y="420" width="100" height="70" fill="#3e4a2e"/>${flag(110, 250)}${sidewalk('url(#asph)', '#a7a3b8')}`,
 };
 
+const STREET = ['rue', 'cite', 'appart', 'commissariat', 'hopital', 'maison', 'ecole', 'pays', 'chantier', 'caserne'];
+function ambient(key) {
+  let s = '';
+  const outdoor = !['bureau', 'studio', 'prison', 'casino'].includes(key);
+  if (outdoor && (E.tod === 'jour' || E.tod === 'aube') && E.meteo !== 'pluie')
+    s += `<g class="fly"><path d="M0 0 q8 -8 16 0 q8 -8 16 0 M40 20 q6 -6 12 0 q6 -6 12 0 M-30 26 q6 -6 12 0 q6 -6 12 0" stroke="#2a2440" stroke-width="2.5" fill="none" stroke-linecap="round" transform="translate(0 120)"/></g>`;
+  if (STREET.includes(key)) s += `<g class="pass">${carSVG(0, 478, pickColor(key), 0.55, key === 'pays' ? 'citadine' : 'compacte')}</g><g class="pass p2">${carSVG(0, 478, '#e8e8ee', 0.5, 'suv')}</g>`;
+  if (key === 'plage') s += `<g class="wave" stroke="#fff" stroke-width="3" fill="none" opacity=".55"><path d="M60 420 q30 -10 60 0 t60 0"/><path d="M420 400 q30 -10 60 0 t60 0"/><path d="M760 430 q30 -10 60 0 t60 0"/></g>`;
+  if (key === 'villa') s += `<g class="wave" stroke="#fff" stroke-width="3" fill="none" opacity=".6"><path d="M90 470 q25 -8 50 0 t50 0"/><path d="M230 500 q25 -8 50 0 t50 0"/></g>`;
+  return s;
+}
+const pickColor = (k) => ({ rue: '#ff9f5a', cite: '#3e6fc4', appart: '#111318', maison: '#c4553e', pays: '#e8e0d2' }[k] || '#7b5cff');
+
 export function sceneSVG(key, env) {
   E = env;
-  return defs() + (S[key] || S.rue)();
-}
-
-// Couche d'effets au-dessus du perso (pluie).
-export function sceneFx(env) {
-  if (env.meteo !== 'pluie') return '';
-  const lines = Array.from({ length: 90 }, (_, i) => `<path d="M${(i * 113) % 1000} ${(i * 61) % 560} l-8 22"/>`).join('');
-  return `<g class="rain" stroke="#d6e6ff" stroke-width="1.4" stroke-linecap="round" opacity=".5">${lines}<g transform="translate(0 -560)">${lines}</g></g>`;
+  return defs() + (S[key] || S.rue)() + ambient(key);
 }

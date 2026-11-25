@@ -7,6 +7,7 @@
 import { rnd, pick, chance } from '../engine/rng.js';
 import { CAREERS, DIPLOMES } from './careers.js';
 import { MILIEUX } from './identity.js';
+import { EVENTS2 } from './events2.js';
 
 const P = (s) => s.justice.prison > 0;
 const job = (s, id) => s.carriere?.id === id;
@@ -332,7 +333,7 @@ export const EVENTS = [
     { t: 'Appeler la police', fx: { reputation: -3, bonheur: 2 }, r: 'Le calme revient. Mais il te regarde de travers.' },
     { t: 'Taper au plafond avec un balai', fx: { bonheur: -2 }, r: 'Guerre froide dans l’immeuble.' },
   ] },
-  { id: 'villa_cambriolee', cat: 'Logement', cond: (s) => s.logement === 'villa', pre: gain(20000, 120000), txt: 'Ta villa a été cambriolée pendant tes vacances. Montres, bijoux, tableaux : {€x} envolés.', ch: [
+  { id: 'villa_cambriolee', cat: 'Logement', cond: (s) => s.logement === 'villa' && !s.chezParents && s.age >= 18, w: (s) => (s.securite ? 0.2 : 1), pre: gain(20000, 120000), txt: 'Ta villa a été cambriolée pendant tes vacances. Montres, bijoux, tableaux : {€x} envolés.', ch: [
     { t: 'Porter plainte et compter sur l’assurance', fx: (s) => ({ money: -Math.round(s.tmp.x * 0.3) }), r: 'L’assurance rembourse en grande partie.' },
     { t: 'Faire appel à « tes contacts »', c: (s) => st(s, 'crime') >= 25, fx: { reputation: 6, crime: 2 }, r: 'Une semaine plus tard, tout est revenu. Personne ne pose de questions.' },
   ] },
@@ -585,4 +586,5 @@ function arrive(s, extra) {
   return extra;
 }
 
+EVENTS.push(...EVENTS2);
 export const EV = Object.fromEntries(EVENTS.map((e) => [e.id, e]));

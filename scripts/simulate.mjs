@@ -4,6 +4,7 @@ import { createLife } from '../src/engine/core.js';
 import { randomConfig } from '../src/engine/random.js';
 import { ageUp, choose, choicesView, continueResult, doActivity, applyJob, relActions, relAction, housingOptions, moveTo, enroll, continueAsChild, busy, ACTIVITIES, CAREERS } from '../src/engine/flow.js';
 import { pick, chance } from '../src/engine/rng.js';
+import { migrate, buyAsset, sellAsset, createBusiness, businessAction, networkAction, travel, flee, roulette, slots, moveCity, findContact, startNetwork, ASSETS, BUSINESS, DESTS, MISSIONS } from '../src/engine/economy.js';
 
 const N = Number(process.argv[2] || 300);
 const warns = [];
@@ -34,7 +35,7 @@ function resolve(s) {
 }
 
 for (let i = 0; i < N; i++) {
-  let s = createLife(randomConfig());
+  let s = migrate(createLife(randomConfig()));
   let years = 0;
   while (years++ < 140) {
     resolve(s);
@@ -43,7 +44,7 @@ for (let i = 0; i < N; i++) {
       stats.ages.push(s.age);
       stats.causes[s.mort.cause] = (stats.causes[s.mort.cause] || 0) + 1;
       if (kid && chance(0.3) && stats.gens < 40) {
-        s = continueAsChild(s, kid.id);
+        s = migrate(continueAsChild(s, kid.id));
         stats.gens++;
         continue;
       }
@@ -64,13 +65,30 @@ for (let i = 0; i < N; i++) {
       } else if (r < 0.9) {
         const h = housingOptions(s).filter((x) => x.ok);
         if (h.length) moveTo(s, pick(h).id, chance(0.3));
-      } else enroll(s, pick(['fac', 'bts', 'master', 'daeu', 'cap']));
+      } else if (r < 0.93) enroll(s, pick(['fac', 'bts', 'master', 'daeu', 'cap']));
+      else {
+        const k = Math.random();
+        if (k < 0.15) buyAsset(s, pick(Object.keys(ASSETS)));
+        else if (k < 0.22 && s.biens.length) sellAsset(s, pick(s.biens).uid);
+        else if (k < 0.35) createBusiness(s, pick(Object.keys(BUSINESS)));
+        else if (k < 0.5 && s.business.length) businessAction(s, pick(s.business).uid, pick(['investir', 'marketing', 'blanchir', 'lever', 'vendre']));
+        else if (k < 0.6) { if (!s.reseau) startNetwork(s); else networkAction(s, pick(['guetteur', 'vendeur', 'virer', ...MISSIONS.map((m) => m.id)])); }
+        else if (k < 0.66) findContact(s);
+        else if (k < 0.72 && s.reseau) { const f = s.relations.find((x) => x.role === 'fournisseur'); if (f) networkAction(s, 'fournisseur', f.id); }
+        else if (k < 0.8) travel(s, pick(DESTS).id);
+        else if (k < 0.85 && s.justice.recherche) flee(s, pick(DESTS).id);
+        else if (k < 0.93 && s.money > 0) (chance(0.5) ? roulette(s, Math.ceil(s.money * 0.2), pick(['rouge', 'noir', 'pair', '7'])) : slots(s, Math.ceil(s.money * 0.1)));
+        else moveCity(s, pick(['Paris', 'Lyon', 'Nice']));
+      }
       resolve(s);
     }
     if (s.carriere) stats.metiers[s.carriere.id] = (stats.metiers[s.carriere.id] || 0) + 1;
     if (s.justice.prison > 0) stats.prison++;
     stats.maxMoney = Math.max(stats.maxMoney, s.money);
-    if (Number.isNaN(s.money) || Object.values(s.stats).some(Number.isNaN)) warns.push('NaN détecté');
+    if (Number.isNaN(s.money) || Object.values(s.stats).some(Number.isNaN) || Number.isNaN(s.sale) || s.business.some((b) => Number.isNaN(b.valo)) || s.biens.some((b) => Number.isNaN(b.valeur))) warns.push('NaN détecté');
+    if (s.business.length) stats.biz = (stats.biz || 0) + 1;
+    if (s.reseau) stats.res = (stats.res || 0) + 1;
+    if (s.cavale) stats.cav = (stats.cav || 0) + 1;
     ageUp(s);
   }
   stats.vies++;
@@ -82,6 +100,7 @@ console.log(`Vies simulées : ${stats.vies} (+${stats.gens} générations) · â
 console.log('Causes :', Object.entries(stats.causes).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k, v]) => `${k} (${v})`).join(', '));
 console.log('Années-métier :', Object.entries(stats.metiers).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k}:${v}`).join(' '));
 console.log(`Années en prison : ${stats.prison} · fortune max : ${Math.round(stats.maxMoney)} · boucles non résolues : ${stats.unresolved}`);
+console.log(`Années avec business : ${stats.biz || 0} · avec réseau : ${stats.res || 0} · en cavale : ${stats.cav || 0}`);
 const evs = Object.keys(stats.events).length;
 console.log(`Événements différents vus : ${evs}`);
 const uniq = [...new Set(warns)];

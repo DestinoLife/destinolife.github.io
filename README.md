@@ -16,6 +16,10 @@ npm run sim      # simule 300 vies au hasard pour détecter les bugs
 | Dossier | Rôle |
 | --- | --- |
 | `src/data/events.js` | **Banque d'événements** (le cœur du jeu). Ajoutez-en ici. |
+| `src/data/events2.js` | Événements V2 : enfance, prison, rue, millionnaire, réseau, voyages, cavale, rap, business, SMS |
+| `src/data/world.js` | Biens (voitures, bijoux, art), entreprises, rôles des contacts, destinations, missions du réseau |
+| `src/engine/economy.js` | Valeur des biens, business, réseau, voyages, cavale, casino, téléphone, santé (sport obligatoire) |
+| `src/ui/overlays.js` | Téléphone, PC de la start-up, casino, choix de destination, onglet Biens, gestion du réseau |
 | `src/data/activities.js` | Actions du menu du bas : activités, crime, carrière, prison |
 | `src/data/careers.js` | Métiers, niveaux, salaires, conditions d'embauche |
 | `src/data/identity.js` | Origines, prénoms, villes, milieux, traits, talents |
@@ -39,6 +43,7 @@ npm run sim      # simule 300 vies au hasard pour détecter les bugs
   ] },
 ```
 
+- `sms: 'Numéro inconnu'` fait arriver l'événement comme un message sur le téléphone. `avec: 'famille'` (ou `partenaire`, `enfant`, `parents`, `ami`) affiche ces proches à côté du perso.
 - `major: 3` affiche « Décision majeure · se joue sur 3 jours ». Enchaînez les étapes avec `next: 'id_suivant'` et `days: 1` (temps adaptatif).
 - Effets disponibles : toutes les stats (`bonheur`, `sante`, `intel`, `apparence`, `forme`, `art`, `crime`, `charisme`, `reputation`, `karma`, `notoriete`), `money`, `recherche`, `casier`, `arrest`, `job`, `jobLvl`, `logement`, `lieu`, `statut`, `flag`, `rel`, `couple`, `enfant`, `mort`, `queue`…
 - Textes : `{prenom}`, `{ami}`, `{partenaire}`, `{pays}`, `{€x}` (montant), `{e}` (accord féminin), `{il|elle}`.

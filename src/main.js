@@ -1,6 +1,7 @@
 import './style.css';
+import './style-v2.css';
 import { icon, logo, logoMark } from './ui/icons.js';
-import { sceneSVG, sceneFx } from './render/scene.js';
+import { sceneSVG } from './render/scene.js';
 import { avatarSVG } from './render/avatar.js';
 import { createLife, tpl, jobTitle, salary, career, partnerOf, lienNom, childrenOf, g } from './engine/core.js';
 import { randomConfig } from './engine/random.js';
@@ -11,10 +12,16 @@ import {
   continueAsChild, currentScene, outfitOf, busy, inPrison, canDo, yearlyCosts, yearlyIncome, presentNext, ACTIVITIES, CAREERS,
 } from './engine/flow.js';
 import { canApply, DIPLOME_NOM } from './data/careers.js';
+import { ROLES } from './data/world.js';
 import { HOUSING, SCENE_NOM } from './data/housing.js';
 import { ORIGINES, VILLES, MILIEUX, TRAITS, TALENTS, STATUTS } from './data/identity.js';
 import { SKINS, HAIR_COLORS, EYES, HAIRSTYLES, BEARDS, BUILDS, STYLES, ACCS, FOULARDS } from './data/look.js';
 import { save, load, clearSave } from './engine/save.js';
+import { migrate, buyAsset, sellAsset, createBusiness, businessAction, networkAction, travel, flee, roulette, slots, moveCity, readAll, bestCar, ASSETS } from './engine/economy.js';
+import { phoneHTML, pcHTML, casinoHTML, travelHTML, biensHTML, reseauHTML } from './ui/overlays.js';
+import { carSVG } from './render/scene.js';
+import { advanceTime } from './engine/flow.js';
+import { SKINS as SK } from './data/look.js';
 
 const app = document.getElementById('app');
 let S = null; // vie en cours
@@ -23,6 +30,7 @@ let tab = null;
 let openRel = null;
 let C = null; // personnage en création
 let cTab = 'identite';
+let OV = null; // fenêtre ouverte : téléphone, casino, voyage, PC…
 const dev = location.search.includes('dev');
 
 // ---------- Monde (décor + perso) ----------
@@ -30,10 +38,27 @@ const VB = '0 0 1000 560';
 function worldHTML(sceneKey, env, av, uid = 'pl', fade = true) {
   return `<svg class="world" viewBox="${VB}" preserveAspectRatio="xMidYMax slice" role="img" aria-label="${SCENE_NOM[sceneKey] || 'Scène'}">
     <g id="bg" class="${fade ? 'fade-in' : ''}">${sceneSVG(sceneKey, env)}</g>
+    <g id="props"></g>
     <g id="pl" transform="translate(500 506)">${av ? avatarSVG(av, uid) : ''}</g>
-    <g id="fx">${sceneFx(env)}</g></svg>`;
+    </svg><div class="rainfx ${env.meteo === 'pluie' ? 'on' : ''}" id="rain"></div>`;
 }
-let lastBg = '', lastAv = '';
+let lastBg = '', lastAv = '', lastProps = '';
+const GUARD = { peau: SK[5], coiffure: 'rase', cheveuxC: '#0e0907', yeux: '#3b2414', barbe: 'trois', corpulence: 'costaud', style: 'chic', acc: ['lunettes'] };
+const OUT = ['rue', 'cite', 'appart', 'maison', 'villa', 'pays', 'commissariat', 'hopital', 'ecole', 'chantier', 'caserne', 'bidonville', 'stade', 'studio'];
+function propsSVG(sc) {
+  if (!S.vivant || inPrison(S)) return { key: 'none', svg: '' };
+  let svg = '';
+  const car = bestCar(S);
+  const home = !S.voyage && !S.cavale;
+  if (car && home && OUT.includes(sc) && sc !== 'studio') svg += carSVG(800, 500, ASSETS[car.id].car.c, 0.95, ASSETS[car.id].car.type);
+  if (S.securite && ['villa', 'maison', 'appart'].includes(sc) && home)
+    (S.avec.length ? [140, 950] : [250, 690]).slice(0, Math.min(2, S.securite)).forEach((x, i) => (svg += `<g transform="translate(${x} 506) scale(.93)">${avatarSVG({ look: GUARD, genre: 'h', age: 35, outfit: 'garde' }, 'gd' + i)}</g>`));
+  const pos = [[365, 0.97], [640, 0.97], [290, 0.95]];
+  S.avec.map((id) => S.relations.find((r) => r.id === id && r.vivant)).filter((r) => r && r.look).slice(0, 3).forEach((r, i) => {
+    svg += `<g transform="translate(${pos[i][0]} 506) scale(${pos[i][1]})">${avatarSVG({ look: r.look, genre: r.genre, age: r.age, outfit: r.age < 3 ? 'bebe' : sc === 'plage' ? 'plage' : r.look.style || 'casual' }, 'av' + r.id)}</g>`;
+  });
+  return { key: `${sc}|${car?.id}|${S.securite}|${S.avec.join(',')}|${S.age}|${home}|${tod(S.t)}`, svg };
+}
 function updateWorld() {
   const sc = currentScene(S);
   const env = { tod: tod(S.t), meteo: S.meteo.type };
@@ -47,8 +72,13 @@ function updateWorld() {
     void bg.getBoundingClientRect();
     bg.innerHTML = sceneSVG(sc, env);
     bg.classList.add('fade-in');
-    document.getElementById('fx').innerHTML = sceneFx(env);
+    document.getElementById('rain').classList.toggle('on', env.meteo === 'pluie');
     lastBg = bgKey;
+  }
+  const pr = propsSVG(sc);
+  if (pr.key !== lastProps) {
+    document.getElementById('props').innerHTML = pr.svg;
+    lastProps = pr.key;
   }
   if (avKey !== lastAv) {
     document.getElementById('pl').innerHTML = avatarSVG(av, 'pl');
@@ -167,7 +197,7 @@ function renderGameShell() {
   app.innerHTML = `<div class="game">
     <div class="stage">${worldHTML('rue', { tod: 'jour', meteo: 'soleil' }, null)}
       <div class="hud-tl glass" id="hudtl"></div><div class="hud-tr" id="hudtr"></div>
-      <div id="sheet"></div><div id="modal"></div><div class="toasts" id="toasts"></div><div id="death"></div>
+      <div id="sheet"></div><div id="modal"></div><div id="overlay"></div><div class="toasts" id="toasts"></div><div id="death"></div>
     </div>
     <nav class="bar">${logo(30)}<div class="dock" id="dock"></div></nav></div>${dev ? '<div id="fps"></div>' : ''}`;
   lastBg = lastAv = '';
@@ -181,13 +211,15 @@ function updateGame() {
   const m = S.meteo;
   const wIcon = m.type === 'pluie' ? 'rain' : m.type === 'nuages' ? 'cloud' : tod(S.t) === 'nuit' ? 'moon' : 'sun';
   const wTxt = { soleil: tod(S.t) === 'nuit' ? 'Ciel dégagé' : 'Ensoleillé', nuages: 'Nuageux', pluie: 'Pluie' }[m.type];
-  document.getElementById('hudtl').innerHTML = `<div class="hud-place">${icon('pin', 15)} ${esc(S.id.ville)} · ${SCENE_NOM[sc] || sc}</div>
+  const ville = S.voyage?.ville || S.cavale?.ville || S.id.ville;
+  const where = S.cavale && !S.lieu ? 'Planque' : S.voyage && !S.lieu ? 'En voyage' : SCENE_NOM[sc] || sc;
+  document.getElementById('hudtl').innerHTML = `<div class="hud-place">${icon('pin', 15)} ${esc(ville)} · ${where}${S.cavale ? ' · <span style="color:var(--bad)">en cavale</span>' : ''}</div>
     <div class="hud-time"><span class="h">${fmtHeure(S.t)}</span><span class="hud-meteo">${icon(wIcon, 17)} ${m.temp} °C · ${wTxt}</span></div>
     <div class="hud-date">${fmtDate(S.t)} · ${saison(S.t)}</div>`;
   const job = inPrison(S) ? `Détenu${S.id.genre === 'f' ? 'e' : ''} · ${S.justice.prison} an${S.justice.prison > 1 ? 's' : ''} restant${S.justice.prison > 1 ? 's' : ''}` : jobTitle(S) || (S.age < 3 ? 'Bébé' : S.age < 6 ? 'Maternelle' : S.etudes.cursus ? (S.etudes.cursus === 'ecole' || S.etudes.cursus === 'lycee' ? 'Élève' : gF(S, 'Étudiant', 'Étudiante')) : S.age < 16 ? 'Enfant' : 'Sans emploi');
   const stars = S.justice.recherche ? `<span class="pill glass" title="Niveau de recherche"><span class="stars">${[1, 2, 3, 4, 5].map((i) => icon('star', 13, i <= S.justice.recherche ? 'on' : '')).join('')}</span></span>` : '';
   document.getElementById('hudtr').innerHTML = `<div class="id-card glass"><b>${esc(S.id.prenom)} ${esc(S.id.nom)}</b><span>${S.age} an${S.age > 1 ? 's' : ''} · ${esc(job)}</span></div>
-    <div class="pills">${stars}<span class="pill glass ${S.money < 0 ? 'neg' : 'money'}">${icon('euro', 15)} ${euros(S.money)}</span><span class="pill glass" title="Énergie de l’année"><span class="energy">${[1, 2, 3, 4].map((i) => `<i class="${i <= S.energie ? 'on' : ''}"></i>`).join('')}</span></span></div>`;
+    <div class="pills">${stars}<button class="pill glass phone-btn" data-a="phone" data-v="home" aria-label="Téléphone">${icon('phone', 16)}${S.phone.unread ? `<em>${S.phone.unread}</em>` : ''}</button><span class="pill glass ${S.money < 0 ? 'neg' : 'money'}" title="${S.age < 18 ? 'Argent de poche' : 'Compte en banque'}">${icon('euro', 15)} ${S.age < 18 ? 'Poche · ' : ''}${euros(S.money)}</span><span class="pill glass" title="Énergie de l’année"><span class="energy">${[1, 2, 3, 4].map((i) => `<i class="${i <= S.energie ? 'on' : ''}"></i>`).join('')}</span></span></div>`;
   const tabs = [['vie', 'Vie', 'user'], ['act', 'Activités', 'zap'], ['pro', 'Carrière', 'briefcase'], ['crime', 'Crime', 'mask'], ['rel', 'Relations', 'heart'], ['biens', 'Biens', 'home']];
   const blocked = busy(S) || !S.vivant;
   document.getElementById('dock').innerHTML = tabs.map(([k, t, i]) => `<button class="tab ${tab === k ? 'on' : ''} ${k === 'crime' ? 'crime' : ''}" data-a="tab" data-v="${k}" aria-label="${t}">${icon(i, 22)}${t}</button>`).join('') +
@@ -195,13 +227,25 @@ function updateGame() {
   document.getElementById('sheet').innerHTML = tab ? `<div class="sheet glass">${sheetHTML()}</div>` : '';
   document.getElementById('modal').innerHTML = modalHTML();
   document.getElementById('death').innerHTML = !S.vivant && !busy(S) ? deathHTML() : '';
+  document.getElementById('overlay').innerHTML = overlayHTML();
   save(S);
+}
+
+function overlayHTML() {
+  if (!OV || !S) return '';
+  if (OV.t === 'phone') return phoneHTML(S, OV);
+  if (OV.t === 'casino') return casinoHTML(S, OV);
+  if (OV.t === 'voyage' || OV.t === 'cavale') return travelHTML(S, OV.t);
+  if (OV.t === 'pc') return pcHTML(S, OV.uid);
+  return '';
 }
 
 function modalHTML() {
   if (S.current) {
     const c = S.current;
     const tag = c.major ? `<span class="ev-tag major"><span class="dot"></span>Décision majeure · ${c.major === 1 ? 'se joue dans la journée' : `se joue sur ${c.major} jours`}</span>` : `<span class="ev-tag"><span class="dot"></span>${esc(c.cat)}</span>`;
+    if (c.sms) return `<div class="modal glass" role="dialog" aria-live="polite"><div class="notif"><span class="notif-app">${icon('mail', 14)}</span><div class="grow"><div class="notif-h"><b>${esc(c.sms)}</b><small>maintenant</small></div><p>${esc(c.txt)}</p></div></div><span class="ev-tag"><span class="dot"></span>${esc(c.cat)} · que réponds-tu ?</span>
+      <div class="choices">${choicesView(S).map((x) => `<button class="choice ${x.ok ? '' : 'off'}" data-a="choose" data-v="${x.i}" ${x.ok ? '' : 'disabled'}><span>${esc(x.t)}</span>${x.h ? `<small>${esc(x.h)}</small>` : ''}</button>`).join('')}</div></div>`;
     return `<div class="modal glass" role="dialog" aria-live="polite">${c.major ? `<span class="ev-tag" style="margin-right:10px">${esc(c.cat)}</span>` : ''}${tag}<p class="ev-txt">${esc(c.txt)}</p>
       <div class="choices">${choicesView(S).map((x) => `<button class="choice ${x.ok ? '' : 'off'}" data-a="choose" data-v="${x.i}" ${x.ok ? '' : 'disabled'}><span>${esc(x.t)}</span>${x.h ? `<small>${esc(x.h)}</small>` : ''}</button>`).join('')}</div></div>`;
   }
@@ -240,17 +284,17 @@ function sheetHTML() {
   if (tab === 'act' || tab === 'crime') {
     const list = ACTIVITIES.filter((a) => (inPrison(S) ? a.tab === 'prison' : a.tab === tab));
     const warn = tab === 'crime' && !inPrison(S) ? `<div class="note warn">Chaque délit peut augmenter ton niveau de recherche. Plus il est haut, plus la police risque de frapper à ta porte.</div>` : '';
-    return head(inPrison(S) ? 'Vie en détention' : tab === 'act' ? 'Activités' : 'Crime', `Énergie : ${S.energie}/4 · chaque action fait avancer le temps`) + `<div class="sheet-b">${warn}<div class="acts">${list.map((a) => actCard(a)).join('')}</div></div>`;
+    return head(inPrison(S) ? 'Vie en détention' : tab === 'act' ? 'Activités' : 'Crime', `Énergie : ${S.energie}/4 · chaque action fait avancer le temps`) + `<div class="sheet-b">${warn}${tab === 'crime' && !inPrison(S) && S.justice.recherche ? `<div class="note warn">Recherché${S.id.genre === 'f' ? 'e' : ''} : ${S.justice.recherche}/5 · ${esc(S.justice.motif || '')}</div>` : ''}<div class="acts">${list.map((a) => actCard(a)).join('')}</div>${tab === 'crime' && !inPrison(S) ? reseauHTML(S) : ''}</div>`;
   }
   if (tab === 'pro') return head('Carrière et études', DIPLOME_NOM[S.etudes.niveau]) + `<div class="sheet-b">${proHTML()}</div>`;
   if (tab === 'rel') return head('Relations', partnerOf(S) ? `En couple avec ${esc(partnerOf(S).prenom)}` : 'Célibataire') + `<div class="sheet-b">${relHTML()}</div>`;
   if (tab === 'biens') {
     const inc = yearlyIncome(S), dep = yearlyCosts(S);
-    return head('Biens et argent', `Solde : ${euros(S.money)}`) + `<div class="sheet-b">
-      <div class="sec"><h3>Budget annuel estimé</h3><dl class="kv"><dt>Revenus</dt><dd style="color:var(--good)">${euros(inc)}</dd><dt>Dépenses (logement, vie, enfants)</dt><dd style="color:var(--bad)">${euros(dep)}</dd><dt>Bilan</dt><dd>${euros(inc - dep)}</dd></dl></div>
+    const housing = `<div class="sec"><h3>Budget annuel estimé</h3><dl class="kv"><dt>Revenus</dt><dd style="color:var(--good)">${euros(inc)}</dd><dt>Dépenses (logement, vie, enfants)</dt><dd style="color:var(--bad)">${euros(dep)}</dd><dt>Bilan</dt><dd>${euros(inc - dep)}</dd></dl></div>
       <div class="sec"><h3>Logement actuel</h3><div class="note">${S.chezParents ? 'Tu vis chez tes parents (gratuit).' : `${HOUSING[S.logement]?.nom}${S.proprio ? ' · propriétaire' : ''}`}</div></div>
       <div class="sec"><h3>Déménager</h3><div class="list">${housingOptions(S).map((h) => `<div class="li ${h.ok ? '' : 'off'}"><div class="grow"><b>${h.nom}</b><small>${h.ok ? [h.loyer ? `Loyer ${euros(h.loyer)}/an` : h.achat ? '' : 'Gratuit', h.achat ? `Achat ${euros(h.achat)}` : ''].filter(Boolean).join(' · ') : esc(h.why)}</small></div>
-        ${h.ok && (h.loyer || !h.achat) ? `<button class="btn sm" data-a="move" data-v="${h.id}">${h.loyer ? 'Louer' : 'Y aller'}</button>` : ''}${h.ok && h.achat ? `<button class="btn sm ${S.money >= h.achat ? '' : 'off'}" data-a="buy" data-v="${h.id}">Acheter</button>` : ''}</div>`).join('')}</div></div></div>`;
+        ${h.ok && (h.loyer || !h.achat) ? `<button class="btn sm" data-a="move" data-v="${h.id}">${h.loyer ? 'Louer' : 'Y aller'}</button>` : ''}${h.ok && h.achat ? `<button class="btn sm ${S.money >= h.achat ? '' : 'off'}" data-a="buy" data-v="${h.id}">Acheter</button>` : ''}</div>`).join('')}</div></div>`;
+    return head('Biens et argent', `${S.age < 18 ? 'Argent de poche' : 'Compte'} : ${euros(S.money)}`) + `<div class="sheet-b">${biensHTML(S, housing)}</div>`;
   }
   return '';
 }
@@ -295,7 +339,7 @@ function proHTML() {
 
 function relHTML() {
   const order = ['conjoint', 'partenaire', 'enfant', 'mere', 'pere', 'fratrie', 'ami', 'ex'];
-  const rels = [...S.relations].filter((r) => r.lien !== 'candidat').sort((a, b) => order.indexOf(a.lien) - order.indexOf(b.lien) || b.vivant - a.vivant);
+  const rels = [...S.relations].filter((r) => r.lien !== 'candidat' && r.lien !== 'contact').sort((a, b) => order.indexOf(a.lien) - order.indexOf(b.lien) || b.vivant - a.vivant);
   const dating = ACTIVITIES.find((a) => a.id === 'dating');
   let h = canDo(S, dating) === true ? `<button class="btn sm" data-a="act" data-v="dating">${icon('heart', 16)} Faire des rencontres</button>` : '';
   h += `<div class="list">${rels.map((r) => {
@@ -304,12 +348,15 @@ function relHTML() {
     return `<div><div class="li ${r.vivant ? '' : 'dead'}" data-a="openrel" data-v="${r.id}" style="cursor:pointer"><div class="av">${miniAv(r.look, r.genre, r.id)}</div><div class="grow"><b>${esc(r.prenom)} ${esc(r.nom)}</b><small>${lienNom(r)} · ${r.vivant ? `${r.age} ans` : 'Décédé' + (r.genre === 'f' ? 'e' : '')}</small>${r.vivant ? `<div class="mini-bar"><i style="width:${r.rel}%;background:${r.rel > 60 ? 'var(--good)' : r.rel > 30 ? 'var(--warn)' : 'var(--bad)'}"></i></div>` : ''}</div>${r.vivant ? icon('chevron', 16) : ''}</div>
       ${open && acts.length ? `<div class="rel-acts">${acts.map((a) => `<button class="btn sm ${a.ok ? '' : 'off'}" data-a="relact" data-v="${r.id}" data-x="${a.a}" ${a.ok ? '' : 'disabled'}>${a.t}</button>`).join('')}</div>` : ''}</div>`;
   }).join('') || '<div class="note">Personne pour l’instant.</div>'}</div>`;
+  const pros = S.relations.filter((r) => r.lien === 'contact' && r.vivant);
+  h += `<div class="sec"><h3>Contacts pro (${pros.length})</h3><div class="list">${pros.map((r) => `<div><div class="li" data-a="openrel" data-v="${r.id}" style="cursor:pointer"><div class="av">${miniAv(r.look, r.genre, r.id)}</div><div class="grow"><b>${esc(r.prenom)} ${esc(r.nom)}</b><small>${ROLES[r.role].nom} · tarif ×${r.tarif} · ${ROLES[r.role].desc}</small></div>${icon('chevron', 16)}</div>${openRel === r.id ? `<div class="rel-acts">${relActions(S, r).map((a) => `<button class="btn sm ${a.ok ? '' : 'off'}" data-a="relact" data-v="${r.id}" data-x="${a.a}" ${a.ok ? '' : 'disabled'}>${a.t}</button>`).join('')}</div>` : ''}</div>`).join('') || '<div class="note">Aucun contact pro. Onglet Crime : « Chercher un contact ».</div>'}</div></div>`;
   return h;
 }
 
 // ---------- Actions ----------
 function startLife(cfg) {
-  S = createLife(cfg);
+  S = migrate(createLife(cfg));
+  OV = null;
   tab = null;
   screen = 'game';
   renderGameShell();
@@ -317,7 +364,7 @@ function startLife(cfg) {
 }
 
 function handle(a, v, el) {
-  if (S && busy(S) && ['act', 'apply', 'enroll', 'move', 'buy', 'relact'].includes(a)) return toast('Réponds d’abord à l’événement en cours.', 'err');
+  if (S && busy(S) && ['act', 'apply', 'enroll', 'move', 'buy', 'relact', 'travel', 'flee', 'buyasset', 'openbiz', 'biz', 'net', 'city', 'cplay'].includes(a)) return toast('Réponds d’abord à l’événement en cours.', 'err');
   switch (a) {
     case 'new':
       C = randomConfig();
@@ -327,7 +374,7 @@ function handle(a, v, el) {
     case 'random':
       return startLife(randomConfig());
     case 'continue':
-      S = load();
+      S = migrate(load());
       screen = 'game';
       tab = null;
       return renderGameShell();
@@ -366,7 +413,19 @@ function handle(a, v, el) {
       continueResult(S);
       return updateGame();
     case 'act': {
+      const A = ACTIVITIES.find((x) => x.id === v);
+      if (A?.ui === 'voyage' || A?.ui === 'cavale') {
+        const ok = canDo(S, A);
+        if (ok !== true) return toast(ok, 'err');
+        OV = { t: A.ui };
+        tab = null;
+        return updateGame();
+      }
       const r = doActivity(S, v);
+      if (A?.ui === 'casino' && !r.err) {
+        OV = { t: 'casino', game: 'roulette', bet: 100, pick: 'rouge' };
+        tab = null;
+      }
       toast(r.r, r.err ? 'err' : r.good ? 'good' : '');
       return updateGame();
     }
@@ -397,6 +456,7 @@ function handle(a, v, el) {
     case 'heir': {
       const ns = continueAsChild(S, Number(v));
       if (ns) {
+        migrate(ns);
         S = ns;
         tab = null;
         renderGameShell();
@@ -404,6 +464,84 @@ function handle(a, v, el) {
       }
       return;
     }
+    case 'phone':
+      OV = { t: 'phone', app: v };
+      if (v === 'messages') OV.conv = null;
+      return updateGame();
+    case 'phoneconv':
+      OV.conv = v;
+      readAll(S, v);
+      return updateGame();
+    case 'phonerel':
+      OV.rel = OV.rel === Number(v) ? null : Number(v);
+      return updateGame();
+    case 'phoneclose':
+    case 'pcclose':
+    case 'overlay':
+      OV = null;
+      return updateGame();
+    case 'cgame':
+      OV.game = v;
+      OV.res = null;
+      return updateGame();
+    case 'cpick':
+      OV.pick = v;
+      if (/^\d+$/.test(v)) OV.num = Number(v);
+      return updateGame();
+    case 'cbet':
+      OV.bet = /^\d+$/.test(v) ? Number(v) : v;
+      return updateGame();
+    case 'cplay': {
+      const bet = OV.bet === 'tapis' ? S.money : OV.bet === 'moitie' ? Math.floor(S.money / 2) : Number(OV.bet || 0);
+      const res = OV.game === 'slots' ? slots(S, bet) : roulette(S, bet, OV.pick || 'rouge');
+      if (res.err) return toast(res.r, 'err');
+      OV.res = res;
+      presentNext(S);
+      return updateGame();
+    }
+    case 'travel':
+    case 'flee': {
+      const r = a === 'travel' ? travel(S, v) : flee(S, v);
+      if (!r.err) {
+        OV = null;
+        if (r.days) advanceTime(S, r.days, [11, 19]);
+        presentNext(S);
+      }
+      toast(r.r, r.err ? 'err' : 'good');
+      return updateGame();
+    }
+    case 'buyasset':
+    case 'sell':
+    case 'openbiz':
+    case 'biz':
+    case 'guard':
+    case 'city':
+    case 'net': {
+      let r;
+      if (a === 'buyasset') r = buyAsset(S, v);
+      if (a === 'sell') r = sellAsset(S, Number(v));
+      if (a === 'openbiz') r = createBusiness(S, v);
+      if (a === 'biz') r = businessAction(S, Number(v), el.dataset.x);
+      if (a === 'city') r = moveCity(S, v);
+      if (a === 'net') r = networkAction(S, v, el.dataset.x);
+      if (a === 'guard') {
+        const d = Number(v);
+        if (S.age < 18) r = { r: 'Il faut être majeur.', err: true };
+        else if (d > 0 && S.money < 42000) r = { r: 'Il te faut 42 000 € pour la première année.', err: true };
+        else if (d > 0 && S.securite >= 4) r = { r: 'Quatre gardes, c’est le maximum.', err: true };
+        else {
+          if (d > 0) S.money -= 42000;
+          S.securite = Math.max(0, S.securite + d);
+          r = { r: d > 0 ? 'Un garde du corps rejoint ton équipe.' : 'Tu renvoies un garde.', good: true };
+        }
+      }
+      if (r?.r) toast(tpl(r.r, S), r.err ? 'err' : 'good');
+      presentNext(S);
+      return updateGame();
+    }
+    case 'pc':
+      OV = { t: 'pc', uid: Number(v) };
+      return updateGame();
     case 'quit':
       save(S);
       screen = 'title';
@@ -414,6 +552,8 @@ function handle(a, v, el) {
 app.addEventListener('click', (e) => {
   const el = e.target.closest('[data-a]');
   if (!el || el.disabled) return;
+  const stop = e.target.closest('[data-stop]');
+  if (stop && el.contains(stop)) return;
   handle(el.dataset.a, el.dataset.v, el);
 });
 app.addEventListener('input', (e) => {
@@ -424,6 +564,10 @@ app.addEventListener('change', (e) => {
 });
 document.addEventListener('keydown', (e) => {
   if (screen !== 'game' || !S) return;
+  if (e.key === 'Escape' && OV) {
+    OV = null;
+    return updateGame();
+  }
   if (e.key === 'Escape' && tab) {
     tab = null;
     updateGame();
@@ -452,5 +596,6 @@ if (dev) {
 }
 
 if (dev) window.destino = { get S() { return S; }, refresh: () => updateGame() };
+document.addEventListener('visibilitychange', () => document.body.classList.toggle('paused', document.hidden));
 renderTitle();
 export { tpl, g, presentNext };
