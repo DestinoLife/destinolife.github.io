@@ -183,3 +183,10 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
   .toasts { top: 100px; width: calc(100% - 24px); }
   .toast { max-width: none; }
 }
+
+/* v0.9 : actions débloquées en haut du menu */
+.debloque { margin-bottom: 12px; padding: 10px; border-radius: 14px; background: linear-gradient(150deg, rgba(79, 209, 139, 0.12), rgba(79, 209, 139, 0.03)); border: 1px solid rgba(79, 209, 139, 0.35); }
+.debloque .lbl { display: flex; align-items: center; gap: 6px; margin: 0 0 8px; color: #7ff0b1; }
+.act.neuf { border-color: rgba(79, 209, 139, 0.5); }
+.new-tag { margin-left: 8px; font-style: normal; font-size: 10px; font-weight: 700; color: #0e0c17; background: #4fd18b; padding: 2px 6px; border-radius: 6px; vertical-align: middle; }
+.chip.on { background: rgba(154, 123, 255, 0.3); border-color: rgba(154, 123, 255, 0.7); color: #fff; }

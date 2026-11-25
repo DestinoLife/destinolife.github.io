@@ -79,7 +79,10 @@ function pickYearEvents(s) {
     const e = weighted(pool, (x) => {
       const w = typeof x.w === 'function' ? x.w(s) : x.w ?? 1;
       const recent = s.lastSeen[x.id] != null && s.age - s.lastSeen[x.id] < 4;
-      return recent ? w * 0.12 : w;
+      // Anti-répétition : chaque fois qu'un événement a déjà eu lieu dans cette vie, il devient plus rare (3 fois maximum)
+      const n = s.nbSeen?.[x.id] || 0;
+      if (n >= 3) return 0;
+      return (recent ? w * 0.1 : w) / (1 + 1.5 * n);
     });
     if (!e) break;
     pool.splice(pool.indexOf(e), 1);
@@ -107,6 +110,8 @@ export function presentNext(s) {
     if (ev.pre) ev.pre(s);
     s.seen[id] = true;
     s.lastSeen[id] = s.age;
+    s.nbSeen ??= {};
+    s.nbSeen[id] = (s.nbSeen[id] || 0) + 1;
     if (ev.avec) s.avec = avecIds(s, ev.avec);
     if (ev.sms) {
       const from = tpl(ev.sms, s);
@@ -238,14 +243,19 @@ function careerTick(s) {
   const k = s.carriere;
   k.annees++;
   if (c.fame) {
-    s.stats.notoriete = clamp(s.stats.notoriete - rnd(1, 5));
+    // La célébrité s'use : plus tu es haut, plus il faut sortir des succès pour y rester
+    const n0 = s.stats.notoriete;
+    s.stats.notoriete = clamp(n0 - rnd(4, 7) - Math.max(0, Math.round((n0 - 45) * 0.14)) - (s.annee.sons || s.annee.posts ? 0 : 4));
     let lvl = 0;
     c.fame.forEach((f, i) => s.stats.notoriete >= f && (lvl = i));
     if (lvl !== k.niveau) changeLevel(s, lvl - k.niveau);
   } else if (k.niveau < c.niveaux.length - 1) {
     const p = (c.promo || 0.15) + (k.perf - 50) / 220 + (c.stat ? s.stats[c.stat] / 450 : 0) + (s.traits.includes('ambitieux') ? 0.06 : 0);
-    if (chance(p * (1 - 0.18 * k.niveau))) changeLevel(s, 1);
+    // Le sport de haut niveau est une pyramide : chaque palier est beaucoup plus dur que le précédent
+    const pyramide = c.cat === 'sport' ? [1, 0.3, 0.08, 0.03, 0.015][k.niveau] * (s.stats.forme >= 70 ? 1 : 0.5) : c.cat === 'business' ? [1, 0.4, 0.12, 0.04][k.niveau] : 1 - 0.18 * k.niveau;
+    if (chance(p * pyramide)) changeLevel(s, 1);
   }
+  if (c.cat === 'sport' && chance(0.09 + k.niveau * 0.02)) s.queue.push('blessure');
   k.perf = Math.round(k.perf + (55 - k.perf) * 0.3);
   if (c.retraite && s.age >= rnd(c.retraite[0], c.retraite[1])) s.queue.push('fin_carriere_sport');
   if (['classique', 'police', 'business', 'militaire'].includes(c.cat) && s.age >= 64 && !s.seen.retraite) s.queue.push('retraite');
@@ -268,8 +278,17 @@ export function yearlyCosts(s) {
 }
 export const isCrime = (s) => !!s.carriere && career(s).cat === 'crime';
 export const isBoss = (s) => !!s.carriere && career(s).cat === 'business';
+export const isStar = (s) => !!s.carriere && career(s).cat === 'artiste';
+const isSport = (s) => !!s.carriere && career(s).cat === 'sport';
+// Train de vie : plus on gagne, plus on dépense (entourage, voitures, sorties). Le joueur choisit son style dans Biens.
+export const TRAIN = {
+  modeste: { nom: 'Modeste', part: 0.08, desc: 'Tu mets de côté. Moins de fun, moins de prestige.' },
+  normal: { nom: 'Normal', part: 0.25, desc: 'Tu profites, sans exagérer.' },
+  flambeur: { nom: 'Flambeur', part: 0.5, desc: 'Grosses voitures, entourage, soirées : le bonheur et la notoriété montent, le compte fond.' },
+};
+export const trainDeVie = (s, revenu) => Math.round(Math.max(0, revenu - 45000) * TRAIN[s.trainDeVie || 'normal'].part);
 // Un entrepreneur n'a pas de salaire fixe : revenu « moyen attendu » ici (affichage, impôts), le vrai est tiré chaque année.
-export const yearlyIncome = (s) => (inPrison(s) ? 0 : (isCrime(s) ? 0 : isBoss(s) ? Math.round(salary(s) * 12 * 0.55 * eco(s).mult) : salary(s) * 12) + s.pension * 12);
+export const yearlyIncome = (s) => (inPrison(s) ? 0 : (isCrime(s) ? 0 : isBoss(s) ? Math.round(salary(s) * 12 * 0.55 * eco(s).mult) : isStar(s) ? Math.round(salary(s) * 12 * 0.42) : isSport(s) ? Math.round(salary(s) * 12 * 0.9) : salary(s) * 12) + s.pension * 12);
 
 // Impôt sur le revenu (barème simplifié, par part).
 export function impot(revenu) {
@@ -288,12 +307,14 @@ export const legalIncome = (s) => yearlyIncome(s) + (s.business || []).reduce((t
 
 // Fiscalité complète : dépend du revenu, de la famille, des entreprises, de la propriété et de la fortune.
 export function fiscalite(s) {
-  const z = { revenu: 0, societes: 0, fonciere: 0, fortune: 0, parts: 1, total: 0, fortuneNette: 0, regime: 'normal' };
+  const z = { revenu: 0, societes: 0, fonciere: 0, fortune: 0, social: 0, parts: 1, total: 0, fortuneNette: 0, regime: 'normal' };
   if (s.age < 18 || inPrison(s)) return z;
   const marie = s.relations.some((r) => r.vivant && r.lien === 'conjoint');
   const kids = childrenOf(s).filter((k) => k.vivant && k.age < 18).length;
   z.parts = 1 + (marie ? 1 : 0) + Math.min(kids, 2) * 0.5 + Math.max(0, kids - 2);
   z.revenu = Math.round(impot(yearlyIncome(s) / z.parts) * z.parts);
+  // Indépendants (artistes, entrepreneurs) : cotisations sociales ~22 % du revenu
+  z.social = isStar(s) || isBoss(s) ? Math.round(yearlyIncome(s) * 0.22) : 0;
   z.societes = Math.round((s.business || []).reduce((t, b) => { const bf = Math.max(0, b.benef || 0); return t + Math.min(bf, 42500) * 0.15 + Math.max(0, bf - 42500) * 0.25; }, 0));
   const h = HOUSING[s.logement];
   const immo = s.proprio && h?.achat ? h.achat : 0;
@@ -308,13 +329,18 @@ export function fiscalite(s) {
   if (s.flags.exil_fiscal) { z.regime = 'exil'; z.revenu = Math.round(z.revenu * 0.2); z.fortune = 0; z.fonciere = Math.round(z.fonciere * 0.5); }
   else if (s.flags.offshore) { z.regime = 'offshore'; z.revenu = Math.round(z.revenu * 0.4); z.fortune = Math.round(z.fortune * 0.3); z.societes = Math.round(z.societes * 0.4); }
   else if (s.flags.optimisation) { z.regime = 'optimise'; z.revenu = Math.round(z.revenu * 0.8); z.fortune = Math.round(z.fortune * 0.75); z.societes = Math.round(z.societes * 0.85); }
-  z.total = z.revenu + z.societes + z.fonciere + z.fortune;
+  z.total = z.revenu + z.societes + z.fonciere + z.fortune + z.social;
   return z;
 }
 
 function finances(s, rep) {
   let inc = yearlyIncome(s);
   const dep = yearlyCosts(s);
+  // Artiste : une année de hits ou de flops. Le label et le manager prennent ~40 %.
+  if (isStar(s) && !inPrison(s)) {
+    const k = (0.1 + Math.random() * 0.85 + (s.annee.sons ? 0.15 : 0)) * 0.5;
+    inc = Math.round(salary(s) * 12 * k) + s.pension * 12;
+  }
   // Entrepreneur : bonnes et mauvaises années, crises, et parfois la faillite
   if (isBoss(s) && !inPrison(s)) {
     const k = (0.05 + Math.random() * 0.95 + (Math.random() - 0.5) * 0.6 + (s.carriere.perf || 0) / 300) * eco(s).mult;
@@ -324,6 +350,13 @@ function finances(s, rep) {
   let poche = 0;
   if (s.chezParents && s.age >= 12 && s.age < 18) poche = MILIEUX[s.milieu].poche;
   const fz = fiscalite(s);
+  // Le train de vie suit tout ce qui rentre : salaire, bénéfices des entreprises, argent sale
+  const bizBenef = (s.business || []).reduce((t, b) => t + Math.max(0, b.benef || 0), 0);
+  const salePrev = isCrime(s) ? Math.round(salary(s) * 12 * 0.5) : s.reseau ? 60000 : 0;
+  const train = s.age >= 18 && !inPrison(s) ? trainDeVie(s, inc + bizBenef + salePrev) : 0;
+  if (train && s.trainDeVie === 'flambeur') { s.stats.bonheur = clamp(s.stats.bonheur + 3); s.stats.notoriete = clamp(s.stats.notoriete + 1); }
+  if (train && s.trainDeVie === 'modeste') s.stats.bonheur = clamp(s.stats.bonheur - 1);
+  rep.train = train;
   const tax = fz.total;
   rep.impots = tax;
   s.mem.impotsAvant = s.mem.impotsAn || 0;
@@ -344,9 +377,9 @@ function finances(s, rep) {
   }
   // Un ado dépense son argent de poche (sorties, fringues, jeux)
   const ado = s.age < 18 && s.money > 0 ? Math.round(s.money * 0.35) : 0;
-  s.money += inc - dep + poche - tax + sale - ado;
+  s.money += inc - dep + poche - tax + sale - ado - train;
   rep.revenus = inc + poche + sale;
-  rep.depenses = dep + tax + ado;
+  rep.depenses = dep + tax + ado + train;
   if (inc || dep || sale) addLog(s, `Bilan : ${euros(inc + poche)} de revenus${sale ? `, ${euros(sale)} d’argent sale` : ''}, ${euros(dep)} de dépenses${tax ? `, ${euros(tax)} d’impôts (${[fz.revenu && `revenu ${euros(fz.revenu)}`, fz.societes && `sociétés ${euros(fz.societes)}`, fz.fonciere && `foncière ${euros(fz.fonciere)}`, fz.fortune && `fortune ${euros(fz.fortune)}`].filter(Boolean).join(', ')})` : ''}.`);
   if (s.money < -4000 && !s.chezParents && !['rue', 'bidonville', 'pays'].includes(s.logement) && !inPrison(s)) s.queue.unshift('expulsion');
 }

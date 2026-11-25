@@ -117,16 +117,22 @@ export const ACTIVITIES = [
     cond: (s) => (s.carriere ? 'Quitte d’abord ton métier.' : s.stats.forme < 55 ? 'Forme 55 requise.' : true),
     run: (s) => {
       const sp = ['football', 'basket', 'boxe'].includes(s.talent) ? { football: 'foot', basket: 'basket', boxe: 'boxe' }[s.talent] : pick(['foot', 'basket', 'boxe']);
-      const p = 0.12 + s.stats.forme / 260 + (['football', 'basket', 'boxe'].includes(s.talent) ? 0.2 : 0);
+      // Très peu de jeunes passent pro : il faut une forme d’athlète, et le talent aide beaucoup
+      const p = 0.02 + Math.max(0, s.stats.forme - 60) / 300 + (['football', 'basket', 'boxe'].includes(s.talent) ? 0.07 : 0);
       return chance(p) ? { fx: { job: sp, notoriete: 6, bonheur: 12 }, r: 'Les recruteurs sont convaincus. Contrat signé !', good: true } : { fx: { bonheur: -6 }, r: 'Pas retenu{e}. Il faudra plus de travail.' };
     } },
   { id: 'son', tab: 'pro', nom: 'Sortir un son', desc: 'Notoriété', icon: 'mic', age: [13, 70], days: [5, 20], hour: [20, 23], lieu: 'studio', cost: 150,
     cond: (s) => (s.carriere && !['rappeur', 'artiste'].includes(s.carriere.id) ? 'Tu as déjà un métier.' : s.stats.art < 30 ? 'Talent artistique 30 requis.' : true),
     run: (s) => {
-      const n = rnd(1, 6) + Math.round(s.stats.art / 15) + (chance(0.08) ? 15 : 0);
-      const fx = { notoriete: n, art: 2 };
+      // Chaque son est un pari : la plupart passent inaperçus, quelques-uns explosent. Sortir trop de sons lasse le public.
+      s.annee.sons = (s.annee.sons || 0) + 1;
+      const lasse = [1, 0.55, 0.3, 0.15][Math.min(3, s.annee.sons - 1)];
+      const hit = chance(0.04 + s.stats.art / 2500);
+      const flop = !hit && chance(0.4);
+      const n = Math.round((flop ? rnd(-3, 0) : rnd(0, 4) + Math.round(s.stats.art / 30)) * lasse + (hit ? rnd(10, 16) : 0));
+      const fx = { notoriete: n, art: 1 };
       if (!s.carriere) fx.job = 'rappeur';
-      return { fx, r: n > 14 ? 'Ton son explose sur les plateformes !' : 'Ton son sort. Quelques milliers d’écoutes.', good: n > 14 };
+      return { fx, r: hit ? 'Ton son explose sur les plateformes !' : flop ? 'Flop. Les commentaires sont durs, les écoutes ne décollent pas.' : lasse < 1 ? 'Ton public sature un peu : trop de sorties cette année.' : 'Ton son sort. Quelques milliers d’écoutes.', good: hit, err: flop };
     } },
   { id: 'video', tab: 'pro', nom: 'Poster des vidéos', desc: 'Notoriété en ligne', icon: 'camera', age: [13, 70], days: [3, 10],
     cond: (s) => (s.carriere && !['influenceur', 'acteur'].includes(s.carriere.id) ? 'Tu as déjà un métier.' : true),

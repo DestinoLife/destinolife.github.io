@@ -45,7 +45,7 @@ function worldNews(s) {
   if (m.news.length > 30) m.news.splice(0, m.news.length - 30);
   // Le pays d'origine en difficulté : la famille appelle à l'aide.
   const o = s.id.pays;
-  if (o && o !== 'France' && s.id.origine !== 'france' && !ORIGINES[s.id.origine]?.francais && ['crise', 'emeutes', 'guerre'].includes(m.pays[o]) && s.age >= 18 && chance(0.4)) s.queue.push('pays_crise');
+  if (o && o !== 'France' && s.id.origine !== 'france' && !ORIGINES[s.id.origine]?.francais && ['crise', 'emeutes', 'guerre'].includes(m.pays[o]) && s.age >= 18 && !(s.age - (s.lastSeen?.pays_crise ?? -99) < 5) && chance(0.4)) s.queue.push('pays_crise');
 }
 
 // ---------- Addictions ----------

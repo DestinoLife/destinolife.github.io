@@ -11,6 +11,7 @@ import { EVENTS2 } from './events2.js';
 import { EVENTS3 } from './events3.js';
 import { EVENTS4 } from './events4.js';
 import { EVENTS5 } from './events5.js';
+import { EVENTS6 } from './events6.js';
 
 const P = (s) => s.justice.prison > 0;
 const job = (s, id) => s.carriere?.id === id;
@@ -526,7 +527,7 @@ export const EVENTS = [
     { t: 'Faire la passe', fx: { karma: 3, perf: 5 }, r: 'Ton coéquipier marque. Tu as fait le bon choix.' },
   ] },
   { id: 'blessure', cat: 'Sport', cond: (s) => cat(s, 'sport'), w: 0.6, txt: 'Rupture des ligaments croisés à l’entraînement.', ch: [
-    { t: 'Rééducation sérieuse', fx: { forme: -10, bonheur: -8 }, r: 'Neuf mois d’absence, mais tu reviens plus fort{e}.', days: 60 },
+    { t: 'Rééducation sérieuse', fx: { forme: -10, bonheur: -8 }, days: 60, out: [{ p: 0.6, r: 'Neuf mois d’absence, mais tu reviens plus fort{e}.' }, { p: 1, fx: { jobLvl: -1, bonheur: -6 }, r: 'Pendant ton absence, un autre a pris ta place. Tu redescends d’un niveau.' }] },
     { t: 'Revenir trop vite', out: [{ p: 0.4, fx: { forme: -4 }, r: 'Ça tient. Ouf.' }, { p: 1, fx: { forme: -25, job: null }, r: 'Rechute. Ta carrière est finie.' }] },
   ] },
   { id: 'dopage', cat: 'Sport', once: 1, cond: (s) => cat(s, 'sport'), txt: 'Un préparateur te propose un « protocole » indétectable pour passer un cap.', ch: [
@@ -590,5 +591,5 @@ function arrive(s, extra) {
   return extra;
 }
 
-EVENTS.push(...EVENTS2, ...EVENTS3, ...EVENTS4, ...EVENTS5);
+EVENTS.push(...EVENTS2, ...EVENTS3, ...EVENTS4, ...EVENTS5, ...EVENTS6);
 export const EV = Object.fromEntries(EVENTS.map((e) => [e.id, e]));

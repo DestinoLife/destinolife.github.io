@@ -14,7 +14,7 @@ import {
   continueAsChild, currentScene, outfitOf, busy, inPrison, canDo, yearlyCosts, yearlyIncome, presentNext, ACTIVITIES, CAREERS,
 } from './engine/flow.js';
 import { canApply, DIPLOME_NOM } from './data/careers.js';
-import { impot, legalIncome, fiscalite } from './engine/flow.js';
+import { impot, legalIncome, fiscalite, TRAIN, trainDeVie } from './engine/flow.js';
 import { ROLES } from './data/world.js';
 import { HOUSING, SCENE_NOM, originScene } from './data/housing.js';
 import { ORIGINES, VILLES, MILIEUX, TRAITS, TALENTS, STATUTS } from './data/identity.js';
@@ -406,7 +406,7 @@ function sheetHTML() {
   if (tab === 'act' || tab === 'crime') {
     const list = ACTIVITIES.filter((a) => (inPrison(S) ? a.tab === 'prison' : a.tab === tab));
     const warn = tab === 'crime' && !inPrison(S) ? `<div class="note warn">Chaque délit peut augmenter ton niveau de recherche. Plus il est haut, plus la police risque de frapper à ta porte.</div>` : '';
-    return head(inPrison(S) ? 'Vie en détention' : tab === 'act' ? 'Activités' : 'Crime', `Énergie : ${S.energie}/${energieMax(S.age)} · chaque action fait avancer le temps`) + `<div class="sheet-b">${tab === 'crime' && !inPrison(S) ? crimeHubHTML(S) : ''}${warn}${tab === 'crime' && !inPrison(S) && S.justice.recherche ? `<div class="note warn">Recherché${S.id.genre === 'f' ? 'e' : ''} : ${S.justice.recherche}/5 · ${esc(S.justice.motif || '')}</div>` : ''}<div class="acts">${list.map((a) => actCard(a)).join('')}</div></div>`;
+    return head(inPrison(S) ? 'Vie en détention' : tab === 'act' ? 'Activités' : 'Crime', `Énergie : ${S.energie}/${energieMax(S.age)} · chaque action fait avancer le temps`) + `<div class="sheet-b">${tab === 'crime' && !inPrison(S) ? crimeHubHTML(S) : ''}${warn}${tab === 'crime' && !inPrison(S) && S.justice.recherche ? `<div class="note warn">Recherché${S.id.genre === 'f' ? 'e' : ''} : ${S.justice.recherche}/5 · ${esc(S.justice.motif || '')}</div>` : ''}${actsBlock(list)}</div>`;
   }
   if (tab === 'pro') return head('Carrière et études', DIPLOME_NOM[S.etudes.niveau]) + `<div class="sheet-b">${footHTML(S)}${proHTML()}</div>`;
   if (tab === 'rel') return head('Relations', partnerOf(S) ? `En couple avec ${esc(partnerOf(S).prenom)}` : 'Célibataire') + `<div class="sheet-b">${relHTML()}</div>`;
@@ -415,8 +415,8 @@ function sheetHTML() {
     const fz = fiscalite(S);
     const taux = inc + fz.fortuneNette > 0 && fz.total ? Math.round((fz.total / Math.max(1, legalIncome(S))) * 100) : 0;
     const REG = { normal: '', optimise: 'Optimisation fiscale légale : −20 % environ', offshore: 'Montage offshore : tu paies peu… tant que le fisc ne regarde pas', exil: 'Exil fiscal : presque plus d’impôts en France' };
-    const housing = `<div class="sec"><h3>Budget annuel estimé</h3><dl class="kv"><dt>Revenus</dt><dd style="color:var(--good)">${euros(inc)}</dd><dt>Dépenses (logement, vie, enfants)</dt><dd style="color:var(--bad)">${euros(dep)}</dd><dt>Impôts</dt><dd style="color:var(--bad)">${euros(fz.total)}</dd><dt>Bilan</dt><dd>${euros(inc - dep - fz.total)}</dd></dl></div>
-      <div class="sec"><h3>Tes impôts</h3>${S.age < 18 ? '<div class="note">Pas d’impôts avant 18 ans.</div>' : `<dl class="kv"><dt>Impôt sur le revenu · ${String(fz.parts).replace('.', ',')} part${fz.parts > 1 ? 's' : ''}</dt><dd>${euros(fz.revenu)}</dd>${fz.societes ? `<dt>Impôt sur les sociétés</dt><dd>${euros(fz.societes)}</dd>` : ''}${fz.fonciere ? `<dt>Taxe foncière</dt><dd>${euros(fz.fonciere)}</dd>` : ''}${fz.fortune ? `<dt>Impôt sur la fortune · ${euros(fz.fortuneNette)} de patrimoine</dt><dd>${euros(fz.fortune)}</dd>` : ''}<dt><b>Total</b>${taux ? ` · ${taux} % de tes revenus légaux` : ''}</dt><dd><b>${euros(fz.total)}</b></dd></dl>${REG[fz.regime] ? `<div class="note warn">${REG[fz.regime]}</div>` : ''}<p class="hint">Se marier et avoir des enfants donne des parts en plus. Au-delà de 1,3 M€ de patrimoine, l’impôt sur la fortune s’applique. L’argent sale n’est pas déclaré… mais un train de vie trop élevé attire le fisc.</p>`}</div>
+    const housing = `<div class="sec"><h3>Budget annuel estimé</h3><dl class="kv"><dt>Revenus</dt><dd style="color:var(--good)">${euros(inc)}</dd><dt>Dépenses (logement, vie, enfants)</dt><dd style="color:var(--bad)">${euros(dep)}</dd><dt>Impôts et cotisations</dt><dd style="color:var(--bad)">${euros(fz.total)}</dd><dt>Train de vie (${TRAIN[S.trainDeVie || 'normal'].nom.toLowerCase()})</dt><dd style="color:var(--bad)">${euros(trainDeVie(S, inc))}</dd><dt>Bilan</dt><dd>${euros(inc - dep - fz.total - trainDeVie(S, inc))}</dd></dl>${S.age >= 18 ? `<div class="chips">${Object.entries(TRAIN).map(([k, t]) => `<button class="chip ${(S.trainDeVie || 'normal') === k ? 'on' : ''}" data-a="train" data-v="${k}" title="${esc(t.desc)}">${t.nom}</button>`).join('')}</div><p class="hint">Plus tu gagnes, plus ton entourage, tes sorties et tes voitures coûtent cher. ${esc(TRAIN[S.trainDeVie || 'normal'].desc)}</p>` : ''}</div>
+      <div class="sec"><h3>Tes impôts</h3>${S.age < 18 ? '<div class="note">Pas d’impôts avant 18 ans.</div>' : `<dl class="kv"><dt>Impôt sur le revenu · ${String(fz.parts).replace('.', ',')} part${fz.parts > 1 ? 's' : ''}</dt><dd>${euros(fz.revenu)}</dd>${fz.societes ? `<dt>Impôt sur les sociétés</dt><dd>${euros(fz.societes)}</dd>` : ''}${fz.social ? `<dt>Cotisations sociales (indépendant)</dt><dd>${euros(fz.social)}</dd>` : ''}${fz.fonciere ? `<dt>Taxe foncière</dt><dd>${euros(fz.fonciere)}</dd>` : ''}${fz.fortune ? `<dt>Impôt sur la fortune · ${euros(fz.fortuneNette)} de patrimoine</dt><dd>${euros(fz.fortune)}</dd>` : ''}<dt><b>Total</b>${taux ? ` · ${taux} % de tes revenus légaux` : ''}</dt><dd><b>${euros(fz.total)}</b></dd></dl>${REG[fz.regime] ? `<div class="note warn">${REG[fz.regime]}</div>` : ''}<p class="hint">Se marier et avoir des enfants donne des parts en plus. Au-delà de 1,3 M€ de patrimoine, l’impôt sur la fortune s’applique. L’argent sale n’est pas déclaré… mais un train de vie trop élevé attire le fisc.</p>`}</div>
       <div class="sec"><h3>Logement actuel</h3><div class="note">${S.chezParents ? 'Tu vis chez tes parents (gratuit).' : `${HOUSING[S.logement]?.nom}${S.proprio ? ' · propriétaire' : ''}`}</div></div>
       <div class="sec"><h3>Déménager</h3><div class="list">${housingOptions(S).map((h) => `<div class="li ${h.ok ? '' : 'off'}"><div class="grow"><b>${h.nom}</b><small>${h.ok ? [h.loyer ? `Loyer ${euros(h.loyer)}/an` : h.achat ? '' : 'Gratuit', h.achat ? `Achat ${euros(h.achat)}` : ''].filter(Boolean).join(' · ') : esc(h.why)}</small></div>
         ${h.ok && (h.loyer || !h.achat) ? `<button class="btn sm" data-a="move" data-v="${h.id}">${h.loyer ? 'Louer' : 'Y aller'}</button>` : ''}${h.ok && h.achat ? `<button class="btn sm ${S.money >= h.achat ? '' : 'off'}" data-a="buy" data-v="${h.id}">Acheter</button>` : ''}</div>`).join('')}</div></div>`;
@@ -425,13 +425,24 @@ function sheetHTML() {
   return '';
 }
 
-function actCard(a) {
+// Actions qui viennent de se débloquer (ex. « Tourner un clip » en devenant rappeur) : en haut, jusqu'au premier essai
+function actsBlock(list) {
+  const dispo = list.filter((a) => canDo(S, a) === true);
+  S.knownActs ||= {};
+  S.wasLocked ||= {};
+  // « Nouveau » seulement si on l'a déjà vue verrouillée avant (ex. le clip avant d'être rappeur)
+  const nouv = dispo.filter((a) => S.wasLocked[a.id] && !S.knownActs[a.id] && !['demission', 'bosser'].includes(a.id));
+  list.forEach((a) => { if (canDo(S, a) !== true) S.wasLocked[a.id] = 1; });
+  const reste = list.filter((a) => !nouv.includes(a));
+  return (nouv.length ? `<div class="debloque"><div class="lbl">${icon('sparkle', 13)} Débloqué</div><div class="acts">${nouv.map((a) => actCard(a, true)).join('')}</div></div>` : '') + `<div class="acts">${reste.map((a) => actCard(a)).join('')}</div>`;
+}
+function actCard(a, neuf) {
   const ok = canDo(S, a);
   const cost = typeof a.cost === 'function' ? a.cost(S) : a.cost || 0;
   const risk = a.risk ? Math.round(Math.min(0.95, a.risk(S)) * 100) : null;
   const meta = [cost ? euros(cost) : 'Gratuit', a.days && a.days[1] > 0 ? `${a.days[0]}–${a.days[1]} j` : 'Immédiat', a.free ? 'sans énergie' : ''].filter(Boolean).join(' · ');
-  return `<button class="act ${a.tab === 'crime' ? 'crime' : ''} ${ok === true ? '' : 'off'}" data-a="act" data-v="${a.id}" title="${ok === true ? '' : esc(ok)}">
-    <span class="n">${icon(a.icon, 17)}${esc(a.nom)}</span><span class="d">${ok === true ? esc(a.desc) : esc(ok)}</span>
+  return `<button class="act ${a.tab === 'crime' ? 'crime' : ''} ${ok === true ? '' : 'off'} ${neuf ? 'neuf' : ''}" data-a="act" data-v="${a.id}" title="${ok === true ? '' : esc(ok)}">
+    <span class="n">${icon(a.icon, 17)}${esc(a.nom)}${neuf ? '<em class="new-tag">Nouveau</em>' : ''}</span><span class="d">${ok === true ? esc(a.desc) : esc(ok)}</span>
     <span class="m">${meta}${risk != null && ok === true ? ` · <span class="risk" style="color:${risk > 65 ? 'var(--good)' : risk > 45 ? 'var(--warn)' : 'var(--bad)'}">${risk}% de réussite</span>` : ''}</span></button>`;
 }
 
@@ -443,7 +454,7 @@ function proHTML() {
     h += `<div class="job-card"><span class="lbl" style="margin:0">${esc(c.nom)}</span><b>${esc(jobTitle(S))}</b><dl class="kv">${c.cat === 'crime' ? `<dt>Gains</dt><dd>Variables · argent sale</dd>` : `<dt>Salaire</dt><dd>${euros(salary(S))} / mois</dd>`}<dt>Ancienneté</dt><dd>${k.annees} an${k.annees > 1 ? 's' : ''}</dd><dt>Échelon</dt><dd>${k.niveau + 1} / ${c.niveaux.length}</dd></dl>${c.fame ? bar('Notoriété', S.stats.notoriete, '#ffd36e') : bar('Performance', k.perf, '#6fb4ff')}</div>`;
   } else h += `<div class="note">${inPrison(S) ? 'Tu es en prison.' : S.age < 16 ? 'Trop jeune pour travailler. Concentre-toi sur l’école.' : 'Tu n’as pas de travail pour le moment.'}</div>`;
   const pro = ACTIVITIES.filter((a) => a.tab === 'pro');
-  h += `<div class="sec"><h3>Actions</h3><div class="acts">${pro.map(actCard).join('')}</div></div>`;
+  h += `<div class="sec"><h3>Actions</h3>${actsBlock(pro)}</div>`;
   const e = S.etudes;
   const NOMS = { ecole: 'École obligatoire', lycee: 'Lycée général', cap: 'CAP', fac: 'Licence', bts: 'BTS', master: 'Master', medecine: 'Médecine', droit: 'Droit', daeu: 'DAEU' };
   h += `<div class="sec"><h3>Études</h3>${e.cursus ? `<div class="note">En cours : ${NOMS[e.cursus]}${e.reste ? ` · encore ${e.reste} an${e.reste > 1 ? 's' : ''}` : ''}</div>` : ''}`;
@@ -532,6 +543,10 @@ function handle(a, v, el) {
     case 'tipsoff':
       S.tipsOff = true;
       return updateGame();
+    case 'train':
+      S.trainDeVie = v;
+      toast(`Train de vie : ${TRAIN[v].nom}. ${TRAIN[v].desc}`, 'good');
+      return updateGame();
     case 'bourse': {
       const r = bourseAction(S, v, el.dataset.x);
       toast(r.r, r.err ? 'err' : 'good');
@@ -583,6 +598,7 @@ function handle(a, v, el) {
       return updateGame();
     case 'act': {
       const A = ACTIVITIES.find((x) => x.id === v);
+      (S.knownActs ||= {})[v] = 1;
       if (A?.ui === 'voyage' || A?.ui === 'cavale') {
         const ok = canDo(S, A);
         if (ok !== true) return toast(ok, 'err');

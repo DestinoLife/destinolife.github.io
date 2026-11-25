@@ -45,7 +45,7 @@ export const CAREERS = {
     risque: [0.06, 0.1, 0.14], motif: 'Escroquerie en bande organisée',
     niveaux: [['Arnaqueur au SMS', 1300], ['Escroc aux faux sites', 4500], ['Fraudeur à la TVA', 16000]] },
   rappeur: { nom: 'Rap', cat: 'artiste', apply: false, scene: 'studio', outfit: 'rap', fame: [0, 25, 50, 72, 90],
-    niveaux: [['Rappeur underground', 250], ['Révélation de l’année', 2600], ['Disque d’or', 12500], ['Disque de platine', 48000], ['Légende du rap', 160000]] },
+    niveaux: [['Rappeur underground', 250], ['Révélation de l’année', 2600], ['Disque d’or', 9000], ['Disque de platine', 30000], ['Légende du rap', 90000]] },
   acteur: { nom: 'Cinéma', cat: 'artiste', apply: false, scene: 'studio', outfit: 'chic', fame: [0, 30, 60, 85],
     niveaux: [['Figurant', 700], ['Second rôle', 3600], ['Tête d’affiche', 21000], ['Star de cinéma', 95000]] },
   artiste: { nom: 'Street-art', cat: 'artiste', apply: false, scene: 'cite', outfit: 'casual', fame: [0, 30, 60, 85],
@@ -56,11 +56,11 @@ export const CAREERS = {
     niveaux: [['Conseiller municipal', 1800], ['Maire', 4600], ['Député', 7300], ['Ministre', 10800], ['Premier ministre', 15000], ['Président de la République', 16000]] },
   dictateur: { nom: 'Régime', cat: 'politique', apply: false, scene: 'palais', outfit: 'militaire', promo: 0.001,
     niveaux: [['Chef de la junte', 80000], ['Dictateur', 250000], ['Guide suprême', 600000]] },
-  foot: { nom: 'Football', cat: 'sport', apply: false, scene: 'stade', outfit: 'foot', promo: 0.22, stat: 'forme', retraite: [33, 37],
+  foot: { nom: 'Football', cat: 'sport', apply: false, scene: 'stade', outfit: 'foot', promo: 0.16, stat: 'forme', retraite: [33, 37],
     niveaux: [['Centre de formation', 800], ['Pro en Ligue 2', 9500], ['Titulaire en Ligue 1', 48000], ['Star d’un top club européen', 420000], ['Ballon d’or', 1600000]] },
-  basket: { nom: 'Basket', cat: 'sport', apply: false, scene: 'stade', outfit: 'basket', promo: 0.2, stat: 'forme', retraite: [33, 38],
+  basket: { nom: 'Basket', cat: 'sport', apply: false, scene: 'stade', outfit: 'basket', promo: 0.14, stat: 'forme', retraite: [33, 38],
     niveaux: [['Espoir de Pro B', 2600], ['Joueur de Betclic Élite', 12500], ['Joueur d’Euroleague', 62000], ['Joueur NBA', 950000]] },
-  boxe: { nom: 'Boxe', cat: 'sport', apply: false, scene: 'stade', outfit: 'boxe', promo: 0.16, stat: 'forme', retraite: [34, 39],
+  boxe: { nom: 'Boxe', cat: 'sport', apply: false, scene: 'stade', outfit: 'boxe', promo: 0.13, stat: 'forme', retraite: [34, 39],
     niveaux: [['Boxeur amateur', 300], ['Boxeur pro', 3200], ['Champion de France', 12500], ['Champion d’Europe', 42000], ['Champion du monde', 320000]] },
 };
 

@@ -524,7 +524,7 @@ function healthTick(s) {
     } else s.stats.sante = clamp(s.stats.sante + Math.min(3, s.annee.sport));
     if (s.age > 55 && !s.annee.medecin && chance(0.5)) s.stats.sante = clamp(s.stats.sante - rnd(1, 2));
   }
-  s.annee = { sport: 0, medecin: 0, use: {}, posts: 0 };
+  s.annee = { sport: 0, medecin: 0, use: {}, posts: 0, sons: 0 };
 }
 
 function cavaleTick(s) {

@@ -23,6 +23,20 @@ function resolve(s) {
 const fortune = (s) => s.money + patrimoine(s);
 
 const STRATS = {
+  // Artiste talentueux : sort des sons et bosse chaque année
+  artiste(s) {
+    if (s.justice.prison > 0) return;
+    if (s.age === 16) { s.stats.art = Math.max(s.stats.art, 70); s.talent = 'musique'; }
+    for (let k = 0; k < 3; k++) doActivity(s, s.carriere?.id === 'rappeur' || !s.carriere ? 'son' : 'bosser');
+  },
+  // Sportif doué : s'entraîne et vise le foot
+  sport(s) {
+    if (s.justice.prison > 0) return;
+    if (s.age === 16) s.stats.forme = Math.max(s.stats.forme, 75);
+    if (s.age === 16) s.talent = 'football';
+    if (!s.carriere && s.age <= 27) doActivity(s, 'essais_pro');
+    for (let k = 0; k < 3; k++) doActivity(s, 'bosser');
+  },
   // Référence : simple salarié, ne fait rien de spécial
   salarie() {},
   // Ouvre des commerces, réinvestit tout, revend à 55 ans
@@ -71,10 +85,10 @@ function run(name) {
     const s = createLife(randomConfig(), { age: 16 });
     migrate(s); migrate3(s);
     s.money = 2000;
-    applyJob(s, 'caissier');
+    if (!['artiste', 'sport'].includes(name)) applyJob(s, 'caissier');
     let yrs = 0;
     while (s.vivant && s.age < 71 && yrs++ < 80) {
-      if (s.age === 18 && !s.carriere) for (const id of ['caissier', 'livreur', 'plonge', 'chantier']) if (!applyJob(s, id).err) break;
+      if (s.age === 18 && !s.carriere && !['artiste', 'sport'].includes(name)) for (const id of ['caissier', 'livreur', 'plonge', 'chantier']) if (!applyJob(s, id).err) break;
       if (s.justice.prison === 0) doActivity(s, 'footing');
       STRATS[name](s);
       presentNext(s);

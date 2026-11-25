@@ -1,6 +1,18 @@
 # Notes de mise à jour de Destino
 
-Version actuelle : **v0.8**. Ces notes sont aussi visibles dans le jeu (écran titre, « Notes de mise à jour »).
+Version actuelle : **v0.9**. Ces notes sont aussi visibles dans le jeu (écran titre, « Notes de mise à jour »).
+
+## v0.9 · La mise à jour « Tentations »
+
+- Devenir millionnaire est beaucoup plus dur : un artiste talentueux n’y arrive plus à coup sûr (30 % à 55 ans au lieu de 100 %), un footballeur doué non plus (34 % au lieu de 91 %)
+- Musique : chaque son est un pari (flop, succès moyen ou tube), le public se lasse si tu sors trop de sons, et la célébrité s’use vite si tu ne produis plus
+- Artistes : revenus variables selon tes succès, le label et le manager prennent leur part, cotisations sociales d’indépendant
+- Sport : passer pro est rare, chaque palier est bien plus dur que le précédent (pyramide), blessures fréquentes qui peuvent te faire perdre ta place
+- Train de vie (onglet Biens) : modeste, normal ou flambeur. Plus tu gagnes, plus ton entourage et tes dépenses grimpent
+- Tentations selon ton métier : label financé par le trafic, feat avec un caïd, matchs truqués, dopage, flic corrompu, fausses ordonnances, carrousel de TVA, braquage de fourgon, premier deal qui mène au réseau…
+- Nouveaux événements du quotidien : dégât des eaux, usurpation d’identité, faux conseiller bancaire, burn-out, licenciement économique, juré d’assises, cambriolage, accident, frère endetté, héritage surprise…
+- Moins de répétition : un événement déjà vécu devient plus rare et ne revient pas plus de 3 fois par vie
+- Section « Débloqué » : une action qui vient de se débloquer (ex. tourner un clip) apparaît en haut de son onglet avec l’étiquette Nouveau
 
 ## v0.8 · La mise à jour « Économie réelle »
 
