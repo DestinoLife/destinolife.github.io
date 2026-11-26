@@ -18,6 +18,8 @@ import { energieMax } from '../data/unlocks.js';
 import { transmettreFamille, legsGrandParent, souvenir, blesse, sen, trait, bilanSouvenirs } from './npc.js';
 import { goalsTick, checkGoals } from './goals.js';
 import { bankTick, succession, resteSur, solderSur, dette } from './bank.js';
+import { skillsTick, gagnerTout, bonusPromo, bonusEmbauche, revenuFreelance } from './skills.js';
+import { ACT_XP, FILIERES } from '../data/skills.js';
 const DISEASE_NOM = new Proxy({}, { get: (_, k) => DISEASES[k]?.nom || 'Maladie' });
 
 export const busy = (s) => !!(s.current || s.result);
@@ -193,6 +195,7 @@ export function ageUp(s) {
   s.relUsed = {};
   s.meteo = rollMeteo(s.t, s.id.ville);
   s.relations.forEach((r) => r.vivant && r.age++);
+  skillsTick(s);
 
   if (s.id.arrivee === s.age && s.id.statut === 'au_pays') s.queue.push('arrivee_france');
   school(s);
@@ -237,6 +240,8 @@ function school(s) {
   if (e.cursus === 'lycee') s.queue.push('bac');
   else if (fin) {
     giveDiploma(s, fin);
+    (e.diplomes ??= []).push({ d: fin, f: ['fac', 'bts', 'master'].includes(e.cursus) ? e.filiere : e.cursus, age: s.age });
+    if (e.stage?.metier && !s.carriere) s.queue.push('offre_stage');
     addLog(s, `Diplôme obtenu : ${fin === 'doctorat' ? 'doctorat de médecine' : fin.toUpperCase()}.`);
     s.stats.bonheur = clamp(s.stats.bonheur + 8);
   }
@@ -258,7 +263,7 @@ function careerTick(s) {
     c.fame.forEach((f, i) => s.stats.notoriete >= f && (lvl = i));
     if (lvl !== k.niveau) changeLevel(s, lvl - k.niveau);
   } else if (k.niveau < c.niveaux.length - 1) {
-    const p = (c.promo || 0.15) + (k.perf - 50) / 220 + (c.stat ? s.stats[c.stat] / 450 : 0) + (s.traits.includes('ambitieux') ? 0.06 : 0);
+    const p = (c.promo || 0.15) + (k.perf - 50) / 220 + (c.stat ? s.stats[c.stat] / 450 : 0) + (s.traits.includes('ambitieux') ? 0.06 : 0) + bonusPromo(s);
     // Le sport de haut niveau est une pyramide : chaque palier est beaucoup plus dur que le précédent
     const pyramide = c.cat === 'sport' ? [1, 0.3, 0.08, 0.03, 0.015][k.niveau] * (s.stats.forme >= 70 ? 1 : 0.5) : c.cat === 'business' ? [1, 0.4, 0.12, 0.04][k.niveau] : 1 - 0.18 * k.niveau;
     if (chance(p * pyramide)) changeLevel(s, 1);
@@ -322,7 +327,7 @@ export function fiscalite(s) {
   z.parts = 1 + (marie ? 1 : 0) + Math.min(kids, 2) * 0.5 + Math.max(0, kids - 2);
   z.revenu = Math.round(impot(yearlyIncome(s) / z.parts) * z.parts);
   // Indépendants (artistes, entrepreneurs) : cotisations sociales ~22 % du revenu
-  z.social = isStar(s) || isBoss(s) ? Math.round(yearlyIncome(s) * 0.22) : 0;
+  z.social = isStar(s) || isBoss(s) || s.carriere?.voie === 'freelance' ? Math.round(yearlyIncome(s) * 0.22) : 0;
   z.societes = Math.round((s.business || []).reduce((t, b) => { const bf = Math.max(0, b.benef || 0); return t + Math.min(bf, 42500) * 0.15 + Math.max(0, bf - 42500) * 0.25; }, 0));
   const h = HOUSING[s.logement];
   const immo = s.proprio && h?.achat ? h.achat : 0;
@@ -353,6 +358,8 @@ function finances(s, rep) {
     inc = Math.round(salary(s) * 12 * k) + s.pension * 12;
   }
   // Entrepreneur : bonnes et mauvaises années, crises, et parfois la faillite
+  // Indépendant (voie choisie dans un métier salarié) : revenus variables selon les compétences
+  if (s.carriere?.voie === 'freelance' && !inPrison(s)) inc = revenuFreelance(s, rand()) + s.pension * 12;
   if (isBoss(s) && !inPrison(s)) {
     const k = (0.05 + rand() * 0.95 + (rand() - 0.5) * 0.6 + (s.carriere.perf || 0) / 300) * eco(s).mult;
     inc = Math.round(salary(s) * 12 * k) + s.pension * 12;
@@ -503,6 +510,7 @@ export function doActivity(s, id) {
   s.tmp = baseTmp(s);
   const out = a.run(s) || {};
   apply(s, out.fx);
+  if (!out.err) gagnerTout(s, ACT_XP[a.id]);
   if (s.vivant) {
     if (a.days) advanceTime(s, rnd(a.days[0], a.days[1]), a.hour);
     const lieu = typeof a.lieu === 'function' ? a.lieu(s) : a.lieu;
@@ -524,7 +532,7 @@ export function applyJob(s, id) {
   s.energie--;
   advanceTime(s, rnd(3, 14));
   const c = CAREERS[id];
-  let p = 0.5 + s.stats.intel / 300 + s.stats.charisme / 300 - (c.diplome === 'aucun' ? -0.15 : 0);
+  let p = 0.5 + s.stats.intel / 300 + s.stats.charisme / 300 - (c.diplome === 'aucun' ? -0.15 : 0) + bonusEmbauche(s, id);
   if (s.justice.casier.length) p -= 0.15;
   if (chance(clamp(p, 0.1, 0.95))) {
     setCareer(s, id);
@@ -536,7 +544,7 @@ export function applyJob(s, id) {
   return { r: 'Candidature refusée. Réessaie ou améliore ton profil.', err: true };
 }
 
-export function enroll(s, cursus) {
+export function enroll(s, cursus, filiere) {
   const RS = {
     fac: { need: 'bac', reste: 3, nom: 'Licence à la fac' },
     bts: { need: 'bac', reste: 2, nom: 'BTS' },
@@ -554,11 +562,18 @@ export function enroll(s, cursus) {
   if (inPrison(s)) return { r: 'Impossible en prison.', err: true };
   if (dipRank(s.etudes.niveau) < dipRank(R.need)) return { r: `Diplôme requis : ${R.need.toUpperCase()}.`, err: true };
   if (R.intel && s.stats.intel < R.intel) return { r: `Intelligence ${R.intel} requise.`, err: true };
+  if (['fac', 'bts', 'master'].includes(cursus)) {
+    const f = Object.hasOwn(FILIERES, filiere) ? filiere : cursus === 'master' && FILIERES[s.etudes.filiere] ? s.etudes.filiere : null;
+    if (!f) return { r: 'Choisis d’abord une filière.', err: true };
+    s.etudes.filiere = f;
+  }
+  s.etudes.stage = null;
   s.etudes.cursus = cursus;
   s.etudes.reste = R.reste;
   if (s.carriere && !['crime', 'artiste', 'sport'].includes(career(s).cat) && R.reste > 1) setCareer(s, null);
-  addLog(s, `Inscription : ${R.nom}.`);
-  return { r: tpl(`Inscrit{e} : ${R.nom}.`, s), good: true };
+  const fil = ['fac', 'bts', 'master'].includes(cursus) ? ` · ${FILIERES[s.etudes.filiere].nom}` : '';
+  addLog(s, `Inscription : ${R.nom}${fil}.`);
+  return { r: tpl(`Inscrit{e} : ${R.nom}${fil}.`, s), good: true };
 }
 
 // ---------- Logement ----------

@@ -7,6 +7,7 @@ import { ORIGINES, MILIEUX, TALENTS } from '../data/identity.js';
 import { HOUSING } from '../data/housing.js';
 import { fmtDate } from './time.js';
 import { npcTick, migrateNpc, familleElargie } from './npc.js';
+import { migrateSkills } from './skills.js';
 
 export function migrate3(s) {
   s.addic ??= { tabac: 0, alcool: 0, cannabis: 0, coke: 0, jeu: 0 };
@@ -19,6 +20,7 @@ export function migrate3(s) {
   s.annee.posts ??= 0;
   s.relations.forEach((r) => (r.conf ??= rnd(40, 70)));
   migrateNpc(s);
+  migrateSkills(s);
   return s;
 }
 

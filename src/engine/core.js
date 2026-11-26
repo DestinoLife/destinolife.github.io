@@ -93,17 +93,22 @@ function birth(s) {
 // ---------- Carrière ----------
 export const career = (s) => (s.carriere ? CAREERS[s.carriere.id] : null);
 export const jobTitle = (s) => (s.carriere ? career(s).niveaux[s.carriere.niveau][0] : null);
-export const salary = (s) => (s.carriere ? career(s).niveaux[s.carriere.niveau][1] : 0);
+// Salaire de la grille × multiplicateur du contrat (taille de l'employeur, négociations, voie choisie)
+export const salary = (s) => (s.carriere ? Math.round(career(s).niveaux[s.carriere.niveau][1] * (s.carriere.mult || 1)) : 0);
 
+// Modules qui réagissent à un changement de métier (employeur, collègues…) sans import circulaire
+export const careerHooks = [];
 export function setCareer(s, id) {
   if (!id) {
     if (s.carriere) addLog(s, `Tu quittes ton poste de ${jobTitle(s)}.`);
     s.carriere = null;
+    careerHooks.forEach((f) => f(s, null));
     return;
   }
   if (!CAREERS[id]) return console.warn('Carrière inconnue', id);
-  s.carriere = { id, niveau: 0, annees: 0, perf: 55 };
-  addLog(s, `Nouveau départ : ${jobTitle(s)}.`);
+  s.carriere = { id, niveau: 0, annees: 0, perf: 55, mult: 1 };
+  careerHooks.forEach((f) => f(s, id));
+  addLog(s, `Nouveau départ : ${jobTitle(s)}${s.carriere.emp ? ` chez ${s.carriere.emp.nom}` : ''}.`);
 }
 
 export function changeLevel(s, d) {

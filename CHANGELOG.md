@@ -1,6 +1,21 @@
 # Notes de mise à jour de Destino
 
-Version actuelle : **v0.11**. Ces notes sont aussi visibles dans le jeu (écran titre, « Notes de mise à jour »).
+Version actuelle : **v0.12**. Ces notes sont aussi visibles dans le jeu (écran titre, « Notes de mise à jour »).
+
+## v0.12 · Compétences & Carrières
+
+Troisième étape vers la v1.0 ([ROADMAP_V1.md](ROADMAP_V1.md)).
+
+- Compétences (onglet Carrière) : 22 compétences en 7 domaines (informatique, musique, business, sport, social, finance, métiers), du niveau « notions » à « maître »
+- Elles progressent avec les études, les activités et le travail, au plus 160 points par an et par compétence : impossible de tout maxer en répétant la même action
+- Deux personnages aussi intelligents n’ont plus les mêmes débouchés : développeur, comptable, infirmier, professeur, avocat et médecin exigent des compétences, avec la raison affichée si tu ne les as pas
+- Filières pour la licence, le BTS et le master : informatique, finance, commerce, santé, éducation, droit, arts, sport. Tes diplômes indiquent leur spécialité
+- Stages pendant les études : l’entreprise peut t’embaucher une fois ton diplôme en poche
+- Formation continue (1 500 €) pour te reconvertir à tout âge
+- Employeurs : PME, grand groupe, start-up ou secteur public, chacun avec son ambiance, sa santé financière et son salaire. En crise, une entreprise fragile peut lancer un plan social (indemnités ou prud’hommes)
+- Collègues persistants : un supérieur et un collègue à chaque poste. Mentorat, conflits en réunion, erreur à couvrir, afterworks, week-ends sacrifiés. Ils deviennent d’anciens collègues quand tu changes de poste, et ils peuvent un jour t’embaucher
+- Voies de carrière : expert, manager ou indépendant (revenus variables selon tes compétences)
+- Négocier ton salaire, et des chasseurs de têtes qui viennent chercher les meilleurs profils
 
 ## v0.11 · Banque & Immobilier
 

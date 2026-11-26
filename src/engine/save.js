@@ -3,6 +3,7 @@ import { sign, stringify, parse, comptaOk } from './hitman.js';
 import { ASSETS, BUSINESS } from '../data/world.js';
 import { CAREERS, DIPLOMES } from '../data/careers.js';
 import { AMBITIONS } from '../data/ambitions.js';
+import { SKILLS, FILIERES } from '../data/skills.js';
 
 const KEY = 'destino.save.v1';
 const MARK = 'destino.hm'; // présent dès qu'une sauvegarde signée a été écrite sur ce navigateur
@@ -103,6 +104,10 @@ export function validerEtat(s) {
   // v0.10 : ambitions connues et en nombre limité, dettes des proches bornées
   if (s.amb && (!Array.isArray(s.amb.act) || s.amb.act.length > 3 || s.amb.act.some((a) => !own(AMBITIONS, a?.id)))) return 'ambition';
   for (const r of s.relations || []) if (r?.dette != null && !num(r.dette, 0, 1e7)) return 'dette d’un proche';
+  // v0.12 : compétences connues et bornées, contrat de travail cohérent
+  for (const [k, x] of Object.entries(s.comp || {})) if (!own(SKILLS, k) || !num(x, 0, 1500)) return 'compétence';
+  if (s.carriere?.mult != null && !num(s.carriere.mult, 0.5, 1.8)) return 'salaire';
+  if (s.etudes?.filiere != null && !own(FILIERES, s.etudes.filiere)) return 'filière';
   // v0.11 : banque (épargne plafonnée, crédits bornés)
   const b = s.banque;
   if (b) {

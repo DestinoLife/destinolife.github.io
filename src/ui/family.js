@@ -19,7 +19,7 @@ function situation(r) {
 }
 export function ligneProche(r) {
   const met = r.lien === 'ami' && r.destin ? '' : metierDe(r);
-  return met ? ` · ${esc(met)}` : '';
+  return (r.chef && r.lien === 'collegue' ? ` · ton supérieur${fem(r) ? 'e' : ''}` : '') + (met ? ` · ${esc(met)}` : '');
 }
 export function pnjDetailHTML(S, r) {
   if (r.lien === 'contact' || r.lien === 'candidat') return '';

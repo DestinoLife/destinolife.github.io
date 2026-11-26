@@ -1,5 +1,5 @@
 // Service Worker léger pour Destino PWA (network-first avec repli cache offline).
-const CACHE = 'destino-pwa-v09';
+const CACHE = 'destino-pwa-v10';
 const CORE = ['/', '/index.html', '/favicon.svg', '/manifest.webmanifest'];
 
 self.addEventListener('install', (e) => {

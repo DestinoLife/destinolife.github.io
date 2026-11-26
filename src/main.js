@@ -39,6 +39,10 @@ import { SKINS as SK } from './data/look.js';
 import { pnjDetailHTML, arbreHTML, ambitionsHTML, bilanHTML, ligneProche } from './ui/family.js';
 import { adopterAmbition, abandonnerAmbition } from './engine/goals.js';
 import { banqueHTML, creditHTML } from './ui/bank.js';
+import { emploiHTML, competencesHTML, filieresHTML, diplomesHTML } from './ui/skills.js';
+import { seFormer } from './engine/skills.js';
+import { FILIERES } from './data/skills.js';
+let filiereChoix = null; // choix d'interface (pas dans l'état de la partie)
 import { souscrire, simuler } from './engine/credit.js';
 import { livret, livretEnfant, basculerAssurance, rembourserAnticipe, travaux } from './engine/bank.js';
 import { exporterSauvegarde, importerSauvegarde } from './engine/save.js';
@@ -379,7 +383,7 @@ let ambVues = { k: '', n: 0 };
 // Journal financier tenu par Hitman : chaque mouvement d'argent est rattaché à l'action qui l'a causé
 const JOURNAL_NOM = {
   age: 'Année écoulée (revenus, dépenses, impôts)', act: 'Activité', cplay: 'Casino', bjdeal: 'Blackjack', bjhit: 'Blackjack', bjstand: 'Blackjack',
-  csigne: 'Achat à crédit', livret: 'Livret d’épargne', livretk: 'Livret d’un enfant', anticipe: 'Remboursement anticipé', travaux: 'Travaux locatifs', assur: 'Assurance',
+  former: 'Formation continue', csigne: 'Achat à crédit', livret: 'Livret d’épargne', livretk: 'Livret d’un enfant', anticipe: 'Remboursement anticipé', travaux: 'Travaux locatifs', assur: 'Assurance',
   buyasset: 'Achat d’un bien', sellasset: 'Vente d’un bien', sell: 'Vente', buy: 'Achat du logement', openbiz: 'Création d’entreprise', biz: 'Entreprise',
   bourse: 'Bourse', relact: 'Proche', choose: 'Événement', choice: 'Événement', move: 'Logement', city: 'Déménagement', travel: 'Voyage', flee: 'Cavale',
   net: 'Réseau', apply: 'Candidature', enroll: 'Études', sendmsg: 'Message', answer: 'Message', hitman: 'Saisie par Hitman', heir: 'Héritage',
@@ -522,17 +526,20 @@ function proHTML() {
   const c = career(S);
   if (S.carriere) {
     const k = S.carriere;
-    h += `<div class="job-card"><span class="lbl" style="margin:0">${esc(c.nom)}</span><b>${esc(jobTitle(S))}</b><dl class="kv">${c.cat === 'crime' ? `<dt>Gains</dt><dd>Variables · argent sale</dd>` : `<dt>Salaire</dt><dd>${euros(salary(S))} / mois</dd>`}<dt>Ancienneté</dt><dd>${k.annees} an${k.annees > 1 ? 's' : ''}</dd><dt>Échelon</dt><dd>${k.niveau + 1} / ${c.niveaux.length}</dd></dl>${c.fame ? bar('Notoriété', S.stats.notoriete, '#ffd36e') : bar('Performance', k.perf, '#6fb4ff')}</div>`;
+    h += `<div class="job-card"><span class="lbl" style="margin:0">${esc(c.nom)}</span><b>${esc(jobTitle(S))}</b><dl class="kv">${c.cat === 'crime' ? `<dt>Gains</dt><dd>Variables · argent sale</dd>` : `<dt>Salaire</dt><dd>${euros(salary(S))} / mois</dd>`}<dt>Ancienneté</dt><dd>${k.annees} an${k.annees > 1 ? 's' : ''}</dd><dt>Échelon</dt><dd>${k.niveau + 1} / ${c.niveaux.length}</dd></dl>${emploiHTML(S)}${c.fame ? bar('Notoriété', S.stats.notoriete, '#ffd36e') : bar('Performance', k.perf, '#6fb4ff')}</div>`;
   } else h += `<div class="note">${inPrison(S) ? 'Tu es en prison.' : S.age < 16 ? 'Trop jeune pour travailler. Concentre-toi sur l’école.' : 'Tu n’as pas de travail pour le moment.'}</div>`;
   const pro = ACTIVITIES.filter((a) => a.tab === 'pro');
   h += `<div class="sec"><h3>Actions</h3>${actsBlock(pro)}</div>`;
   const e = S.etudes;
   const NOMS = { ecole: 'École obligatoire', lycee: 'Lycée général', cap: 'CAP', fac: 'Licence', bts: 'BTS', master: 'Master', medecine: 'Médecine', droit: 'Droit', daeu: 'DAEU' };
-  h += `<div class="sec"><h3>Études</h3>${e.cursus ? `<div class="note">En cours : ${NOMS[e.cursus]}${e.reste ? ` · encore ${e.reste} an${e.reste > 1 ? 's' : ''}` : ''}</div>` : ''}`;
+  h += competencesHTML(S);
+  h += `<div class="sec"><h3>Études</h3>${e.cursus ? `<div class="note">En cours : ${NOMS[e.cursus]}${['fac', 'bts', 'master'].includes(e.cursus) && FILIERES[e.filiere] ? ` en ${FILIERES[e.filiere].nom.toLowerCase()}` : ''}${e.reste ? ` · encore ${e.reste} an${e.reste > 1 ? 's' : ''}` : ''}${e.stage ? ` · stage fait chez ${esc(e.stage.nom)}` : ''}</div>` : ''}${diplomesHTML(S)}`;
   if (!e.cursus && S.age >= 16 && !inPrison(S)) {
     const opts = [['fac', 'Licence (3 ans)', 'bac'], ['bts', 'BTS (2 ans)', 'bac'], ['droit', 'Droit (5 ans)', 'bac'], ['medecine', 'Médecine (9 ans)', 'bac'], ['master', 'Master (2 ans)', 'licence'], ['cap', 'CAP (2 ans)', 'aucun'], ['daeu', 'DAEU, équivalent bac (1 an)', 'aucun']];
     const rank = ['aucun', 'brevet', 'cap', 'bac', 'bts', 'licence', 'master', 'doctorat'];
-    h += `<div class="chips">${opts.filter(([k, , need]) => rank.indexOf(S.etudes.niveau) >= rank.indexOf(need) && !(k === 'daeu' && rank.indexOf(S.etudes.niveau) >= 3)).map(([k, t]) => `<button class="chip" data-a="enroll" data-v="${k}">${t}</button>`).join('')}</div>`;
+    const dispo = opts.filter(([k, , need]) => rank.indexOf(S.etudes.niveau) >= rank.indexOf(need) && !(k === 'daeu' && rank.indexOf(S.etudes.niveau) >= 3));
+    if (dispo.some(([k]) => ['fac', 'bts', 'master'].includes(k))) h += filieresHTML(filiereChoix);
+    h += `<div class="sub-h">S’inscrire</div><div class="chips">${dispo.map(([k, t]) => `<button class="chip" data-a="enroll" data-v="${k}">${t}</button>`).join('')}</div>`;
   }
   h += `</div>`;
   if (S.age >= 16 && !inPrison(S)) {
@@ -546,7 +553,7 @@ function proHTML() {
 }
 
 function relHTML() {
-  const order = ['conjoint', 'partenaire', 'enfant', 'petitenfant', 'mere', 'pere', 'fratrie', 'ami', 'ex'];
+  const order = ['conjoint', 'partenaire', 'enfant', 'petitenfant', 'mere', 'pere', 'fratrie', 'ami', 'ex', 'collegue', 'excollegue'];
   const ELARGIE = ['grandparent', 'oncle', 'cousin', 'neveu'];
   const rels = [...S.relations].filter((r) => r.lien !== 'candidat' && r.lien !== 'contact' && !ELARGIE.includes(r.lien)).sort((a, b) => order.indexOf(a.lien) - order.indexOf(b.lien) || b.vivant - a.vivant);
   const dating = ACTIVITIES.find((a) => a.id === 'dating');
@@ -773,8 +780,16 @@ function handle0(a, v, el) {
       toast(r.r, r.err ? 'err' : 'good');
       return updateGame();
     }
+    case 'filiere':
+      filiereChoix = filiereChoix === v ? null : v;
+      return updateGame();
+    case 'former': {
+      const r = seFormer(S, v);
+      toast(r.r, r.err ? 'err' : 'good');
+      return updateGame();
+    }
     case 'enroll': {
-      const r = enroll(S, v);
+      const r = enroll(S, v, filiereChoix);
       toast(r.r, r.err ? 'err' : 'good');
       return updateGame();
     }

@@ -1,4 +1,5 @@
 // Carrières : niveaux [titre, salaire mensuel net]. apply:false = s'obtient via un événement ou une action spéciale.
+import { METIER_REQUIS, SEUILS, SKILLS, NIVEAUX } from './skills.js';
 export const DIPLOMES = ['aucun', 'brevet', 'cap', 'bac', 'bts', 'licence', 'master', 'doctorat'];
 export const DIPLOME_NOM = {
   aucun: 'Aucun diplôme', brevet: 'Brevet', cap: 'CAP', bac: 'Bac', bts: 'BTS', licence: 'Licence', master: 'Master', doctorat: 'Doctorat',
@@ -82,6 +83,8 @@ export function canApply(s, id) {
   if (c.forme && s.stats.forme < c.forme) return `Forme physique insuffisante (${c.forme} requis).`;
   if (c.intel && s.stats.intel < c.intel) return `Intelligence insuffisante (${c.intel} requis).`;
   if (c.charisme && s.stats.charisme < c.charisme) return `Charisme insuffisant (${c.charisme} requis).`;
+  // v0.12 : compétences exigées (filière, formation continue ou expérience)
+  for (const [k, n] of Object.entries(METIER_REQUIS[id] || {})) if ((s.comp?.[k] || 0) < SEUILS[n]) return `Compétence requise : ${SKILLS[k]} niveau « ${NIVEAUX[n].toLowerCase()} » (filière, formation ou expérience).`;
   if (['fac', 'bts', 'medecine', 'droit', 'master', 'lycee'].includes(s.etudes.cursus) && c.diplome !== 'aucun') return 'Termine d’abord tes études.';
   return true;
 }

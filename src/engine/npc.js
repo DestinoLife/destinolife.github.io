@@ -167,7 +167,8 @@ function naissancePnj(s, r) {
 
 function vieAutonome(s, r, crise, boom, inits) {
   const actif = r.age >= 20 && r.age < 64;
-  if (actif && r.lien !== 'ami' && !r.job && !r.chomage && r.lien !== 'grandparent') donneMetier(s, r);
+  // Un collègue travaille avec toi : son métier, c'est ton entreprise (il en change quand il devient « ancien collègue »)
+  if (actif && r.lien !== 'ami' && r.lien !== 'collegue' && !r.job && !r.chomage && r.lien !== 'grandparent') donneMetier(s, r);
   if (r.lien === 'ami' && r.destin && r.fortD !== r.destin) {
     r.fort = clamp((DESTIN_FORT[r.destin] ?? 2) + rnd(-1, 0), 0, 4);
     r.fortD = r.destin;
@@ -389,6 +390,7 @@ export function preparerEvenement(s, id) {
 const LIEN_BAS = {
   mere: 'ta mère', pere: 'ton père', fratrie: ['ton frère', 'ta sœur'], ami: ['ton ami', 'ton amie'], enfant: ['ton fils', 'ta fille'],
   cousin: ['ton cousin', 'ta cousine'], oncle: ['ton oncle', 'ta tante'], neveu: ['ton neveu', 'ta nièce'], petitenfant: ['ton petit-fils', 'ta petite-fille'],
+  collegue: ['ton collègue', 'ta collègue'], excollegue: ['ton ancien collègue', 'ton ancienne collègue'],
   ex: ['ton ex', 'ton ex'], grandparent: ['ton grand-père', 'ta grand-mère'], conjoint: ['ton mari', 'ta femme'], partenaire: ['ton copain', 'ta copine'],
 };
 export const lienNomBas = (r) => {

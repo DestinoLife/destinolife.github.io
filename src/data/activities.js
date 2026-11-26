@@ -114,6 +114,16 @@ export const ACTIVITIES = [
   { id: 'augmentation', tab: 'pro', nom: 'Demander une promotion', desc: 'Selon perf. et charisme', icon: 'trend', age: [16, 90], days: [1, 5], hour: [10, 17],
     cond: (s) => (s.carriere && !CAREERS[s.carriere.id].fame && !['crime', 'politique'].includes(CAREERS[s.carriere.id].cat) ? true : 'Indisponible pour ce métier.'),
     run: (s) => (chance(0.12 + s.carriere.perf / 300 + s.stats.charisme / 400) ? { fx: { jobLvl: 1, bonheur: 6 }, r: 'Accordé ! Nouveau poste.', good: true } : { fx: { perf: -6, bonheur: -3 }, r: 'Refusé. « On en reparle l’an prochain. »' }) },
+  { id: 'negocier', tab: 'pro', nom: 'Négocier ton salaire', desc: 'Selon négociation et perf.', icon: 'cash', age: [18, 90], days: [1, 3], hour: [10, 17],
+    cond: (s) => (!s.carriere || !['classique', 'police', 'militaire'].includes(CAREERS[s.carriere.id].cat) ? 'Réservé aux salariés.' : s.carriere.voie === 'freelance' ? 'À ton compte, tu fixes tes tarifs toi-même.' : s.annee.nego ? 'Déjà tenté cette année.' : (s.carriere.mult || 1) >= 1.6 ? 'Ton salaire est au plafond de la grille.' : true),
+    run: (s) => {
+      s.annee.nego = true;
+      const n = [0, 100, 250, 450, 700, 1000].filter((x) => (s.comp?.negociation || 0) >= x).length - 1;
+      return chance(0.2 + n * 0.1 + s.carriere.perf / 400) ? { fx: { salMult: rnd(5, 10) / 100, bonheur: 4 }, r: 'Accordé : ton salaire augmente.', good: true } : { fx: { perf: -4 }, r: '« Le budget est serré cette année. On en reparle. »' };
+    } },
+  { id: 'stage', tab: 'pro', nom: 'Faire un stage', desc: 'Expérience dans ta filière', icon: 'briefcase', age: [17, 45], days: [20, 40], hour: [9, 18],
+    cond: (s) => (!['fac', 'bts', 'master', 'droit', 'medecine'].includes(s.etudes.cursus) ? 'Pendant tes études supérieures.' : s.etudes.stage ? 'Tu as déjà fait ton stage pour ce cursus.' : true),
+    run: () => ({ fx: { stage: 1 }, r: 'Stage chez {stage}. Si tu fais bonne impression, ils pourraient t’embaucher à la fin de tes études.', good: true }) },
   { id: 'demission', tab: 'pro', nom: 'Démissionner', desc: 'Quitter ton poste', icon: 'door', age: [14, 99], free: true, days: [0, 1], cond: (s) => (!s.carriere ? 'Tu n’as pas de travail.' : CAREERS[s.carriere.id].cat === 'crime' ? 'On ne démissionne pas du milieu…' : true),
     run: () => ({ fx: { job: null, bonheur: 3 }, r: 'Lettre posée sur le bureau. Libre.' }) },
   { id: 'essais_pro', tab: 'pro', nom: 'Tenter les essais pro', desc: 'Foot, basket ou boxe', icon: 'trophy', age: [15, 27], days: [3, 10], lieu: 'stade',

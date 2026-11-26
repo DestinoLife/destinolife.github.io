@@ -10,6 +10,8 @@ import { instaComment, instaFeed } from '../src/engine/life2.js';
 import { suggestions, adopterAmbition, abandonnerAmbition } from '../src/engine/goals.js';
 import { AMBITIONS } from '../src/data/ambitions.js';
 import { souscrire, simuler } from '../src/engine/credit.js';
+import { seFormer, niveau } from '../src/engine/skills.js';
+import { FILIERES, SKILLS, CAP_AN, METIER_REQUIS } from '../src/data/skills.js';
 import { livret, livretEnfant, basculerAssurance, travaux, rembourserAnticipe, dette, patrimoineNet, CREDITS } from '../src/engine/bank.js';
 import { migrate, buyAsset, sellAsset, createBusiness, businessAction, networkAction, travel, flee, roulette, slots, moveCity, findContact, startNetwork, ASSETS, BUSINESS, DESTS, MISSIONS } from '../src/engine/economy.js';
 
@@ -59,8 +61,28 @@ function coherenceBanque(s) {
   if (b.an) v11.loyers += b.an.loyers;
 }
 
+// v0.12 : compétences, employeurs, collègues
+const v12 = { formations: 0, maxNiveau: 0, voies: {}, collegues: 0, metiersRequis: {} };
+function competences(s) {
+  if (s.age >= 18 && Math.random() < 0.08) { if (!seFormer(s, pick(Object.keys(SKILLS))).err) v12.formations++; }
+  for (const [k, x] of Object.entries(s.comp || {})) {
+    if (!SKILLS[k] || !Number.isFinite(x) || x < 0 || x > 1500) warns.push(`Compétence incohérente : ${k} = ${x}`);
+    v12.maxNiveau = Math.max(v12.maxNiveau, niveau(s, k));
+  }
+  for (const [k, x] of Object.entries(s.compAn || {})) if (x > CAP_AN) warns.push(`Plafond annuel dépassé : ${k} ${x}`);
+  const k = s.carriere;
+  if (k && (!Number.isFinite(k.mult) || k.mult < 0.5 || k.mult > 1.8)) warns.push(`Multiplicateur de salaire hors bornes : ${k.mult}`);
+  const col = s.relations.filter((r) => r.lien === 'collegue');
+  if (col.length > 2) warns.push(`Trop de collègues actuels : ${col.length}`);
+  if (col.length && !k?.emp) warns.push('Collègues sans employeur');
+  if (k?.voie) v12.voies[k.voie] = (v12.voies[k.voie] || 0) + 1;
+  if (k && METIER_REQUIS[k.id]) v12.metiersRequis[k.id] = (v12.metiersRequis[k.id] || 0) + 1;
+  v12.collegues = Math.max(v12.collegues, s.relations.filter((r) => r.lien === 'excollegue').length);
+}
+
 function coherence(s) {
   coherenceBanque(s);
+  competences(s);
   const ids = s.relations.map((r) => r.id);
   if (new Set(ids).size !== ids.length) warns.push(`Identifiants de PNJ en double (gén. ${s.gen})`);
   if (ids.some((id) => id >= s.uid)) warns.push('Identifiant de PNJ ≥ uid');
@@ -154,7 +176,7 @@ for (let i = 0; i < N; i++) {
       } else if (r < 0.9) {
         const h = housingOptions(s).filter((x) => x.ok);
         if (h.length) moveTo(s, pick(h).id, chance(0.3));
-      } else if (r < 0.93) enroll(s, pick(['fac', 'bts', 'master', 'daeu', 'cap']));
+      } else if (r < 0.93) enroll(s, pick(['fac', 'bts', 'master', 'daeu', 'cap', 'droit', 'medecine']), pick(Object.keys(FILIERES)));
       else {
         const k = Math.random();
         if (k < 0.15) buyAsset(s, pick(Object.keys(ASSETS)));
@@ -202,6 +224,9 @@ for (let i = 0; i < N; i++) {
 
 console.warn = origWarn;
 const evb = (k) => stats.events[k] || 0;
+console.log(`v0.12 · formations : ${v12.formations}, niveau max atteint : ${v12.maxNiveau}, anciens collègues max : ${v12.collegues}`);
+console.log(`v0.12 · années par voie : ${JSON.stringify(v12.voies)} · métiers à compétences exercés (années) : ${JSON.stringify(v12.metiersRequis)}`);
+console.log(`v0.12 · événements : mentor ${evb('col_mentor')}, conflit ${evb('col_conflit')}, erreur ${evb('col_erreur')}, afterwork ${evb('col_afterwork')}, voie ${evb('voie_carriere')}, chasseur ${evb('chasseur_tete')}, plan social ${evb('licenciement_eco')}, offre après stage ${evb('offre_stage')}`);
 console.log(`v0.11 · crédits signés : ${v11.credits}, refusés : ${v11.refus}, remboursés par anticipation : ${v11.anticipes}, dette max : ${Math.round(v11.maxDette)} €, loyers perçus : ${Math.round(v11.loyers)} €`);
 console.log(`v0.11 · surendettement : ${evb('surendettement')}, impayés de locataires : ${evb('loc_impaye')}, crédits qui enrichissent : ${v11.enrichi}`);
 const ev = (k) => stats.events[k] || 0;

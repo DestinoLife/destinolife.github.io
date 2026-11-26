@@ -1,7 +1,19 @@
 // Notes de mise à jour affichées dans le jeu (même contenu que CHANGELOG.md).
-export const VERSION = 'v0.11';
+export const VERSION = 'v0.12';
 
 export const CHANGELOG = [
+  { v: 'v0.12', titre: 'Compétences & Carrières', items: [
+    'Compétences (onglet Carrière) : 22 compétences en 7 domaines (informatique, musique, business, sport, social, finance, métiers), du niveau « notions » à « maître »',
+    'Elles progressent avec les études, les activités et le travail, au plus 160 points par an et par compétence : impossible de tout maxer en répétant la même action',
+    'Deux personnages aussi intelligents n’ont plus les mêmes débouchés : développeur, comptable, infirmier, professeur, avocat et médecin exigent des compétences, avec la raison affichée si tu ne les as pas',
+    'Filières pour la licence, le BTS et le master : informatique, finance, commerce, santé, éducation, droit, arts, sport. Tes diplômes indiquent leur spécialité',
+    'Stages pendant les études : l’entreprise peut t’embaucher une fois ton diplôme en poche',
+    'Formation continue (1 500 €) pour te reconvertir à tout âge',
+    'Employeurs : PME, grand groupe, start-up ou secteur public, chacun avec son ambiance, sa santé financière et son salaire. En crise, une entreprise fragile peut lancer un plan social (indemnités ou prud’hommes)',
+    'Collègues persistants : un supérieur et un collègue à chaque poste. Mentorat, conflits en réunion, erreur à couvrir, afterworks, week-ends sacrifiés. Ils deviennent d’anciens collègues quand tu changes de poste, et ils peuvent un jour t’embaucher',
+    'Voies de carrière : expert, manager ou indépendant (revenus variables selon tes compétences)',
+    'Négocier ton salaire, et des chasseurs de têtes qui viennent chercher les meilleurs profils',
+  ] },
   { v: 'v0.11', titre: 'Banque & Immobilier', items: [
     'Banque (onglet Biens) : compte courant, livret à 3 % plafonné à 23 000 €, patrimoine net (ce que tu possèdes moins ce que tu dois) et note bancaire sur 100',
     'Achat à crédit : voitures, logement, immobilier locatif et business. Offre claire avant de signer : mensualité, taux, coût total, frais, endettement et reste à vivre',

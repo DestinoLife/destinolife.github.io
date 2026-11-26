@@ -33,9 +33,10 @@ export const PNJ_JOBS = [
 export const LIENS_V10 = {
   grandparent: ['Grand-père', 'Grand-mère'], oncle: ['Oncle', 'Tante'], cousin: ['Cousin', 'Cousine'],
   petitenfant: ['Petit-fils', 'Petite-fille'], neveu: ['Neveu', 'Nièce'],
+  collegue: ['Collègue', 'Collègue'], excollegue: ['Ancien collègue', 'Ancienne collègue'],
 };
 
 // Liens qui ont une vie autonome (couple, enfants, métier)
-export const AUTONOMES = ['ami', 'fratrie', 'enfant', 'cousin', 'oncle', 'neveu', 'petitenfant', 'ex'];
+export const AUTONOMES = ['ami', 'fratrie', 'enfant', 'cousin', 'oncle', 'neveu', 'petitenfant', 'ex', 'collegue', 'excollegue'];
 // Liens de la famille (pour l'arbre et la réputation familiale)
 export const FAMILLE = ['mere', 'pere', 'fratrie', 'enfant', 'grandparent', 'oncle', 'cousin', 'petitenfant', 'neveu', 'conjoint'];

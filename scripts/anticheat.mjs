@@ -483,6 +483,50 @@ test('BK-9', 'sauvegarde importée retouchée : refusée, partie précédente co
   return r && localStorage.getItem('destino.save.v1') === bon && importerSauvegarde(bon) === null ? true : `verdict ${r}`;
 });
 
+// ---------- v0.12 Compétences : progression bornée, débouchés différents, reconversion ----------
+const skills = await import('../src/engine/skills.js');
+const careersData = await import('../src/data/careers.js');
+test('CP-1', 'même intelligence, compétences différentes : débouchés différents (raison visible)', () => {
+  const a = vie(24, 5000), b = vie(24, 5000);
+  for (const s of [a, b]) Object.assign(s, { etudes: { niveau: 'master', cursus: null, reste: null }, comp: {} }, { justice: { ...s.justice, casier: [] } }), (s.stats.intel = 70), (s.id.statut = 'ne_france'), (s.carriere = null);
+  a.comp.prog = 300;
+  const ra = careersData.canApply(a, 'developpeur'), rb = careersData.canApply(b, 'developpeur');
+  return ra === true && typeof rb === 'string' && /Compétence requise/.test(rb) ? true : `a: ${ra}, b: ${rb}`;
+});
+test('CP-2', 'pas de progression infinie par répétition (plafond annuel)', () => {
+  const s = vie(25, 1e6);
+  s.compAn = {};
+  const x0 = s.comp.prog || 0;
+  for (let i = 0; i < 50; i++) skills.gagner(s, 'prog', 90);
+  for (let i = 0; i < 20; i++) skills.seFormer(s, 'prog');
+  return (s.comp.prog || 0) - x0 <= 160 ? true : `+${(s.comp.prog || 0) - x0} en un an`;
+});
+test('CP-3', 'reconversion possible par la formation continue', () => {
+  const s = vie(40, 100000);
+  s.comp = {};
+  for (let an = 0; an < 4; an++) {
+    s.compAn = {};
+    s.energie = 4;
+    skills.seFormer(s, 'droit');
+    skills.seFormer(s, 'droit');
+  }
+  return skills.niveau(s, 'droit') >= 2 ? true : `niveau ${skills.niveau(s, 'droit')}`;
+});
+test('CP-4', 'compétences et salaire inaccessibles depuis la console', () => {
+  const p = vault(30, 10000);
+  foreign('p.comp.prog = 1500; p.comp.droit = 1500')(p);
+  const r = takeViolation();
+  return r && (p.comp.prog || 0) < 1500 && (p.comp.droit || 0) < 1500 ? true : `verdict ${r}, prog ${p.comp.prog}`;
+});
+test('CP-5', 'négociations répétées : salaire plafonné', () => {
+  const s = vie(30, 1000);
+  flow.applyJob(s, 'caissier');
+  s.carriere = s.carriere || { id: 'caissier', niveau: 0, annees: 1, perf: 60, mult: 1 };
+  for (let i = 0; i < 100; i++) apply(s, { salMult: 0.1 });
+  const bad = { ...s, comp: { prog: 9999 } };
+  return s.carriere.mult <= 1.8 && validerEtat(bad) === 'compétence' ? true : `mult ${s.carriere.mult}, validation ${validerEtat(bad)}`;
+});
+
 // ---------- Faux positifs : des vies honnêtes, jouées à travers le coffre-fort, ne déclenchent jamais Hitman ----------
 test('HM-7', 'aucun faux positif sur 40 vies (héritages, ventes, casino, bourse, entreprises)', () => {
   const t0 = performance.now();
