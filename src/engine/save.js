@@ -58,6 +58,32 @@ export function load() {
 
 export const clearSave = () => localStorage.removeItem(KEY);
 
+// v0.11 : export et import. Le fichier exporté est la sauvegarde signée telle quelle ; à l'import elle passe
+// par les mêmes contrôles qu'au chargement (signature, vie terminée, journal financier). En cas d'échec,
+// la partie précédente est remise en place.
+export const exporterSauvegarde = () => localStorage.getItem(KEY);
+export function importerSauvegarde(txt) {
+  let d;
+  try {
+    d = parse(String(txt));
+  } catch {
+    return 'Fichier illisible.';
+  }
+  if (!d || typeof d !== 'object' || d._h === undefined) return 'Ce fichier n’est pas une sauvegarde Destino signée.';
+  const avant = localStorage.getItem(KEY);
+  localStorage.setItem(KEY, String(txt));
+  const s = load();
+  const why = !s ? 'Sauvegarde invalide.' : issue;
+  if (why) {
+    if (avant) localStorage.setItem(KEY, avant);
+    else localStorage.removeItem(KEY);
+    issue = null;
+    return why;
+  }
+  if (avant) localStorage.setItem(KEY + '.bak', avant);
+  return null;
+}
+
 // Validation stricte d'un état chargé (après migration) : types, bornes et identifiants connus.
 // Marges volontaires : seules les valeurs impossibles en jeu sont refusées.
 const num = (v, a, b) => typeof v === 'number' && Number.isFinite(v) && v >= a && v <= b;
@@ -77,5 +103,12 @@ export function validerEtat(s) {
   // v0.10 : ambitions connues et en nombre limité, dettes des proches bornées
   if (s.amb && (!Array.isArray(s.amb.act) || s.amb.act.length > 3 || s.amb.act.some((a) => !own(AMBITIONS, a?.id)))) return 'ambition';
   for (const r of s.relations || []) if (r?.dette != null && !num(r.dette, 0, 1e7)) return 'dette d’un proche';
+  // v0.11 : banque (épargne plafonnée, crédits bornés)
+  const b = s.banque;
+  if (b) {
+    if (!num(b.epargne, 0, 1e7) || !num(b.fiche, 0, 10) || !Array.isArray(b.prets) || b.prets.length > 8) return 'banque';
+    for (const p of b.prets) if (!p || !num(p.reste, 0, 1e10) || !num(p.annuite, 0, 1e9) || !num(p.taux, 0, 0.5) || !num(p.ans, 0, 60)) return 'crédit';
+    for (const m of Object.values(b.enfants || {})) if (!num(m, 0, 1e6)) return 'livret enfant';
+  }
   return null;
 }

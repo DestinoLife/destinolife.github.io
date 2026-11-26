@@ -38,6 +38,10 @@ import { advanceTime } from './engine/flow.js';
 import { SKINS as SK } from './data/look.js';
 import { pnjDetailHTML, arbreHTML, ambitionsHTML, bilanHTML, ligneProche } from './ui/family.js';
 import { adopterAmbition, abandonnerAmbition } from './engine/goals.js';
+import { banqueHTML, creditHTML } from './ui/bank.js';
+import { souscrire, simuler } from './engine/credit.js';
+import { livret, livretEnfant, basculerAssurance, rembourserAnticipe, travaux } from './engine/bank.js';
+import { exporterSauvegarde, importerSauvegarde } from './engine/save.js';
 
 const app = document.getElementById('app');
 let S = null; // vie en cours
@@ -157,6 +161,7 @@ function renderTitle() {
         <button class="btn" data-a="random">${icon('dice', 18)} Vie aléatoire</button>
         <button class="btn" data-a="ach">${icon('trophy', 18)} Défis & Succès (${ach.count}/${ach.total})</button>
       </div>
+      <div class="save-io">${saved ? `<button class="ver" data-a="export">${icon('save', 13)} Exporter ma sauvegarde</button>` : ''}<button class="ver" data-a="import">${icon('file', 13)} Importer une sauvegarde</button></div>
       <div class="badge18"><b>18+</b> Violence, drogue, crime. Contenu destiné aux adultes.</div>
       <button class="ver" data-a="changelog">${VERSION} · Notes de mise à jour</button>
       <button class="ver" data-a="bug">Signaler un bug ou proposer une idée</button>
@@ -374,6 +379,7 @@ let ambVues = { k: '', n: 0 };
 // Journal financier tenu par Hitman : chaque mouvement d'argent est rattaché à l'action qui l'a causé
 const JOURNAL_NOM = {
   age: 'Année écoulée (revenus, dépenses, impôts)', act: 'Activité', cplay: 'Casino', bjdeal: 'Blackjack', bjhit: 'Blackjack', bjstand: 'Blackjack',
+  csigne: 'Achat à crédit', livret: 'Livret d’épargne', livretk: 'Livret d’un enfant', anticipe: 'Remboursement anticipé', travaux: 'Travaux locatifs', assur: 'Assurance',
   buyasset: 'Achat d’un bien', sellasset: 'Vente d’un bien', sell: 'Vente', buy: 'Achat du logement', openbiz: 'Création d’entreprise', biz: 'Entreprise',
   bourse: 'Bourse', relact: 'Proche', choose: 'Événement', choice: 'Événement', move: 'Logement', city: 'Déménagement', travel: 'Voyage', flee: 'Cavale',
   net: 'Réseau', apply: 'Candidature', enroll: 'Études', sendmsg: 'Message', answer: 'Message', hitman: 'Saisie par Hitman', heir: 'Héritage',
@@ -411,6 +417,7 @@ function overlayHTML() {
   if (OV.t === 'voyage' || OV.t === 'cavale') return travelHTML(S, OV.t);
   if (OV.t === 'pc') return pcHTML(S, OV.uid);
   if (OV.t === 'arbre') return arbreHTML(S, miniAv);
+  if (OV.t === 'credit') return creditHTML(S, OV);
   return '';
 }
 
@@ -464,7 +471,7 @@ function sheetHTML() {
         ${S.justice.casier.length ? `<div class="list" style="margin-top:8px">${S.justice.casier.slice(-6).reverse().map((c) => `<div class="li"><div class="grow"><b>${esc(c.motif)}</b><small>${c.age} ans · ${esc(c.peine)}</small></div></div>`).join('')}</div>` : ''}</div>
       <div class="sec"><h3>Identité</h3><dl class="kv"><dt>Origine</dt><dd>${o.nom}${S.id.origine !== 'france' ? ` (${esc(S.id.pays)})` : ''}</dd><dt>Statut</dt><dd>${STATUTS[S.id.statut][S.id.genre === 'f' ? 1 : 0]}</dd><dt>Milieu d’origine</dt><dd>${MILIEUX[S.milieu].nom}</dd><dt>Diplôme</dt><dd>${DIPLOME_NOM[S.etudes.niveau]}</dd><dt>Logement</dt><dd>${S.chezParents ? 'Chez tes parents' : HOUSING[S.logement]?.nom || '—'}</dd><dt>Traits</dt><dd>${S.traits.map((t) => (S.id.genre === 'f' ? TRAITS[t].f : TRAITS[t].nom)).join(', ')}</dd><dt>Talent</dt><dd>${TALENTS[S.talent]}</dd></dl></div>
       <div class="sec"><h3>Journal</h3><div class="journal">${S.log.slice(-60).reverse().map((l) => `<div><b>${l.age} ans</b><span>${esc(l.txt)}</span></div>`).join('')}</div></div>
-      <div class="vie-foot"><button class="btn sm" data-a="ach">${icon('trophy', 16)} Défis (${achievementsSummary().count}/${achievementsSummary().total})</button><button class="btn sm" data-a="guideopen">${icon('sparkle', 16)} Revoir le guide</button><button class="btn sm" data-a="quit">${icon('save', 16)} Sauvegarder et quitter</button></div></div>`;
+      <div class="vie-foot"><button class="btn sm" data-a="ach">${icon('trophy', 16)} Défis (${achievementsSummary().count}/${achievementsSummary().total})</button><button class="btn sm" data-a="guideopen">${icon('sparkle', 16)} Revoir le guide</button><button class="btn sm" data-a="export">${icon('file', 16)} Exporter ma sauvegarde</button><button class="btn sm" data-a="quit">${icon('save', 16)} Sauvegarder et quitter</button></div></div>`;
   }
   if (tab === 'act' || tab === 'crime') {
     const list = ACTIVITIES.filter((a) => (inPrison(S) ? a.tab === 'prison' : a.tab === tab));
@@ -475,6 +482,7 @@ function sheetHTML() {
   if (tab === 'rel') return head('Relations', partnerOf(S) ? `En couple avec ${esc(partnerOf(S).prenom)}` : 'Célibataire') + `<div class="sheet-b">${relHTML()}</div>`;
   if (tab === 'biens') {
     const inc = yearlyIncome(S), dep = yearlyCosts(S);
+    const creditOk = new Set(housingOptions(S, true).filter((h) => h.ok && h.achat).map((h) => h.id));
     const fz = fiscalite(S);
     const taux = inc + fz.fortuneNette > 0 && fz.total ? Math.round((fz.total / Math.max(1, legalIncome(S))) * 100) : 0;
     const REG = { normal: '', optimise: 'Optimisation fiscale légale : −20 % environ', offshore: 'Montage offshore : tu paies peu… tant que le fisc ne regarde pas', exil: 'Exil fiscal : presque plus d’impôts en France' };
@@ -482,8 +490,8 @@ function sheetHTML() {
       <div class="sec"><h3>Tes impôts</h3>${S.age < 18 ? '<div class="note">Pas d’impôts avant 18 ans.</div>' : `<dl class="kv"><dt>Impôt sur le revenu · ${String(fz.parts).replace('.', ',')} part${fz.parts > 1 ? 's' : ''}</dt><dd>${euros(fz.revenu)}</dd>${fz.societes ? `<dt>Impôt sur les sociétés</dt><dd>${euros(fz.societes)}</dd>` : ''}${fz.social ? `<dt>Cotisations sociales (indépendant)</dt><dd>${euros(fz.social)}</dd>` : ''}${fz.fonciere ? `<dt>Taxe foncière</dt><dd>${euros(fz.fonciere)}</dd>` : ''}${fz.fortune ? `<dt>Impôt sur la fortune · ${euros(fz.fortuneNette)} de patrimoine</dt><dd>${euros(fz.fortune)}</dd>` : ''}<dt><b>Total</b>${taux ? ` · ${taux} % de tes revenus légaux` : ''}</dt><dd><b>${euros(fz.total)}</b></dd></dl>${REG[fz.regime] ? `<div class="note warn">${REG[fz.regime]}</div>` : ''}<p class="hint">Se marier et avoir des enfants donne des parts en plus. Au-delà de 1,3 M€ de patrimoine, l’impôt sur la fortune s’applique. L’argent sale n’est pas déclaré… mais un train de vie trop élevé attire le fisc.</p>`}</div>
       <div class="sec"><h3>Logement actuel</h3><div class="note">${S.chezParents ? 'Tu vis chez tes parents (gratuit).' : `${HOUSING[S.logement]?.nom}${S.proprio ? ' · propriétaire' : ''}`}</div></div>
       <div class="sec"><h3>Déménager</h3><div class="list">${housingOptions(S).map((h) => `<div class="li ${h.ok ? '' : 'off'}"><div class="grow"><b>${h.nom}</b><small>${h.ok ? [h.loyer ? `Loyer ${euros(h.loyer)}/an` : h.achat ? '' : 'Gratuit', h.achat ? `Achat ${euros(h.achat)}` : ''].filter(Boolean).join(' · ') : esc(h.why)}</small></div>
-        ${h.ok && (h.loyer || !h.achat) ? `<button class="btn sm" data-a="move" data-v="${h.id}">${h.loyer ? 'Louer' : 'Y aller'}</button>` : ''}${h.ok && h.achat ? `<button class="btn sm ${S.money >= h.achat ? '' : 'off'}" data-a="buy" data-v="${h.id}">Acheter</button>` : ''}</div>`).join('')}</div></div>`;
-    return head('Biens et argent', `${S.age < 18 ? 'Argent de poche' : 'Compte'} : ${euros(S.money)}`) + `<div class="sheet-b">${biensHTML(S, housing)}${journalHTML()}${expatHTML(S)}</div>`;
+        ${h.ok && (h.loyer || !h.achat) ? `<button class="btn sm" data-a="move" data-v="${h.id}">${h.loyer ? 'Louer' : 'Y aller'}</button>` : ''}${h.ok && h.achat ? `<button class="btn sm ${S.money >= h.achat ? '' : 'off'}" data-a="buy" data-v="${h.id}">Acheter</button>` : ''}${h.achat && creditOk.has(h.id) ? `<button class="btn sm" data-a="credit" data-v="logement:${h.id}">À crédit</button>` : ''}</div>`).join('')}</div></div>`;
+    return head('Biens et argent', `${S.age < 18 ? 'Argent de poche' : 'Compte'} : ${euros(S.money)}`) + `<div class="sheet-b">${banqueHTML(S)}${biensHTML(S, housing)}${journalHTML()}${expatHTML(S)}</div>`;
   }
   return '';
 }
@@ -775,6 +783,59 @@ function handle0(a, v, el) {
       const r = moveTo(S, v, a === 'buy');
       toast(r.r, r.err ? 'err' : 'good');
       return updateGame();
+    }
+    case 'credit':
+      OV = { t: 'credit', cible: v, apport: null, duree: null };
+      return updateGame();
+    case 'capport':
+    case 'cduree':
+      if (OV?.t === 'credit') OV[a === 'capport' ? 'apport' : 'duree'] = Number(v);
+      return updateGame();
+    case 'csigne': {
+      if (OV?.t !== 'credit') return;
+      const sim = simuler(S, OV.cible, OV.apport, OV.duree);
+      const r = sim ? souscrire(S, OV.cible, sim.o.apport, sim.o.duree) : { r: '', err: true };
+      if (r.r) toast(tpl(r.r, S), r.err ? 'err' : 'good');
+      if (!r.err) OV = null;
+      presentNext(S);
+      return updateGame();
+    }
+    case 'livret':
+    case 'livretk':
+    case 'assur':
+    case 'anticipe':
+    case 'travaux': {
+      let r;
+      if (a === 'livret') r = livret(S, v === 'max' ? Math.max(0, S.money) : v === '-max' ? -(S.banque?.epargne || 0) : Number(v));
+      if (a === 'livretk') r = livretEnfant(S, Number(v), 500);
+      if (a === 'assur') r = basculerAssurance(S, v);
+      if (a === 'anticipe') r = rembourserAnticipe(S, Number(v));
+      if (a === 'travaux') r = travaux(S, Number(v));
+      if (r?.r) toast(r.r, r.err ? 'err' : 'good');
+      return updateGame();
+    }
+    case 'export': {
+      const txt = exporterSauvegarde();
+      if (!txt) return toast('Aucune sauvegarde à exporter.', 'err');
+      const url = URL.createObjectURL(new Blob([txt], { type: 'application/json' }));
+      const lien = Object.assign(document.createElement('a'), { href: url, download: `destino-${(S?.id.prenom || 'sauvegarde').normalize('NFD').replace(/[^\w-]/g, '')}-${S ? S.age + 'ans' : ''}.json` });
+      lien.click();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+      return toast('Sauvegarde exportée : garde ce fichier pour reprendre ta vie sur un autre appareil.', 'good');
+    }
+    case 'import': {
+      if (S && !confirm('Importer une sauvegarde remplacera la partie enregistrée sur cet appareil. Continuer ?')) return;
+      const inp = Object.assign(document.createElement('input'), { type: 'file', accept: '.json,application/json' });
+      inp.onchange = async () => {
+        const f = inp.files?.[0];
+        if (!f || f.size > 5e6) return toast('Fichier invalide.', 'err');
+        const err = importerSauvegarde(await f.text());
+        if (err) return toast(`Import refusé : ${err}.`, 'err');
+        toast('Sauvegarde importée. Tu peux continuer ta vie.', 'good');
+        renderTitle();
+      };
+      inp.click();
+      return;
     }
     case 'arbre':
       tab = null;

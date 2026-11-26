@@ -3,6 +3,7 @@ import { rand } from './hitman.js';
 import { rnd, pick, chance, clamp, euros } from './rng.js';
 import { addLog, apply, newPerson, career, tpl, registerFx } from './core.js';
 import { ASSETS, BUSINESS, ROLES, DESTS, MISSIONS } from '../data/world.js';
+import { migrateBank, resteSur, solderSur } from './bank.js';
 import { nameFor, surnameFor, ORIGINES, VILLES } from '../data/identity.js';
 
 const gauss = () => (rand() + rand() + rand() - 1.5) / 1.5;
@@ -22,6 +23,7 @@ export function migrate(s) {
   s.annee ??= { sport: 0, medecin: 0 };
   s.avec ??= [];
   s.casino ??= { perdu: 0, gagne: 0 };
+  migrateBank(s);
   return s;
 }
 
@@ -117,10 +119,12 @@ export function buyAsset(s, id) {
   if (inPrison(s)) return { r: 'Impossible en détention.', err: true };
   if (s.money < a.prix) return { r: `Il te faut ${euros(a.prix)}.`, err: true };
   s.money -= a.prix;
-  s.biens.push({ uid: s.uid++, id, valeur: a.prix, achat: a.prix, depuis: s.age });
+  const bien = { uid: s.uid++, id, valeur: a.prix, achat: a.prix, depuis: s.age };
+  if (a.loc) bien.loc = { loc: null, etat: 85, impaye: 0 };
+  s.biens.push(bien);
   addLog(s, `Achat : ${a.nom} (${euros(a.prix)}).`);
   if (ASSETS[id].car) s.avec = [];
-  return { r: `${a.nom} acheté${a.cat === 'Voiture' ? 'e' : ''} !`, good: true };
+  return { r: `${a.nom} acheté${a.cat === 'Voiture' ? 'e' : ''} !`, good: true, uid: bien.uid };
 }
 export function sellAsset(s, uid) {
   const i = s.biens.findIndex((b) => b.uid === uid);
@@ -128,23 +132,26 @@ export function sellAsset(s, uid) {
   const b = s.biens[i];
   const rec = s.relations.find((r) => r.vivant && r.role === 'receleur');
   // Frais de revente : un marchand prend sa commission (voitures 15 %, art et bijoux 10 %)
-  const frais = ASSETS[b.id].car ? 0.85 : 0.9;
-  const bonus = rec && b.depuis < s.age;
+  const frais = ASSETS[b.id].car ? 0.85 : ASSETS[b.id].loc ? 0.94 : 0.9;
+  const bonus = rec && b.depuis < s.age && !ASSETS[b.id].loc;
   const prix = Math.round(b.valeur * frais * (bonus ? 1.15 : 1));
-  s.money += prix;
+  // Bien financé à crédit : la banque est remboursée en premier sur le prix de vente
+  const du = resteSur(s, 'bien', b.uid);
+  if (du && s.money + prix < du) return { r: `La vente (${euros(prix)}) ne couvre pas ton crédit (${euros(du)} restants).`, err: true };
+  s.money += prix - (du ? solderSur(s, 'bien', b.uid) : 0);
   s.biens.splice(i, 1);
   addLog(s, `Vente : ${ASSETS[b.id].nom} pour ${euros(prix)}.`);
   return { r: `Vendu ${euros(prix)} (${prix >= b.achat ? '+' : ''}${euros(prix - b.achat)})${bonus ? ' · +15 % grâce à ton receleur' : ' · commission du marchand déduite'}.`, good: prix >= b.achat };
 }
 export const bestCar = (s) => s.biens.filter((b) => ASSETS[b.id].car).sort((a, b) => b.valeur - a.valeur)[0];
 export const bizValue = (b) => (BUSINESS[b.type].startup ? Math.round(b.valo * (b.part ?? 100) / 100) : b.valo);
-export const patrimoine = (s) => s.biens.reduce((t, b) => t + b.valeur, 0) + s.business.reduce((t, b) => t + bizValue(b), 0) + (s.bourse || 0);
+export const patrimoine = (s) => s.biens.reduce((t, b) => t + b.valeur, 0) + s.business.reduce((t, b) => t + bizValue(b), 0) + (s.bourse || 0) + (s.banque?.epargne || 0);
 
 function assetsTick(s) {
   const E = eco(s);
   for (const b of s.biens) {
     const a = ASSETS[b.id];
-    const cycle = a.car && b.id !== 'collection' ? 0 : E.art;
+    const cycle = a.car && b.id !== 'collection' ? 0 : a.cat === 'Immobilier' ? E.art * 0.4 : E.art;
     b.valeur = Math.max(Math.round(a.prix * 0.05), Math.round(b.valeur * (1 + a.tend + cycle + gauss() * a.vol)));
   }
 }
@@ -172,7 +179,7 @@ export function createBusiness(s, type, nom) {
   }
   s.business.push(b);
   addLog(s, `Ouverture : ${b.nom}.`);
-  return { r: B.startup ? `${b.nom} est lancée, avec 80 000 € de « love money » de tes proches en plus de ta mise. 9 start-ups sur 10 ne passent pas 5 ans…` : `${b.nom} ouvre ses portes ! Les premières années sont les plus dures.`, good: true };
+  return { uid: b.uid, r: B.startup ? `${b.nom} est lancée, avec 80 000 € de « love money » de tes proches en plus de ta mise. 9 start-ups sur 10 ne passent pas 5 ans…` : `${b.nom} ouvre ses portes ! Les premières années sont les plus dures.`, good: true };
 }
 
 export function businessAction(s, uid, act) {
@@ -226,7 +233,8 @@ export function businessAction(s, uid, act) {
     }
     case 'vendre': {
       const prix = Math.round(bizValue(b) * (0.88 + rand() * 0.14));
-      s.money += prix;
+      // Prêt professionnel : remboursé sur le prix de cession (s'il ne suffit pas, le reste est dû sur ton compte)
+      s.money += prix - solderSur(s, 'biz', b.uid);
       s.business = s.business.filter((x) => x !== b);
       addLog(s, `Revente de ${b.nom} : ${euros(prix)}.`);
       return { r: `${b.nom} vendu ${euros(prix)}${B.startup && b.part < 100 ? ` (tu détenais ${Math.round(b.part)} %)` : ''}.`, good: prix >= b.investi };
@@ -256,6 +264,7 @@ export function businessAction(s, uid, act) {
 function faillite(s, b, txt) {
   s.business = s.business.filter((x) => x !== b);
   addLog(s, txt);
+  if (resteSur(s, 'biz', b.uid)) addLog(s, `Tu t’étais porté{e} caution : le prêt professionnel de ${b.nom} reste à rembourser.`);
   s.stats.bonheur = clamp(s.stats.bonheur - 12);
   sms(s, 'Le mandataire judiciaire', `Liquidation judiciaire de ${b.nom}. Les actifs sont vendus pour payer les créanciers.`, 'Business');
 }

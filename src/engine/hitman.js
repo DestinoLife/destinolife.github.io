@@ -297,7 +297,7 @@ export function comptaOk(s) {
 export const journal = () => (root?.compta?.j || []).slice();
 
 // Actions d'interface pures : elles ne doivent rien changer d'important
-const UI_ONLY = new Set(['tab', 'ctab', 'closeall', 'itab', 'compose', 'phoneconv', 'pc', 'ach', 'changelog', 'bug', 'hitmanok', 'tipsoff', 'phoneclose', 'guide', 'guidenext', 'guideskip', 'cbet', 'cgame', 'cpick', 'arbre']);
+const UI_ONLY = new Set(['tab', 'ctab', 'closeall', 'itab', 'compose', 'phoneconv', 'pc', 'ach', 'changelog', 'bug', 'hitmanok', 'tipsoff', 'phoneclose', 'guide', 'guidenext', 'guideskip', 'cbet', 'cgame', 'cpick', 'arbre', 'credit', 'capport', 'cduree', 'export']);
 // Achats : ils ne doivent jamais enrichir
 const DEPENSES = new Set(['buyasset', 'openbiz', 'city']);
 

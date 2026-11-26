@@ -14,7 +14,8 @@ const eco = await import('../src/engine/economy.js');
 const life2 = await import('../src/engine/life2.js');
 const msgs = await import('../src/engine/messages.js');
 const { EV } = await import('../src/data/events.js');
-const { save, load, saveIssue } = await import('../src/engine/save.js');
+const SAVE = await import('../src/engine/save.js');
+const { save, load, saveIssue } = SAVE;
 const { loadAchievements, checkAchievements } = await import('../src/engine/achievements.js');
 
 let pass = 0;
@@ -389,6 +390,99 @@ test('UI-4', 'succès retouchés ignorés, vie condamnée sans succès', () => {
   return checkAchievements(s).length === 0 ? true : 'succès débloqué malgré Hitman';
 });
 
+// ---------- v0.11 Banque : un emprunt ne crée jamais d'argent ----------
+const bank = await import('../src/engine/bank.js');
+const credit = await import('../src/engine/credit.js');
+const salarie = (money = 20000, job = 'commercial') => {
+  const s = vie(35, money);
+  s.etudes.niveau = 'master';
+  flow.applyJob(s, job);
+  s.carriere = s.carriere || { id: job, niveau: 1, annees: 4, perf: 60 };
+  s.carriere.annees = 4;
+  s.justice.casier = [];
+  Object.assign(s.id, { statut: 'ne_france', ville: 'Lyon' });
+  s.logement = 'appart';
+  s.chezParents = false;
+  return s;
+};
+test('BK-1', 'salarié ordinaire : crédit auto accordé avec une offre claire', () => {
+  const s = salarie(20000);
+  const sm = credit.simuler(s, 'bien:citadine', 0, 4);
+  const o = sm.o;
+  return o.ok === true && o.mensualite > 0 && o.cout > 0 && o.endettement < 0.35 ? true : `refus : ${o.ok} (endettement ${o.endettement})`;
+});
+test('BK-2', 'acheter à crédit coûte exactement l’apport et les frais, sans liquidités', () => {
+  for (const cible of ['bien:citadine', 'bien:t2', 'biz:garage']) {
+    const s = salarie(cible === 'bien:citadine' ? 20000 : 120000, 'developpeur');
+    const d = credit.simuler(s, cible).C.durees.at(-1);
+    const o = credit.simuler(s, cible, cible === 'bien:citadine' ? 0 : cible === 'biz:garage' ? 20000 : 60000, d).o;
+    const avant = s.money;
+    const r = credit.souscrire(s, cible, o.apport, d);
+    if (r.err) return `${cible} refusé : ${r.r}`;
+    if (s.money !== avant - o.apport - o.frais) return `${cible} : ${avant} → ${s.money}`;
+  }
+  return true;
+});
+test('BK-3', 'revendre aussitôt un bien financé ne rapporte rien (la banque passe d’abord)', () => {
+  const s = salarie(60000, 'developpeur');
+  const avant = s.money;
+  credit.souscrire(s, 'bien:t2', 40000, 25);
+  const b = s.biens.find((x) => x.id === 't2');
+  const r = eco.sellAsset(s, b.uid);
+  return s.money < avant && (r.err || !s.banque.prets.length) ? true : `avant ${avant}, après ${s.money}, prêts ${s.banque.prets.length}`;
+});
+test('BK-4', 'deux échéances impayées : saisie, fichage, aucun enrichissement', () => {
+  const s = salarie(60000, 'developpeur');
+  credit.souscrire(s, 'bien:t2', 40000, 25);
+  s.carriere = null;
+  s.money = -50000;
+  bank.bankTick(s);
+  bank.bankTick(s);
+  const saisi = !s.biens.some((x) => x.id === 't2');
+  return saisi && s.banque.fiche >= 4 && s.money < 0 ? true : `saisi ${saisi}, fiche ${s.banque.fiche}, argent ${s.money}`;
+});
+test('BK-5', 'rétablissement personnel : tout est vendu, dettes effacées, fiché', () => {
+  const s = salarie(60000, 'developpeur');
+  credit.souscrire(s, 'bien:t2', 40000, 25);
+  s.banque.epargne = 5000;
+  apply(s, { surendettement: 'faillite' });
+  return !s.biens.length && !s.banque.prets.length && s.banque.epargne === 0 && s.money >= 0 && s.banque.fiche >= 5 ? true : `biens ${s.biens.length}, prêts ${s.banque.prets.length}, argent ${s.money}`;
+});
+test('BK-6', 'endettement au-delà de 35 % refusé, comme les détenus, mineurs et fichés', () => {
+  const s = salarie(400000, 'caissier');
+  const o = credit.simuler(s, 'bien:immeuble', 125000, 10).o;
+  const p = salarie(50000); p.justice.prison = 3;
+  const m = vie(16, 50000);
+  const f = salarie(50000); f.banque.fiche = 3;
+  const refus = [credit.simuler(p, 'bien:citadine').o.ok, credit.simuler(m, 'bien:citadine').o.ok, credit.simuler(f, 'bien:citadine').o.ok];
+  return o.ok !== true && /35 %/.test(o.ok) && refus.every((x) => x !== true) ? true : `immeuble ${o.ok}, autres ${refus}`;
+});
+test('BK-7', 'livret : plafond respecté, montants invalides refusés', () => {
+  const s = salarie(100000);
+  bank.livret(s, 50000);
+  const ok1 = s.banque.epargne === bank.LIVRET_PLAFOND && s.money === 100000 - bank.LIVRET_PLAFOND;
+  for (const b of BAD.filter((x) => !(typeof x === 'number' && Number.isFinite(x)))) bank.livret(s, b);
+  return ok1 && s.banque.epargne === bank.LIVRET_PLAFOND && fini(s) ? true : `épargne ${s.banque.epargne}, argent ${s.money}`;
+});
+test('BK-8', 'succession : assurance emprunteur pour l’immobilier, autres dettes payées avant l’héritage', () => {
+  const s = salarie(80000, 'developpeur');
+  credit.souscrire(s, 'bien:t2', 40000, 25);
+  credit.souscrire(s, 'bien:citadine', 0, 4);
+  const dettesAuto = s.banque.prets.filter((p) => p.type === 'auto').reduce((t, p) => t + p.reste, 0);
+  const cash = s.money;
+  const reg = bank.succession(s);
+  return reg.assurance > 0 && reg.dettes === dettesAuto && s.money === Math.max(0, cash - dettesAuto) + reg.vendus - (cash - dettesAuto < 0 ? 0 : 0) && !s.banque.prets.length ? true : `reg ${JSON.stringify(reg)}, argent ${s.money}`;
+});
+test('BK-9', 'sauvegarde importée retouchée : refusée, partie précédente conservée', () => {
+  const sv = vie(30, 1000);
+  save(sv);
+  const bon = localStorage.getItem('destino.save.v1');
+  const { importerSauvegarde } = SAVE;
+  const triche = bon.replace('"money":1000', '"money":9999999');
+  const r = importerSauvegarde(triche);
+  return r && localStorage.getItem('destino.save.v1') === bon && importerSauvegarde(bon) === null ? true : `verdict ${r}`;
+});
+
 // ---------- Faux positifs : des vies honnêtes, jouées à travers le coffre-fort, ne déclenchent jamais Hitman ----------
 test('HM-7', 'aucun faux positif sur 40 vies (héritages, ventes, casino, bourse, entreprises)', () => {
   const t0 = performance.now();
@@ -431,6 +525,9 @@ test('HM-7', 'aucun faux positif sur 40 vies (héritages, ventes, casino, bourse
         else if (r < 0.55 && p.biens.length) act(p, 'sellasset', () => eco.sellAsset(p, p.biens[0].uid));
         else if (r < 0.62) act(p, 'openbiz', () => eco.createBusiness(p, pickR(Object.keys(eco.BUSINESS)), 'Test'));
         else if (r < 0.75) act(p, 'apply', () => flow.applyJob(p, pickR(Object.keys(flow.CAREERS))));
+        else if (r < 0.8) { const cb = pickR(['bien:citadine', 'bien:studio', 'bien:t2', 'logement:maison', 'biz:garage']); const sm = credit.simuler(p, cb); if (sm) act(p, 'csigne', () => credit.souscrire(p, cb, sm.o.apportMin, pickR(sm.C.durees))); }
+        else if (r < 0.85) act(p, 'livret', () => bank.livret(p, rand() < 0.6 ? Math.floor(p.money * 0.3) : -2000));
+        else if (r < 0.87 && p.banque?.prets?.length) act(p, 'anticipe', () => bank.rembourserAnticipe(p, p.banque.prets[0].uid));
       }
       if (rand() < 0.4) act(p, 'act', () => flow.doActivity(p, pickR(flow.ACTIVITIES).id));
       const rel = p.relations.find((x) => x.vivant);

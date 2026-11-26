@@ -154,16 +154,16 @@ export function biensHTML(S, housingBlock) {
     const d = (b.valeur - b.achat) / b.achat;
     return `<div class="li"><div class="grow"><b>${a.nom}</b><small>${a.cat} · acheté ${euros(b.achat)} · <span style="color:${d >= 0 ? 'var(--good)' : 'var(--bad)'}">${pct(d)}</span></small></div><b>${euros(b.valeur)}</b><button class="btn sm" data-a="sell" data-v="${b.uid}">Vendre</button></div>`;
   }).join('');
-  const shop = Object.entries(ASSETS).map(([id, a]) => `<div class="li ${S.money >= a.prix ? '' : 'off'}"><div class="grow"><b>${a.nom}</b><small>${a.cat} · tendance ${a.tend >= 0 ? '▲' : '▼'} ${pct(a.tend)}/an${a.vol > 0.2 ? ' · très volatil' : ''}</small></div><button class="btn sm ${S.money >= a.prix ? '' : 'off'}" data-a="buyasset" data-v="${id}">${euros(a.prix)}</button></div>`).join('');
+  const shop = Object.entries(ASSETS).map(([id, a]) => { const cred = a.car || a.loc; return `<div class="li ${S.money >= a.prix || cred ? '' : 'off'}"><div class="grow"><b>${a.nom}</b><small>${a.cat} · tendance ${a.tend >= 0 ? '▲' : '▼'} ${pct(a.tend)}/an${a.loc ? ` · loyer ${euros(a.loc)}/an` : ''}${a.vol > 0.2 ? ' · très volatil' : ''}</small></div><button class="btn sm ${S.money >= a.prix ? '' : 'off'}" data-a="buyasset" data-v="${id}">${euros(a.prix)}</button>${cred ? `<button class="btn sm" data-a="credit" data-v="bien:${id}">À crédit</button>` : ''}</div>`; }).join('');
   const biz = S.business.map((b) => bizCard(b)).join('');
-  const open = Object.entries(BUSINESS).map(([id, B]) => `<div class="li ${S.money >= B.prix ? '' : 'off'}"><div class="grow"><b>${B.nom}</b><small>${B.desc}${B.lav ? ` · blanchit ${euros(B.lav)}/an` : ''}</small></div><button class="btn sm ${S.money >= B.prix ? '' : 'off'}" data-a="openbiz" data-v="${id}">${euros(B.prix)}</button></div>`).join('');
+  const open = Object.entries(BUSINESS).map(([id, B]) => `<div class="li"><div class="grow"><b>${B.nom}</b><small>${B.desc}${B.lav ? ` · blanchit ${euros(B.lav)}/an` : ''}</small></div><button class="btn sm ${S.money >= B.prix ? '' : 'off'}" data-a="openbiz" data-v="${id}">${euros(B.prix)}</button><button class="btn sm" data-a="credit" data-v="biz:${id}">À crédit</button></div>`).join('');
   const villes = ['Paris', 'Marseille', 'Lyon', 'Nice', 'Bordeaux', 'Lille', 'Toulouse', 'Montpellier', 'Nantes', 'Strasbourg'].filter((v) => v !== S.id.ville);
   return `<div class="ph-card wide"><small>Patrimoine total</small><b>${euros(p + S.money)}</b><span>Compte ${euros(S.money)} · biens et business ${euros(p)}${S.sale ? ` · à blanchir ${euros(S.sale)}` : ''}</span></div>
     ${ecoBlock(S)}
     <div class="sec"><h3>Mes biens</h3><div class="list">${own || '<div class="note">Aucun bien pour l’instant.</div>'}</div></div>
     <div class="sec"><h3>Mes entreprises</h3>${biz || '<div class="note">Aucune entreprise. Un restaurant ou un snack permet aussi de blanchir l’argent sale.</div>'}</div>
     <div class="sec"><h3>Ouvrir un business</h3><div class="list">${open}</div></div>
-    <div class="sec"><h3>Acheter (voitures, bijoux, art)</h3><div class="list">${shop}</div></div>
+    <div class="sec"><h3>Acheter (voitures, immobilier locatif, bijoux, art)</h3><div class="list">${shop}</div></div>
     <div class="sec"><h3>Sécurité</h3><div class="li"><div class="grow"><b>Gardes du corps : ${S.securite}</b><small>42 000 € par an et par garde · protège des menaces et cambriolages</small></div><button class="btn sm" data-a="guard" data-v="1">Engager</button>${S.securite ? '<button class="btn sm" data-a="guard" data-v="-1">Renvoyer</button>' : ''}</div></div>
     <div class="sec"><h3>Changer de ville</h3><p class="hint" style="margin-bottom:8px">Nouveau départ, nouvelles rencontres. 3 000 € de déménagement.</p><div class="chips">${villes.map((v) => `<button class="chip" data-a="city" data-v="${v}">${v}</button>`).join('')}</div></div>
     ${housingBlock}`;

@@ -9,6 +9,8 @@ import { answer, writeTo, topicsFor } from '../src/engine/messages.js';
 import { instaComment, instaFeed } from '../src/engine/life2.js';
 import { suggestions, adopterAmbition, abandonnerAmbition } from '../src/engine/goals.js';
 import { AMBITIONS } from '../src/data/ambitions.js';
+import { souscrire, simuler } from '../src/engine/credit.js';
+import { livret, livretEnfant, basculerAssurance, travaux, rembourserAnticipe, dette, patrimoineNet, CREDITS } from '../src/engine/bank.js';
 import { migrate, buyAsset, sellAsset, createBusiness, businessAction, networkAction, travel, flee, roulette, slots, moveCity, findContact, startNetwork, ASSETS, BUSINESS, DESTS, MISSIONS } from '../src/engine/economy.js';
 
 const N = Number(process.argv[2] || 300);
@@ -20,7 +22,45 @@ const stats = { vies: 0, ages: [], causes: {}, metiers: {}, prison: 0, events: {
 
 // v0.10 : cohérence des PNJ, de la famille, des ambitions et de la dynastie
 const v10 = { mariagesPnj: 0, naissancesPnj: 0, petitsEnfants: 0, ambFinies: 0, ambAbandon: 0, viesAvecAmb: 0, relMax: 0, gensMax: 0 };
+// v0.11 : banque et immobilier
+const v11 = { credits: 0, refus: 0, defauts: 0, surendettement: 0, faillites: 0, plans: 0, loyers: 0, anticipes: 0, maxDette: 0, enrichi: 0 };
+const CIBLES = ['bien:citadine', 'bien:compacte', 'bien:suv', 'bien:studio', 'bien:t2', 'bien:t3', 'bien:immeuble', 'logement:maison', 'logement:villa', 'biz:resto', 'biz:garage', 'biz:vetements'];
+function banque(s) {
+  if (s.age < 18 || !s.vivant || busy(s)) return;
+  const r = Math.random();
+  if (r < 0.06) {
+    const cible = pick(CIBLES);
+    const sim = simuler(s, cible);
+    if (!sim) return;
+    const avant = s.money;
+    const res = souscrire(s, cible, sim.o.apportMin + Math.floor(Math.random() * Math.max(1, s.money - sim.o.apportMin) * 0.5), pick(sim.C.durees));
+    if (res.err) v11.refus++;
+    else {
+      v11.credits++;
+      // Garde-fou : hors revente de l'ancien logement, un crédit ne doit jamais laisser plus d'argent qu'avant
+      if (!cible.startsWith('logement') && s.money > avant) { v11.enrichi++; warns.push(`Crédit qui enrichit : ${cible} ${avant} → ${s.money}`); }
+    }
+  } else if (r < 0.12) livret(s, chance(0.6) ? Math.floor(s.money * 0.3) : -Math.floor(Math.random() * 5000));
+  else if (r < 0.14) { const k = s.relations.find((x) => x.vivant && x.lien === 'enfant' && x.age < 18); if (k) livretEnfant(s, k.id, 500); }
+  else if (r < 0.17) basculerAssurance(s, pick(['hab', 'auto']));
+  else if (r < 0.19 && s.biens.length) travaux(s, pick(s.biens).uid);
+  else if (r < 0.2 && s.banque?.prets?.length) { if (!rembourserAnticipe(s, pick(s.banque.prets).uid).err) v11.anticipes++; }
+}
+function coherenceBanque(s) {
+  const b = s.banque;
+  if (!b) return warns.push('Banque absente');
+  for (const p of b.prets) {
+    if (!Number.isFinite(p.reste) || p.reste < 0 || !Number.isFinite(p.annuite) || p.annuite <= 0) warns.push(`Crédit incohérent : ${JSON.stringify(p).slice(0, 120)}`);
+    if (!CREDITS[p.type]) warns.push('Type de crédit inconnu');
+  }
+  if (!Number.isFinite(b.epargne) || b.epargne < 0) warns.push('Épargne incohérente');
+  if (!Number.isFinite(patrimoineNet(s))) warns.push('Patrimoine net NaN');
+  v11.maxDette = Math.max(v11.maxDette, dette(s));
+  if (b.an) v11.loyers += b.an.loyers;
+}
+
 function coherence(s) {
+  coherenceBanque(s);
   const ids = s.relations.map((r) => r.id);
   if (new Set(ids).size !== ids.length) warns.push(`Identifiants de PNJ en double (gén. ${s.gen})`);
   if (ids.some((id) => id >= s.uid)) warns.push('Identifiant de PNJ ≥ uid');
@@ -98,6 +138,7 @@ for (let i = 0; i < N; i++) {
     if (chance(0.15)) { const sg = suggestions(s); if (sg.length) adopterAmbition(s, pick(sg).id); }
     if (chance(0.02) && s.amb?.act?.length) abandonnerAmbition(s, pick(s.amb.act).id);
     coherence(s);
+    banque(s);
     // quelques actions au hasard
     for (let k = 0; k < 3; k++) {
       if (busy(s)) resolve(s);
@@ -160,6 +201,9 @@ for (let i = 0; i < N; i++) {
 }
 
 console.warn = origWarn;
+const evb = (k) => stats.events[k] || 0;
+console.log(`v0.11 · crédits signés : ${v11.credits}, refusés : ${v11.refus}, remboursés par anticipation : ${v11.anticipes}, dette max : ${Math.round(v11.maxDette)} €, loyers perçus : ${Math.round(v11.loyers)} €`);
+console.log(`v0.11 · surendettement : ${evb('surendettement')}, impayés de locataires : ${evb('loc_impaye')}, crédits qui enrichissent : ${v11.enrichi}`);
 const ev = (k) => stats.events[k] || 0;
 console.log(`v0.10 · ambitions accomplies : ${v10.ambFinies} (${v10.viesAvecAmb} vies sur ${stats.vies + stats.gens} en ont au moins une), abandonnées : ${v10.ambAbandon}`);
 console.log(`v0.10 · PNJ mariés à la mort du joueur : ${v10.mariagesPnj} · petits-enfants : ${v10.petitsEnfants} · relations max : ${v10.relMax} · génération max : ${v10.gensMax}`);

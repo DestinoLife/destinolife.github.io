@@ -252,3 +252,26 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
   .pnj { margin-left: 0; }
   .tn { width: 84px; }
 }
+
+/* ---------- v0.11 : banque, offre de crédit, export de sauvegarde ---------- */
+.bank .li small { display: block; }
+.sub-h { margin: 12px 0 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--faint); }
+.bank-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 10px; }
+.bank-grid > div { display: grid; gap: 2px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.03); }
+.bank-grid small { font-size: 11px; color: var(--faint); }
+.bank-grid b { font-size: 17px; font-variant-numeric: tabular-nums; }
+.bank-grid span { font-size: 11px; color: var(--muted); }
+.bank-chips { margin: 4px 0 6px; }
+.bank-chips .chip { height: 30px; font-size: 12px; }
+.btn.sm.on { border-color: rgba(79, 209, 139, 0.5); color: #8ff0b8; }
+.credit .chips .chip { height: 30px; font-size: 12px; }
+.offre { margin: 14px 0 12px; padding: 14px; border-radius: 14px; border: 1px solid rgba(154, 123, 255, 0.35); background: rgba(154, 123, 255, 0.08); }
+.offre > small { font-size: 11px; color: var(--faint); text-transform: uppercase; letter-spacing: 0.08em; }
+.offre > b { display: block; margin: 2px 0 10px; font-size: 28px; font-variant-numeric: tabular-nums; }
+.offre > b span { font-size: 14px; font-weight: 500; color: var(--muted); }
+.offre .kv { font-size: 12px; }
+.save-io { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 14px; margin-top: 10px; }
+.save-io .ver { display: inline-flex; align-items: center; gap: 6px; }
+@media (max-width: 520px) {
+  .bank-grid b { font-size: 15px; }
+}

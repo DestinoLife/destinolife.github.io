@@ -1,7 +1,21 @@
 // Notes de mise à jour affichées dans le jeu (même contenu que CHANGELOG.md).
-export const VERSION = 'v0.10';
+export const VERSION = 'v0.11';
 
 export const CHANGELOG = [
+  { v: 'v0.11', titre: 'Banque & Immobilier', items: [
+    'Banque (onglet Biens) : compte courant, livret à 3 % plafonné à 23 000 €, patrimoine net (ce que tu possèdes moins ce que tu dois) et note bancaire sur 100',
+    'Achat à crédit : voitures, logement, immobilier locatif et business. Offre claire avant de signer : mensualité, taux, coût total, frais, endettement et reste à vivre',
+    'La banque peut refuser : plus de 35 % d’endettement, pas de revenus déclarés, prison, sans-papiers, fichage. L’argent va directement au vendeur, jamais dans ta poche',
+    'Échéances prélevées une fois par an. Deux impayés : saisie du bien et fichage pour 5 ans. Revendre un bien financé rembourse d’abord la banque. Remboursement anticipé possible',
+    'Surendettement : plan de la Banque de France (intérêts supprimés, échéances étalées) ou rétablissement personnel (tout est vendu, le reste est effacé)',
+    'Découvert autorisé selon tes revenus, agios à 12 %, incidents de paiement',
+    'Immobilier locatif : studio, T2, T3, immeuble. Locataires qui arrivent et partent, vacance, impayés (procédure ou arrangement), travaux, revenus fonciers imposés',
+    'Assurances habitation et auto : dégâts des eaux, cambriolages, accidents. Sans assurance, tout est pour toi, et rouler sans assurance coûte 750 € au contrôle',
+    'Livrets pour tes enfants, remis à leurs 18 ans. L’héritier récupère le sien',
+    'Succession : l’assurance emprunteur solde le crédit immobilier, les autres dettes sont payées avant l’héritage',
+    'Impôt sur la fortune calculé sur le patrimoine net de dettes',
+    'Sauvegarde : export dans un fichier et import sur un autre appareil (écran titre). Un fichier retouché est refusé',
+  ] },
   { v: 'v0.10', titre: 'Relations & Dynasties', items: [
     'Tes proches vivent leur vie sans toi : métier, chômage, reconversion, couple, mariage, divorce, enfants, fortune qui monte ou qui chute, déménagement',
     'Chaque proche a sa personnalité (ambitieux, jaloux, rancunier, généreux, fêtard…) et se souvient de ce que tu as fait pour lui, ou contre lui',

@@ -14,6 +14,11 @@ export const ASSETS = {
   sculpture: { cat: 'Art', nom: 'Sculpture contemporaine', prix: 90000, tend: 0.05, vol: 0.2 },
   tableau: { cat: 'Art', nom: 'Tableau de maître', prix: 650000, tend: 0.05, vol: 0.12 },
   nft: { cat: 'Art', nom: 'Œuvre numérique (NFT)', prix: 20000, tend: -0.06, vol: 0.6 },
+  // v0.11 : immobilier locatif (loc = loyer annuel au prix d'achat, indexé ensuite sur la valeur du bien)
+  studio: { cat: 'Immobilier', nom: 'Studio à louer', court: 'studio', prix: 98000, tend: 0.02, vol: 0.03, loc: 6600 },
+  t2: { cat: 'Immobilier', nom: 'Appartement T2 à louer', court: 'T2', prix: 175000, tend: 0.02, vol: 0.03, loc: 10200 },
+  t3: { cat: 'Immobilier', nom: 'Appartement familial T3', court: 'T3', prix: 265000, tend: 0.02, vol: 0.03, loc: 14400 },
+  immeuble: { cat: 'Immobilier', nom: 'Petit immeuble de rapport', court: 'immeuble', prix: 1250000, tend: 0.02, vol: 0.04, loc: 78000 },
 };
 
 // ---------- Entreprises ----------

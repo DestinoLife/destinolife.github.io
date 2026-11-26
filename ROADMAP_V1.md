@@ -26,8 +26,8 @@ Chaque phase est une version jouable, testée (simulation de 300 vies, anti-tric
 
 | Version | Contenu | Dépendances |
 |---|---|---|
-| **v0.10** Relations & Dynasties | PNJ autonomes (traits, métier, couple, enfants, fortune), mémoire bornée, sentiments (admiration, rancune, jalousie), liens entre PNJ, initiatives des proches (offre d'emploi, prêt, mariage, réconciliation) ; famille élargie, arbre familial, archives de dynastie, prestige du nom ; ambitions de vie. | aucune |
-| v0.11 Banque & Immobilier | Compte et épargne, crédits immobilier, auto et pro avec échéancier, découvert, assurances, locataires et vacance locative, patrimoine net ; export et import de la sauvegarde. | journal financier (v0.9.4) |
+| **v0.10** Relations & Dynasties ✅ | PNJ autonomes (traits, métier, couple, enfants, fortune), mémoire bornée, sentiments (admiration, rancune, jalousie), liens entre PNJ, initiatives des proches (offre d'emploi, prêt, mariage, réconciliation) ; famille élargie, arbre familial, archives de dynastie, prestige du nom ; ambitions de vie. | aucune |
+| **v0.11** Banque & Immobilier ✅ | Compte et épargne, crédits immobilier, auto et pro avec échéancier, découvert, assurances, locataires et vacance locative, patrimoine net ; export et import de la sauvegarde. | journal financier (v0.9.4) |
 | v0.12 Compétences & Carrières | Catalogue de compétences (XP, niveaux, plafonds), filières d'études, stages, employeurs et collègues persistants, voies expert, manager ou indépendant. | v0.10 (collègues = PNJ) |
 | v0.13 Business Tycoon | Décisions propres à chaque secteur, nouveaux secteurs (hôtel, agence, boîte de nuit, club). | v0.11 (crédit pro) |
 | v0.14 Réputation & Entertainment | Réputations contextuelles ; contrats, agents, compétitions, reconversion des artistes et sportifs. | v0.12 |

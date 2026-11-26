@@ -309,6 +309,10 @@ export function hitmanSanction(s, raison) {
   s.bourse = 0;
   s.biens = [];
   s.business = [];
+  if (s.banque) {
+    s.banque.epargne = 0;
+    s.banque.enfants = {};
+  }
   for (const k of Object.keys(s.stats || {})) s.stats[k] = Number.isFinite(s.stats[k]) ? clamp(s.stats[k]) : 50;
   if (!Number.isFinite(s.age) || s.age < 0 || s.age > 130) s.age = 30;
   s.justice.prison = 999;

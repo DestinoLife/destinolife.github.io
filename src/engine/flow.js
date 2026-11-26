@@ -17,6 +17,7 @@ import { messagesTick, runPlan } from './messages.js';
 import { energieMax } from '../data/unlocks.js';
 import { transmettreFamille, legsGrandParent, souvenir, blesse, sen, trait, bilanSouvenirs } from './npc.js';
 import { goalsTick, checkGoals } from './goals.js';
+import { bankTick, succession, resteSur, solderSur, dette } from './bank.js';
 const DISEASE_NOM = new Proxy({}, { get: (_, k) => DISEASES[k]?.nom || 'Maladie' });
 
 export const busy = (s) => !!(s.current || s.result);
@@ -197,6 +198,7 @@ export function ageUp(s) {
   school(s);
   careerTick(s);
   finances(s, rep);
+  bankTick(s, rep);
   life2Tick(s);
   worldTick(s);
   justiceTick(s);
@@ -313,7 +315,7 @@ export const legalIncome = (s) => yearlyIncome(s) + (s.business || []).reduce((t
 
 // Fiscalité complète : dépend du revenu, de la famille, des entreprises, de la propriété et de la fortune.
 export function fiscalite(s) {
-  const z = { revenu: 0, societes: 0, fonciere: 0, fortune: 0, social: 0, parts: 1, total: 0, fortuneNette: 0, regime: 'normal' };
+  const z = { revenu: 0, societes: 0, fonciere: 0, fortune: 0, social: 0, loyers: 0, parts: 1, total: 0, fortuneNette: 0, regime: 'normal' };
   if (s.age < 18 || inPrison(s)) return z;
   const marie = s.relations.some((r) => r.vivant && r.lien === 'conjoint');
   const kids = childrenOf(s).filter((k) => k.vivant && k.age < 18).length;
@@ -325,7 +327,10 @@ export function fiscalite(s) {
   const h = HOUSING[s.logement];
   const immo = s.proprio && h?.achat ? h.achat : 0;
   z.fonciere = Math.round(immo * 0.005);
-  z.fortuneNette = Math.max(0, s.money) + patrimoine(s) + immo;
+  // Revenus fonciers nets de l'an passé : ~30 % (prélèvements sociaux + impôt). Fortune imposée nette des dettes.
+  const an = s.banque?.an;
+  z.loyers = an ? Math.round(Math.max(0, an.loyers - an.charges) * 0.3) : 0;
+  z.fortuneNette = Math.max(0, Math.max(0, s.money) + patrimoine(s) + immo - dette(s));
   if (z.fortuneNette > 1300000) {
     const T = [[800000, 0], [1300000, 0.005], [2570000, 0.007], [5000000, 0.01], [10000000, 0.0125], [Infinity, 0.015]];
     let prev = 0;
@@ -335,7 +340,7 @@ export function fiscalite(s) {
   if (s.flags.exil_fiscal) { z.regime = 'exil'; z.revenu = Math.round(z.revenu * 0.2); z.fortune = 0; z.fonciere = Math.round(z.fonciere * 0.5); }
   else if (s.flags.offshore) { z.regime = 'offshore'; z.revenu = Math.round(z.revenu * 0.4); z.fortune = Math.round(z.fortune * 0.3); z.societes = Math.round(z.societes * 0.4); }
   else if (s.flags.optimisation) { z.regime = 'optimise'; z.revenu = Math.round(z.revenu * 0.8); z.fortune = Math.round(z.fortune * 0.75); z.societes = Math.round(z.societes * 0.85); }
-  z.total = z.revenu + z.societes + z.fonciere + z.fortune + z.social;
+  z.total = z.revenu + z.societes + z.fonciere + z.fortune + z.social + z.loyers;
   return z;
 }
 
@@ -557,7 +562,7 @@ export function enroll(s, cursus) {
 }
 
 // ---------- Logement ----------
-export function housingOptions(s) {
+export function housingOptions(s, credit = false) {
   const inc = salary(s) + s.pension;
   return Object.entries(HOUSING)
     .filter(([k]) => !['pays'].includes(k) || s.id.statut === 'au_pays')
@@ -569,23 +574,27 @@ export function housingOptions(s) {
       else if (k === 'foyer' && !['rue', 'bidonville'].includes(s.logement)) why = 'Réservé aux personnes sans logement.';
       else if (k === 'pays' && s.id.statut !== 'au_pays') why = 'Indisponible.';
       else if (s.id.statut === 'au_pays' && !['pays', 'rue'].includes(k)) why = 'Tu vis au pays.';
-      else if (h.revenu && inc < h.revenu && !(h.achat && s.money >= h.achat)) why = `Revenus de ${euros(h.revenu)}/mois requis.`;
-      else if (k === 'villa' && s.money < h.achat) why = `Prix : ${euros(h.achat)}.`;
+      else if (!credit && h.revenu && inc < h.revenu && !(h.achat && s.money >= h.achat)) why = `Revenus de ${euros(h.revenu)}/mois requis.`;
+      else if (!credit && k === 'villa' && s.money < h.achat) why = `Prix : ${euros(h.achat)}.`;
       else if (k === 'hlm' && s.id.statut === 'sans_papiers') why = 'Dossier HLM impossible sans papiers.';
       return { id: k, ...h, ok: why === true, why };
     });
 }
 
-export function moveTo(s, id, buy) {
-  const o = housingOptions(s).find((h) => h.id === id);
+export function moveTo(s, id, buy, credit = false) {
+  const o = housingOptions(s, credit).find((h) => h.id === id);
   if (!o || !o.ok) return { r: o?.why || '', err: true };
   if (buy && !o.achat) return { r: 'Ce logement se loue uniquement.', err: true };
   if (!buy && !o.loyer && o.achat && o.id === 'villa') return { r: 'La villa s’achète uniquement.', err: true };
   const saleVal = s.proprio && HOUSING[s.logement]?.achat ? Math.round(HOUSING[s.logement].achat * 0.9) : 0;
-  if (buy && s.money + saleVal < o.achat) return { r: `Il te faut ${euros(o.achat)}.`, err: true };
+  // Logement acheté à crédit : la vente rembourse d'abord la banque
+  const duMaison = saleVal ? resteSur(s, 'logement', s.logement) : 0;
+  if (buy && s.money + saleVal - duMaison < o.achat) return { r: `Il te faut ${euros(o.achat)}${duMaison ? ` (ta vente rembourse d’abord ${euros(duMaison)} de crédit)` : ''}.`, err: true };
+  if (saleVal && s.money + saleVal - duMaison < 0) return { r: `Vendre ton logement ne couvrirait pas ton crédit (${euros(duMaison)} restants).`, err: true };
   if (saleVal > 0) {
     s.money += saleVal;
     addLog(s, `Tu revends ton logement : ${euros(saleVal)}.`);
+    if (duMaison) s.money -= solderSur(s, 'logement', s.logement);
   }
   if (buy) s.money -= o.achat;
   s.logement = id;
@@ -716,6 +725,9 @@ export function relAction(s, rid, a) {
 export function continueAsChild(s, rid) {
   const c = s.relations.find((x) => x.id === rid);
   if (!c || !c.vivant) return null;
+  // Succession : les dettes sont réglées avant tout partage (v0.11)
+  const livretHeritier = s.banque?.enfants?.[rid] || 0;
+  const reg = succession(s);
   const heirs = childrenOf(s).filter((x) => x.vivant).length;
   const totalCash = Math.max(0, s.money) + Math.max(0, s.bourse || 0);
   const part = Math.max(0, Math.round((totalCash * 0.8) / heirs));
@@ -742,6 +754,12 @@ export function continueAsChild(s, rid) {
     ns.logement = milieu === 'precaire' ? 'hlm' : MILIEUX[milieu].logement;
   }
   ns.mem.parent = s.id.prenom;
+  if (livretHeritier) {
+    ns.money += livretHeritier;
+    addLog(ns, `Tu récupères le livret que ${s.id.prenom} t’avait constitué : ${euros(livretHeritier)}.`);
+  }
+  if (reg.assurance) addLog(ns, `L’assurance emprunteur solde le crédit immobilier (${euros(reg.assurance)}).`);
+  if (reg.dettes) addLog(ns, `Les dettes de ${s.id.prenom} (${euros(reg.dettes)}) ont été réglées sur la succession${reg.eteint ? `, ${euros(reg.eteint)} n’ont pas pu l’être et sont éteints` : ''}.`);
   addLog(ns, `Génération ${ns.gen}. ${g(s, 'Ton père', 'Ta mère')} ${s.id.prenom} est décédé${s.id.genre === 'f' ? 'e' : ''}. Tu hérites de ${euros(part)}.`);
   return ns;
 }
