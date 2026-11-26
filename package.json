@@ -8,6 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "sim": "node scripts/simulate.mjs",
+    "anticheat": "node scripts/anticheat.mjs",
     "og": "node scripts/og-image.mjs"
   },
   "devDependencies": {

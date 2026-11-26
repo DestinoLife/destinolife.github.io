@@ -1,8 +1,9 @@
+import { rand } from './hitman.js';
 // Petits utilitaires d'aléatoire et de formatage, sans dépendance au DOM.
-export const rnd = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
-export const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
-export const chance = (p) => Math.random() < p;
-export const clamp = (v, a = 0, b = 100) => Math.max(a, Math.min(b, v));
+export const rnd = (a, b) => Math.floor(rand() * (b - a + 1)) + a;
+export const pick = (arr) => arr[Math.floor(rand() * arr.length)];
+export const chance = (p) => rand() < p;
+export const clamp = (v, a = 0, b = 100) => (Number.isFinite(v) ? Math.max(a, Math.min(b, v)) : a);
 
 export function weighted(items, getW) {
   let tot = 0;
@@ -12,7 +13,7 @@ export function weighted(items, getW) {
     return w;
   });
   if (!tot) return null;
-  let r = Math.random() * tot;
+  let r = rand() * tot;
   for (let i = 0; i < items.length; i++) {
     r -= ws[i];
     if (r <= 0) return items[i];

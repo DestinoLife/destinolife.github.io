@@ -1,3 +1,4 @@
+import { rand } from '../engine/hitman.js';
 import { pick, chance } from '../engine/rng.js';
 import { ORIGINES } from './identity.js';
 
@@ -76,7 +77,7 @@ export function childLook(a, b, genre) {
     const p = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
     const [r1, g1, b1] = p(x);
     const [r2, g2, b2] = p(y);
-    const k = Math.random() * 0.6 + 0.2;
+    const k = rand() * 0.6 + 0.2;
     return '#' + [r1 + (r2 - r1) * k, g1 + (g2 - g1) * k, b1 + (b2 - b1) * k].map((v) => Math.round(v).toString(16).padStart(2, '0')).join('');
   };
   const src = b || a;

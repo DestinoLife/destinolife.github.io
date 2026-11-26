@@ -1,3 +1,4 @@
+import { rand } from './hitman.js';
 import { rnd, pick, chance, clamp, weighted, euros } from './rng.js';
 import { DAY, HOUR, birthdayAt, setHour, rollMeteo, pickHour, hourOf, isWeekday } from './time.js';
 import {
@@ -143,6 +144,7 @@ export function choicesView(s) {
 export function choose(s, i) {
   if (!s.current) return;
   const ev = EV[s.current.id];
+  if (!ev || !Number.isInteger(i) || i < 0 || i >= ev.ch.length) return;
   const c = ev.ch[i];
   if (!c || (c.c && !c.c(s))) return;
   apply(s, c.fx);
@@ -151,7 +153,7 @@ export function choose(s, i) {
     for (let k = 0; k < c.out.length; k++) {
       const o = c.out[k];
       const p = typeof o.p === 'function' ? o.p(s) : o.p;
-      if (k === c.out.length - 1 || Math.random() < clamp(p, 0, 1)) {
+      if (k === c.out.length - 1 || rand() < clamp(p, 0, 1)) {
         res = o;
         break;
       }
@@ -338,12 +340,12 @@ function finances(s, rep) {
   const dep = yearlyCosts(s);
   // Artiste : une année de hits ou de flops. Le label et le manager prennent ~40 %.
   if (isStar(s) && !inPrison(s)) {
-    const k = (0.1 + Math.random() * 0.85 + (s.annee.sons ? 0.15 : 0)) * 0.5;
+    const k = (0.1 + rand() * 0.85 + (s.annee.sons ? 0.15 : 0)) * 0.5;
     inc = Math.round(salary(s) * 12 * k) + s.pension * 12;
   }
   // Entrepreneur : bonnes et mauvaises années, crises, et parfois la faillite
   if (isBoss(s) && !inPrison(s)) {
-    const k = (0.05 + Math.random() * 0.95 + (Math.random() - 0.5) * 0.6 + (s.carriere.perf || 0) / 300) * eco(s).mult;
+    const k = (0.05 + rand() * 0.95 + (rand() - 0.5) * 0.6 + (s.carriere.perf || 0) / 300) * eco(s).mult;
     inc = Math.round(salary(s) * 12 * k) + s.pension * 12;
     if (k < 0.15 && chance(0.35)) s.queue.push('faillite_boite');
   }
@@ -372,7 +374,7 @@ function finances(s, rep) {
   // Gains illégaux : variables, selon ton rang et ton activité de l'année (argent sale)
   let sale = 0;
   if (isCrime(s) && !inPrison(s)) {
-    sale = Math.round(salary(s) * 12 * (0.25 + Math.random() * 0.5 + Math.min(0.5, s.carriere.perf / 200)));
+    sale = Math.round(salary(s) * 12 * (0.25 + rand() * 0.5 + Math.min(0.5, s.carriere.perf / 200)));
     s.sale += sale;
   }
   // Un ado dépense son argent de poche (sorties, fringues, jeux)
@@ -387,6 +389,7 @@ function finances(s, rep) {
 function justiceTick(s) {
   const j = s.justice;
   if (j.prison > 0) {
+    if (s.flags.perpetuite) j.prison = Math.max(j.prison, 999);
     j.prison--;
     s.stats.bonheur = clamp(s.stats.bonheur - rnd(2, 6));
     if (j.prison === 0) {
@@ -434,7 +437,7 @@ function family(s) {
     addLog(s, `Décès de ${r.prenom} (${r.age} ans).`);
     s.stats.bonheur = clamp(s.stats.bonheur - (r.rel > 60 ? 15 : 6));
     if (r.lien === 'mere' || r.lien === 'pere') {
-      const brut = Math.round(MILIEUX[s.milieu].heritage * (0.6 + Math.random() * 0.8) / Math.max(1, parentsOf(s).length + 1));
+      const brut = Math.round(MILIEUX[s.milieu].heritage * (0.6 + rand() * 0.8) / Math.max(1, parentsOf(s).length + 1));
       // Droits de succession (ligne directe, simplifiés) : 100 000 € d'abattement, puis 20 % jusqu'à 1,8 M€, 40 % au-delà
       const taxable = Math.max(0, brut - 100000);
       const droits = Math.round(Math.min(taxable, 1700000) * 0.2 + Math.max(0, taxable - 1700000) * 0.4);
@@ -468,7 +471,7 @@ export function canDo(s, a) {
 }
 
 export function doActivity(s, id) {
-  const a = ACT[id];
+  const a = Object.hasOwn(ACT, id) ? ACT[id] : null;
   if (!a || busy(s)) return { r: '' };
   const ok = canDo(s, a);
   if (ok !== true) return { r: ok, err: true };
@@ -496,6 +499,7 @@ export function doActivity(s, id) {
 }
 
 export function applyJob(s, id) {
+  if (!Object.hasOwn(CAREERS, id)) return { r: '', err: true };
   const ok = canApply(s, id);
   if (ok !== true) return { r: ok, err: true };
   if (s.energie <= 0) return { r: 'Plus d’énergie cette année.', err: true };
@@ -515,7 +519,7 @@ export function applyJob(s, id) {
 }
 
 export function enroll(s, cursus) {
-  const R = {
+  const RS = {
     fac: { need: 'bac', reste: 3, nom: 'Licence à la fac' },
     bts: { need: 'bac', reste: 2, nom: 'BTS' },
     master: { need: 'licence', reste: 2, nom: 'Master' },
@@ -523,8 +527,11 @@ export function enroll(s, cursus) {
     droit: { need: 'bac', reste: 5, nom: 'Droit (jusqu’au master)' },
     daeu: { need: 'aucun', reste: 1, nom: 'DAEU (équivalent du bac)' },
     cap: { need: 'aucun', reste: 2, nom: 'CAP' },
-  }[cursus];
+  };
+  const R = Object.hasOwn(RS, cursus) ? RS[cursus] : null;
   if (!R) return { r: '', err: true };
+  if (s.age < (['fac', 'master', 'medecine', 'droit', 'bts'].includes(cursus) ? 17 : 15)) return { r: 'Tu es trop jeune.', err: true };
+  if (s.energie <= 0) return { r: 'Plus d’énergie cette année.', err: true };
   if (s.etudes.cursus) return { r: 'Tu es déjà en études.', err: true };
   if (inPrison(s)) return { r: 'Impossible en prison.', err: true };
   if (dipRank(s.etudes.niveau) < dipRank(R.need)) return { r: `Diplôme requis : ${R.need.toUpperCase()}.`, err: true };
@@ -597,6 +604,7 @@ export function relActions(s, r) {
 export function relAction(s, rid, a) {
   const r = s.relations.find((x) => x.id === rid);
   if (!r || !r.vivant || busy(s)) return { r: '' };
+  if (!relActions(s, r).some((x) => x.a === a && x.ok)) return { r: '', err: true };
   s.relUsed[`${r.id}:${a}`] = true;
   s.avec = r.lien === 'contact' ? [] : [r.id];
   let out = '';
@@ -608,7 +616,7 @@ export function relAction(s, rid, a) {
   } else if (a === 'argent') {
     const base = { precaire: 50, modeste: 200, moyenne: 800, aisee: 3000, riche: 25000 }[s.milieu];
     if (r.rel > 45 && chance(0.6)) {
-      const m = Math.round(base * (0.5 + Math.random()));
+      const m = Math.round(base * (0.5 + rand()));
       s.money += m;
       r.rel = clamp(r.rel - 4);
       out = `${r.prenom} te donne ${euros(m)}.`;
@@ -640,7 +648,7 @@ export function relAction(s, rid, a) {
       out = `Bienvenue à ${s.tmp.bebe} !`;
     } else out = 'Pas de bébé cette année.';
   } else if (a === 'confier') {
-    if (r.rel > 50 && Math.random() < 0.75) {
+    if (r.rel > 50 && rand() < 0.75) {
       r.conf = clamp((r.conf ?? 50) + rnd(5, 12));
       s.stats.bonheur = clamp(s.stats.bonheur + 3);
       out = `${r.prenom} t’écoute. Vous êtes plus proches.`;
@@ -676,10 +684,10 @@ export function continueAsChild(s, rid) {
   const c = s.relations.find((x) => x.id === rid);
   if (!c || !c.vivant) return null;
   const heirs = childrenOf(s).filter((x) => x.vivant).length;
-  const totalCash = Math.max(0, s.money) + Math.round((s.biens || []).reduce((t, b) => t + b.valeur, 0) * (heirs > 1 ? (heirs - 1) / heirs : 0));
+  const totalCash = Math.max(0, s.money) + Math.max(0, s.bourse || 0);
   const part = Math.max(0, Math.round((totalCash * 0.8) / heirs));
   const milieu = part + patrimoine(s) > 1000000 ? 'riche' : part + patrimoine(s) > 150000 ? 'aisee' : part > 30000 ? 'moyenne' : part > 3000 ? 'modeste' : 'precaire';
-  const traits = Object.keys(TRAITS).sort(() => Math.random() - 0.5).slice(0, 2);
+  const traits = Object.keys(TRAITS).sort(() => rand() - 0.5).slice(0, 2);
   const ns = createLife({
     prenom: c.prenom, nom: c.nom, genre: c.genre, attirance: c.genre === 'f' ? 'h' : 'f', origine: s.id.origine, pays: s.id.pays,
     statut: 'ne_france', ville: s.id.statut === 'au_pays' ? s.id.villeCible : s.id.ville, milieu,

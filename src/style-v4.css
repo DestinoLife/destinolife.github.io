@@ -200,3 +200,17 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 .gpick svg { width: 100%; max-width: 150px; height: auto; aspect-ratio: 170 / 332; }
 .gpick b { font-size: 17px; }
 @media (max-width: 900px) { .gpick svg { max-width: 96px; } }
+
+/* Hitman : écran de condamnation */
+.hitman-wrap { position: absolute; inset: 0; z-index: 60; display: grid; place-items: center; padding: 20px; background: radial-gradient(ellipse at center, rgba(120, 0, 16, 0.55), rgba(6, 2, 4, 0.92)); animation: hm-in 0.35s ease both; }
+.hitman { max-width: 440px; text-align: center; padding: 28px 26px 24px; border-radius: 20px; background: #120709; border: 1px solid rgba(255, 59, 79, 0.45); box-shadow: 0 0 0 1px rgba(255, 59, 79, 0.12), 0 24px 60px rgba(0, 0, 0, 0.6); }
+.hm-scope { width: 84px; height: 84px; fill: none; stroke: #ff3b4f; stroke-width: 3; animation: hm-aim 2.4s ease-in-out infinite; }
+.hm-k { margin-top: 10px; font: 800 13px/1 Sora, sans-serif; letter-spacing: 0.42em; color: #ff3b4f; }
+.hitman h2 { margin: 10px 0 12px; font-size: 24px; }
+.hitman p { color: #d9cfd2; font-size: 14px; line-height: 1.5; margin: 0 0 12px; }
+.hm-raison { padding: 8px 12px; border-radius: 10px; background: rgba(255, 59, 79, 0.1); }
+.hitman .btn { margin-top: 6px; background: #ff3b4f; border-color: #ff3b4f; color: #fff; }
+.tab-lost { color: #ffb15c; }
+@keyframes hm-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes hm-aim { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(3px, -2px) scale(0.94); } }
+@media (prefers-reduced-motion: reduce) { .hm-scope { animation: none; } }

@@ -1,6 +1,7 @@
 // Messages du téléphone (v0.4) : peu nombreux, cohérents avec la situation, toujours 2 réponses
 // opposées qui ont des conséquences. « plan » = un rendez-vous qui se passe vraiment (événement).
 // Un message laissé sans réponse expire à l'anniversaire suivant, avec une petite conséquence.
+import { rand } from './hitman.js';
 import { rnd, pick, chance, clamp, euros, weighted } from './rng.js';
 import { apply, addLog, tpl, career, salary } from './core.js';
 import { DAY, HOUR, birthdayAt, setHour, rollMeteo } from './time.js';
@@ -117,7 +118,7 @@ const TEMPLATES = [
       { t: 'Juste de te voir', fx: (s, r) => relFx(r, 4, 3)(s), rep: 'Je serai là. Je t’aime.', plan: 'parloir', when: { dow: 6, hour: 14 }, label: 'Parloir avec ta mère' },
       { t: 'Envoie de l’argent pour la cantine', fx: (s, r) => { apply(s, { money: 300 }); relFx(r, -2)(s); }, rep: 'Je fais ce que je peux…' }] },
 ];
-const T = Object.fromEntries(TEMPLATES.map((t) => [t.id, t]));
+export const T = Object.fromEntries(TEMPLATES.map((t) => [t.id, t]));
 
 export const unread = (s) => s.phone.msgs.filter((m) => m.ch && !m.answered).length;
 export function refreshUnread(s) {
@@ -157,7 +158,7 @@ export function messagesTick(s) {
 // Répondre à un message : applique la conséquence, ajoute la réponse, lance le rendez-vous s'il y en a un.
 export function answer(s, msgId, i) {
   const m = s.phone.msgs.find((x) => x.id === msgId);
-  if (!m || m.answered) return null;
+  if (!m || m.answered || !Number.isInteger(i) || i < 0) return null;
   const c = T[m.tpl]?.ch[i];
   if (!c) return null;
   const r = s.relations.find((x) => x.vivant && x.prenom === m.from);
@@ -199,7 +200,7 @@ export function writeTo(s, r, topic) {
     } else rep = pick(['Pas dispo en ce moment, désolé.', 'Une autre fois peut-être.']);
   } else if (topic === 'argent') {
     const good = ok && chance(0.6);
-    const m = good ? Math.round((r.lien === 'mere' || r.lien === 'pere' ? { precaire: 60, modeste: 250, moyenne: 900, aisee: 3000, riche: 12000 }[s.milieu] : rnd(100, 500)) * (0.6 + Math.random() * 0.8)) : 0;
+    const m = good ? Math.round((r.lien === 'mere' || r.lien === 'pere' ? { precaire: 60, modeste: 250, moyenne: 900, aisee: 3000, riche: 12000 }[s.milieu] : rnd(100, 500)) * (0.6 + rand() * 0.8)) : 0;
     if (good) s.money += m;
     r.conf = clamp((r.conf ?? 50) - 5);
     rep = good ? `Je t’envoie ${euros(m)}. Fais-en bon usage.` : 'Désolé, je ne peux pas en ce moment.';

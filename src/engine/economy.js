@@ -1,11 +1,13 @@
 // Systèmes « open world business » : biens, entreprises, contacts, réseau, voyages, cavale, casino, téléphone.
+import { rand } from './hitman.js';
 import { rnd, pick, chance, clamp, euros } from './rng.js';
 import { addLog, apply, newPerson, career, tpl, registerFx } from './core.js';
 import { ASSETS, BUSINESS, ROLES, DESTS, MISSIONS } from '../data/world.js';
-import { nameFor, surnameFor, ORIGINES } from '../data/identity.js';
+import { nameFor, surnameFor, ORIGINES, VILLES } from '../data/identity.js';
 
-const gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) / 1.5;
+const gauss = () => (rand() + rand() + rand() - 1.5) / 1.5;
 export const adult = (s) => s.age >= 18;
+const inPrison = (s) => s.justice.prison > 0;
 
 // Ajoute les champs V2 aux anciennes sauvegardes.
 export function migrate(s) {
@@ -68,7 +70,7 @@ function ecoTick(s) {
   s.eco ??= { phase: 'stable', ans: 0, hist: [] };
   const prev = s.eco.phase;
   const opts = NEXT[prev];
-  let r = Math.random() * 100;
+  let r = rand() * 100;
   let next = opts[opts.length - 1][0];
   for (const [k, w] of opts) { if ((r -= w) <= 0) { next = k; break; } }
   s.eco.phase = next;
@@ -93,8 +95,9 @@ export function bourseAction(s, act, montant) {
   if (!adult(s)) return { r: 'Il faut être majeur pour ouvrir un compte-titres.', err: true };
   s.bourse ||= 0;
   if (act === 'placer') {
-    const m = montant === 'tout' ? Math.max(0, s.money) : Math.min(Number(montant), s.money);
-    if (m <= 0) return { r: 'Pas assez d’argent sur ton compte.', err: true };
+    if (inPrison(s)) return { r: 'Impossible en détention.', err: true };
+    const m = Math.floor(montant === 'tout' ? Math.max(0, s.money) : Math.min(Number(montant), s.money));
+    if (!Number.isFinite(m) || m <= 0) return { r: 'Pas assez d’argent sur ton compte.', err: true };
     s.money -= m;
     s.bourse += m;
     return { r: `${euros(m)} placés en bourse. Ça peut monter… ou chuter.`, good: true };
@@ -108,8 +111,10 @@ export function bourseAction(s, act, montant) {
 
 // ---------- Biens ----------
 export function buyAsset(s, id) {
-  const a = ASSETS[id];
+  const a = Object.hasOwn(ASSETS, id) ? ASSETS[id] : null;
+  if (!a) return { r: '', err: true };
   if (!adult(s)) return { r: 'Tu es mineur : pas de compte en banque.', err: true };
+  if (inPrison(s)) return { r: 'Impossible en détention.', err: true };
   if (s.money < a.prix) return { r: `Il te faut ${euros(a.prix)}.`, err: true };
   s.money -= a.prix;
   s.biens.push({ uid: s.uid++, id, valeur: a.prix, achat: a.prix, depuis: s.age });
@@ -124,11 +129,12 @@ export function sellAsset(s, uid) {
   const rec = s.relations.find((r) => r.vivant && r.role === 'receleur');
   // Frais de revente : un marchand prend sa commission (voitures 15 %, art et bijoux 10 %)
   const frais = ASSETS[b.id].car ? 0.85 : 0.9;
-  const prix = Math.round(b.valeur * frais * (rec ? 1.15 : 1));
+  const bonus = rec && b.depuis < s.age;
+  const prix = Math.round(b.valeur * frais * (bonus ? 1.15 : 1));
   s.money += prix;
   s.biens.splice(i, 1);
   addLog(s, `Vente : ${ASSETS[b.id].nom} pour ${euros(prix)}.`);
-  return { r: `Vendu ${euros(prix)} (${prix >= b.achat ? '+' : ''}${euros(prix - b.achat)})${rec ? ' · +15 % grâce à ton receleur' : ' · commission du marchand déduite'}.`, good: prix >= b.achat };
+  return { r: `Vendu ${euros(prix)} (${prix >= b.achat ? '+' : ''}${euros(prix - b.achat)})${bonus ? ' · +15 % grâce à ton receleur' : ' · commission du marchand déduite'}.`, good: prix >= b.achat };
 }
 export const bestCar = (s) => s.biens.filter((b) => ASSETS[b.id].car).sort((a, b) => b.valeur - a.valeur)[0];
 export const bizValue = (b) => (BUSINESS[b.type].startup ? Math.round(b.valo * (b.part ?? 100) / 100) : b.valo);
@@ -148,7 +154,8 @@ function assetsTick(s) {
 // Agrandir augmente le CA mais aussi les charges : ça ne rapporte que si la réputation et l'économie suivent.
 // Start-up : qualité cachée du produit (la plupart échouent), levées de fonds qui diluent ta part.
 export function createBusiness(s, type, nom) {
-  const B = BUSINESS[type];
+  const B = Object.hasOwn(BUSINESS, type) ? BUSINESS[type] : null;
+  if (!B) return { r: '', err: true };
   if (!adult(s)) return { r: 'Il faut être majeur.', err: true };
   if (s.justice.prison > 0) return { r: 'Impossible depuis la prison.', err: true };
   if (B.cond) {
@@ -160,7 +167,7 @@ export function createBusiness(s, type, nom) {
   s.money -= B.prix;
   const b = { uid: s.uid++, type, nom: nom || `${B.nom} ${s.id.nom}`, niveau: 1, rep: 45 + rnd(0, 10), emp: B.emp, ca: 0, benef: 0, valo: Math.round(B.prix * 0.6), investi: B.prix, annees: 0, hist: [], lave: 0, pertes: 0 };
   if (B.startup) {
-    const q = Math.min(1, Math.max(0, Math.random() ** 1.8 + (s.stats.intel - 50) / 400));
+    const q = Math.min(1, Math.max(0, rand() ** 1.8 + (s.stats.intel - 50) / 400));
     Object.assign(b, { q, users: 1500, mrr: 0, burn: 9000, cash: 110000, valo: 30000, part: 100, tour: 0, g: 0 });
   }
   s.business.push(b);
@@ -197,7 +204,7 @@ export function businessAction(s, uid, act) {
       const gain = Math.round(rnd(4, 12) * (1 - b.rep / 120));
       b.rep = clamp(b.rep + gain);
       if (B.startup) {
-        const k = 1 + (0.05 + b.q * 0.35) * (0.6 + Math.random() * 0.8);
+        const k = 1 + (0.05 + b.q * 0.35) * (0.6 + rand() * 0.8);
         b.users = Math.round(b.users * k);
         return { r: b.q < 0.25 ? 'Les inscriptions montent… puis repartent. Le produit ne retient pas les gens.' : 'La campagne amène du monde.', good: b.q >= 0.25 };
       }
@@ -218,7 +225,7 @@ export function businessAction(s, uid, act) {
       return { r: B.startup ? `${euros(m)} blanchis via de faux investisseurs dans ${b.nom}. Plus risqué qu’un resto.` : `${euros(m)} blanchis via ${b.nom}.`, good: true };
     }
     case 'vendre': {
-      const prix = Math.round(bizValue(b) * (0.88 + Math.random() * 0.14));
+      const prix = Math.round(bizValue(b) * (0.88 + rand() * 0.14));
       s.money += prix;
       s.business = s.business.filter((x) => x !== b);
       addLog(s, `Revente de ${b.nom} : ${euros(prix)}.`);
@@ -232,7 +239,7 @@ export function businessAction(s, uid, act) {
       b.leveAn = s.age;
       const p = Math.min(0.8, Math.max(0.04, 0.08 + Math.max(0, b.g) * 0.9 + b.rep / 600 + (s.stats.charisme - 50) / 400) * eco(s).fund);
       if (chance(p)) {
-        const m = Math.min(60000000, Math.round(b.valo * (0.18 + Math.random() * 0.1)));
+        const m = Math.min(60000000, Math.round(b.valo * (0.18 + rand() * 0.1)));
         b.part = Math.round(b.part * (b.valo / (b.valo + m)) * 10) / 10;
         b.valo += m;
         b.cash += m;
@@ -279,7 +286,7 @@ function businessTick(s) {
       b.rep = clamp(b.rep + rnd(-5, 4));
       if (b.cash < 0) { faillite(s, b, `${b.nom} fait faillite : plus de trésorerie.`); continue; }
     } else {
-      const demande = (0.6 + b.rep / 125) * E.mult * (0.85 + Math.random() * 0.3) * (b.choc || 1);
+      const demande = (0.6 + b.rep / 125) * E.mult * (0.85 + rand() * 0.3) * (b.choc || 1);
       b.choc = 1;
       b.ca = Math.round(B.base * b.niveau ** 0.8 * demande);
       b.benef = Math.round(b.ca * B.mb - B.fixe * b.niveau ** 0.95 * (b.salaires || 1) - (b.assure ? b.investi * 0.015 : 0));
@@ -310,9 +317,9 @@ export function findContact(s, role) {
   const genre = chance(0.75) ? 'h' : 'f';
   const c = newPerson(s, 'contact', { genre, origine: o, prenom: nameFor(o, genre), nom: surnameFor(o), age: s.age + rnd(-8, 15), rel: rnd(35, 60) });
   c.role = role;
-  c.tarif = Math.round((0.7 + Math.random() * 0.6) * 100) / 100; // 0.7 = très avantageux
-  c.qualite = Math.round((0.75 + Math.random() * 0.55) * 100) / 100;
-  c.fiab = Math.round((0.6 + Math.random() * 0.4) * 100) / 100;
+  c.tarif = Math.round((0.7 + rand() * 0.6) * 100) / 100; // 0.7 = très avantageux
+  c.qualite = Math.round((0.75 + rand() * 0.55) * 100) / 100;
+  c.fiab = Math.round((0.6 + rand() * 0.4) * 100) / 100;
   s.relations.push(c);
   sms(s, c.prenom, pick(['On m’a parlé de toi. On peut faire affaire.', 'Salut, c’est le contact de ton pote. Je suis dispo.', 'Enregistre mon numéro. Discrétion avant tout.']), ROLES[role].nom);
   return c;
@@ -463,7 +470,9 @@ export function comeBack(s) {
 }
 
 export function moveCity(s, ville) {
+  if (!VILLES.includes(ville)) return { r: '', err: true };
   if (!adult(s)) return { r: 'Il faut être majeur.', err: true };
+  if (inPrison(s)) return { r: 'Impossible en détention.', err: true };
   if (s.money < 3000) return { r: 'Il te faut 3 000 €.', err: true };
   if (s.id.statut === 'au_pays') return { r: 'Tu vis au pays.', err: true };
   s.money -= 3000;
@@ -477,14 +486,15 @@ export function moveCity(s, ville) {
 
 // ---------- Casino ----------
 const ROUGE = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36];
+const misePasOk = (s, bet) => !Number.isFinite(bet) || bet <= 0 || bet > s.money || !adult(s) || inPrison(s);
 export function roulette(s, bet, choice) {
-  bet = Math.round(bet);
-  if (bet <= 0 || bet > s.money) return { r: 'Mise invalide.', err: true };
+  bet = Math.floor(bet);
+  if (misePasOk(s, bet)) return { r: 'Mise invalide.', err: true };
   if (bet > 500000) return { r: 'Limite de la table : 500 000 € par mise.', err: true };
   const n = rnd(0, 36);
   const color = n === 0 ? 'vert' : ROUGE.includes(n) ? 'rouge' : 'noir';
   let mult = 0;
-  if (choice === color) mult = 2;
+  if (choice === color) mult = color === 'vert' ? 36 : 2;
   else if (choice === 'pair' && n && n % 2 === 0) mult = 2;
   else if (choice === 'impair' && n % 2 === 1) mult = 2;
   else if (String(n) === String(choice)) mult = 36;
@@ -492,13 +502,13 @@ export function roulette(s, bet, choice) {
 }
 const SYM = ['7', '★', '♦', '♣', '♥', 'BAR'];
 export function slots(s, bet) {
-  bet = Math.round(bet);
-  if (bet <= 0 || bet > s.money) return { r: 'Mise invalide.', err: true };
+  bet = Math.floor(bet);
+  if (misePasOk(s, bet)) return { r: 'Mise invalide.', err: true };
   if (bet > 500000) return { r: 'Limite de la table : 500 000 € par mise.', err: true };
   const r = [0, 1, 2].map(() => pick(SYM));
   let mult = 0;
   if (r[0] === r[1] && r[1] === r[2]) mult = r[0] === '7' ? 50 : r[0] === 'BAR' ? 20 : 10;
-  else if (r[0] === r[1] || r[1] === r[2] || r[0] === r[2]) mult = 1.5;
+  else if (r[0] === r[1] || r[1] === r[2] || r[0] === r[2]) mult = 1;
   return settle(s, bet, mult, { reels: r });
 }
 function settle(s, bet, mult, res) {

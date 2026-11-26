@@ -1,5 +1,6 @@
 // Actions disponibles dans le menu du bas. tab : act (Activités), crime (Crime), pro (Carrière), prison.
 // run(s) renvoie { fx, r, queue }. days : durée en jours (temps adaptatif), hour : plage horaire, lieu : scène affichée.
+import { rand } from '../engine/hitman.js';
 import { rnd, pick, chance, euros } from '../engine/rng.js';
 import { COTIERES } from './identity.js';
 import { CAREERS } from './careers.js';
@@ -67,9 +68,9 @@ export const ACTIVITIES = [
   { id: 'joint', tab: 'crime', nom: 'Fumer un joint', desc: 'Planer, addiction', icon: 'leaf', age: [13, 99], cost: 20, days: [0, 1], hour: [18, 23],
     run: () => ({ fx: { use: 'cannabis', bonheur: rnd(4, 7), intel: -1 }, r: 'Tu ris pour rien pendant une heure.' }) },
   { id: 'coke', tab: 'crime', nom: 'Prendre de la cocaïne', desc: 'Euphorie, très addictif', icon: 'sparkle', age: [18, 99], cost: 90, days: [0, 1], hour: [0, 4],
-    run: (s) => (Math.random() < s.addic.coke / 900 ? { fx: { mort: 'Overdose' }, r: 'Ton cœur lâche.' } : { fx: { use: 'coke', bonheur: rnd(8, 12), sante: -rnd(3, 6) }, r: 'Tu te sens invincible. Pour quelques heures.' }) },
+    run: (s) => (rand() < s.addic.coke / 900 ? { fx: { mort: 'Overdose' }, r: 'Ton cœur lâche.' } : { fx: { use: 'coke', bonheur: rnd(8, 12), sante: -rnd(3, 6) }, r: 'Tu te sens invincible. Pour quelques heures.' }) },
   { id: 'paris', tab: 'act', nom: 'Paris sportifs', desc: 'Petit gain, grosse addiction', icon: 'ticket', age: [18, 99], days: [0, 1], cond: (s) => s.money >= 20 || 'Il te faut 20 €.',
-    run: (s) => { const b = Math.max(20, Math.round(s.money * 0.05)); return Math.random() < 0.42 ? { fx: { use: 'jeu', money: b }, r: `Pari gagné : +${euros(b)}.`, good: true } : { fx: { use: 'jeu', money: -b }, r: `Pari perdu : −${euros(b)}.` }; } },
+    run: (s) => { const b = Math.max(20, Math.round(s.money * 0.05)); return rand() < 0.42 ? { fx: { use: 'jeu', money: b }, r: `Pari gagné : +${euros(b)}.`, good: true } : { fx: { use: 'jeu', money: -b }, r: `Pari perdu : −${euros(b)}.` }; } },
   { id: 'cure', tab: 'act', nom: 'Cure de désintoxication', desc: 'Un mois pour s’en sortir', icon: 'cross', age: [14, 99], cost: 4000, days: [25, 35], lieu: 'hopital',
     cond: (s) => Math.max(...Object.values(s.addic || {})) >= 20 || 'Tu n’as pas d’addiction.',
     run: () => ({ fx: { cure: 'lourde', bonheur: -4, sante: 6 }, r: 'Un mois sans rien. Le plus dur reste de tenir dehors.' }) },
@@ -98,8 +99,10 @@ export const ACTIVITIES = [
   { id: 'casino', tab: 'act', ui: 'casino', nom: 'Casino', desc: 'Roulette et machines à sous', icon: 'dice', age: [18, 100], days: [0, 1], hour: [22, 23], lieu: 'casino', cond: (s) => (s.flags.interdit_casino ? 'Tu es interdit de casino.' : s.money >= 50 || 'Il te faut au moins 50 €.'),
     run: () => ({ r: 'Lumières tamisées, tapis verts. Faites vos jeux.' }) },
   { id: 'loto', tab: 'act', nom: 'Jouer au loto', desc: '1 chance sur… beaucoup', icon: 'ticket', age: [18, 110], cost: 3, free: true, days: [0, 1],
-    run: () => {
-      if (chance(1 / 20000)) return { fx: { money: 4000000, bonheur: 40 }, r: 'JACKPOT ! 4 000 000 € ! Ta vie bascule.', good: true };
+    cond: (s) => (s.annee.loto || 0) < 5 || 'Tu as déjà joué 5 fois cette année.',
+    run: (s) => {
+      s.annee.loto = (s.annee.loto || 0) + 1;
+      if (chance(1 / 100000)) return { fx: { money: 2000000, bonheur: 40 }, r: 'JACKPOT ! 2 000 000 € ! Ta vie bascule.', good: true };
       if (chance(1 / 40)) return { fx: { money: 60 }, r: 'Trois numéros : +60 €.', good: true };
       return { r: 'Perdu. Comme d’habitude.' };
     } },
@@ -144,7 +147,7 @@ export const ACTIVITIES = [
     } },
   { id: 'secher', tab: 'pro', nom: 'Sécher les cours', desc: 'Bonheur ▲, notes ▼', icon: 'door', age: [11, 19], days: [1, 3], hour: [10, 16],
     cond: (s) => ['ecole', 'lycee', 'cap', 'fac', 'bts'].includes(s.etudes.cursus) || 'Tu n’es pas scolarisé.',
-    run: (s) => (Math.random() < 0.3 ? { fx: { intel: -2, rel: { lien: 'parents', d: -8 } }, r: 'Convocation chez le CPE. Tes parents sont furieux.' } : { fx: { bonheur: 5, intel: -2, reputation: 2 }, r: 'Après-midi au centre commercial avec les potes.' }) },
+    run: (s) => (rand() < 0.3 ? { fx: { intel: -2, rel: { lien: 'parents', d: -8 } }, r: 'Convocation chez le CPE. Tes parents sont furieux.' } : { fx: { bonheur: 5, intel: -2, reputation: 2 }, r: 'Après-midi au centre commercial avec les potes.' }) },
   { id: 'fuguer', tab: 'pro', nom: 'Fuguer', desc: 'Décision majeure', icon: 'run', age: [11, 17], days: [0, 1], hour: [1, 3],
     cond: (s) => s.chezParents || 'Tu ne vis plus chez tes parents.', run: () => ({ r: 'Tu attends que tout le monde dorme.', queue: 'fugue_action' }) },
   { id: 'decrocher', tab: 'pro', nom: 'Arrêter l’école', desc: 'Possible à partir de 16 ans', icon: 'door', age: [16, 30], free: true, days: [0, 1],
@@ -213,11 +216,11 @@ export const ACTIVITIES = [
     run: () => ({ fx: { forme: rnd(2, 4), reputation: rnd(1, 4), bonheur: 3 }, r: 'Ton équipe gagne le tournoi du bâtiment.' }) },
   { id: 'lettres', tab: 'prison', prison: true, nom: 'Écrire à tes proches', desc: 'Bonheur, relations', icon: 'file', days: [3, 10],
     run: () => ({ fx: { bonheur: 4, rel: { lien: 'parents', d: 6 }, karma: 2 }, r: 'Tu écris des pages entières. Ça fait du bien.' }) },
-  { id: 'demander_amenagement', tab: 'prison', prison: true, nom: 'Demander un aménagement', desc: 'Bracelet électronique ?', icon: 'scale', days: [5, 20], cond: (s) => s.justice.prison >= 2 || 'Peine trop courte.',
+  { id: 'demander_amenagement', tab: 'prison', prison: true, nom: 'Demander un aménagement', desc: 'Bracelet électronique ?', icon: 'scale', days: [5, 20], cond: (s) => (s.flags.perpetuite ? 'Perpétuité : aucun aménagement possible.' : s.justice.prison >= 2 || 'Peine trop courte.'),
     run: () => ({ r: 'Ton avocat dépose la demande.', queue: 'prison_amenagement' }) },
   { id: 'tel_prison', tab: 'prison', prison: true, nom: 'Acheter un téléphone', desc: 'Interdit, 400 € au marché noir', icon: 'phone', cost: 400, days: [2, 8], cond: (s) => !s.flags.tel_prison || 'Tu as déjà un téléphone.',
-    run: () => (Math.random() < 0.8 ? { fx: { telPrison: true, bonheur: 6 }, r: 'Un vieux smartphone caché dans une chaussette. Contact avec l’extérieur.' } : { fx: { prisonAdd: 1 }, r: 'Fouille. Téléphone confisqué et un an de plus.' }) },
-  { id: 'evasion', tab: 'prison', prison: true, nom: 'Préparer une évasion', desc: 'Décision majeure', icon: 'key', days: [1, 3], hour: [22, 23],
+    run: () => (rand() < 0.8 ? { fx: { telPrison: true, bonheur: 6 }, r: 'Un vieux smartphone caché dans une chaussette. Contact avec l’extérieur.' } : { fx: { prisonAdd: 1 }, r: 'Fouille. Téléphone confisqué et un an de plus.' }) },
+  { id: 'evasion', tab: 'prison', prison: true, nom: 'Préparer une évasion', desc: 'Décision majeure', icon: 'key', days: [1, 3], hour: [22, 23], cond: (s) => !s.flags.perpetuite || 'Hitman te surveille jour et nuit.',
     run: () => ({ r: 'Ton codétenu te glisse un plan à l’oreille.', queue: 'evasion_j1' }) },
 ];
 

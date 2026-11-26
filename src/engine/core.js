@@ -197,10 +197,13 @@ const FX = {
   condamne: (s, v) => condamne(s, v),
   acquitte: (s) => acquitte(s),
   prisonAdd: (s, v) => {
-    s.justice.prison += v;
+    if (!Number.isFinite(v) || (s.flags.perpetuite && v < 0)) return;
+    s.justice.prison = Math.max(0, s.justice.prison + v);
     s.justice.peineTotale = (s.justice.peineTotale || 0) + v;
   },
   evade: (s) => {
+    if (s.flags.perpetuite) return addLog(s, 'Hitman te surveille : l’évasion échoue avant même de commencer.');
+    s.flags.evade_prison = true;
     s.justice.prison = 0;
     s.justice.recherche = 5;
     s.justice.motif = 'Évasion';
@@ -295,6 +298,35 @@ const FX = {
 // Permet à d'autres modules (économie) d'ajouter des effets sans import circulaire.
 const EXTRA_FX = {};
 export const registerFx = (k, fn) => (EXTRA_FX[k] = fn);
+
+// Hitman : condamnation à perpétuité et saisie de tous les avoirs du tricheur.
+export function hitmanSanction(s, raison) {
+  const premiere = !s.hitman;
+  s.hitman = { raison, age: s.age, n: (s.hitman?.n || 0) + 1 };
+  s.money = 0;
+  s.sale = 0;
+  s.bourse = 0;
+  s.biens = [];
+  s.business = [];
+  for (const k of Object.keys(s.stats || {})) s.stats[k] = Number.isFinite(s.stats[k]) ? clamp(s.stats[k]) : 50;
+  if (!Number.isFinite(s.age) || s.age < 0 || s.age > 130) s.age = 30;
+  s.justice.prison = 999;
+  s.justice.peineTotale = 999;
+  s.justice.pending = null;
+  s.justice.recherche = 0;
+  s.justice.motif = null;
+  if (premiere) s.justice.casier.push({ age: s.age, motif: 'Triche détectée par Hitman', peine: 'Perpétuité' });
+  s.flags.perpetuite = true;
+  delete s.flags.cavale;
+  s.cavale = null;
+  s.voyage = null;
+  s.lieu = null;
+  s.queue = [];
+  s.current = null;
+  s.result = null;
+  if (s.carriere) apply(s, { job: null });
+  if (premiere) addLog(s, `Hitman t’a détecté (${raison}). Tous tes avoirs sont saisis. Condamné{e} à la réclusion criminelle à perpétuité.`);
+}
 
 export function apply(s, fx) {
   if (!fx) return;

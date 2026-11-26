@@ -32,7 +32,7 @@ export const ACHIEVEMENTS = [
 
   // Crime & Extrême
   { id: 'baron', cat: 'Extrême', pts: 40, nom: 'Baron du quartier', desc: 'Diriger un réseau avec au moins 3 points de deal.', test: (s) => (s.reseau?.points || 0) >= 3 },
-  { id: 'evasion', cat: 'Extrême', pts: 40, nom: 'La Grande Évasion', desc: 'T’évader de prison et partir en cavale.', test: (s) => !!s.flags?.cavale },
+  { id: 'evasion', cat: 'Extrême', pts: 40, nom: 'La Grande Évasion', desc: 'T’évader de prison et partir en cavale.', test: (s) => !!s.flags?.evade_prison },
   { id: 'phoenix', cat: 'Extrême', pts: 45, nom: 'Phénix', desc: 'Avoir vécu dans la rue, puis posséder plus de 100 000 €.', test: (s) => !!s.flags?.vecu_rue && s.money + patrimoine(s) >= 100000 },
   { id: 'casino_king', cat: 'Extrême', pts: 35, nom: 'Roi du tapis vert', desc: 'Cumuler plus de 250 000 € de gains au casino.', test: (s) => (s.casino?.gagne || 0) >= 250000 },
   { id: 'exil_dore', cat: 'Extrême', pts: 30, nom: 'Exil doré', desc: 'Choisir l’exil fiscal pour protéger ta fortune.', test: (s) => !!s.flags?.exil_fiscal },

@@ -1,12 +1,21 @@
 // Suivi persistant des défis & succès (localStorage).
 import { ACHIEVEMENTS } from '../data/achievements.js';
+import { sign, stringify, parse } from './hitman.js';
 
 const KEY = 'destino.ach.v1';
 
 export function loadAchievements() {
   try {
     const raw = localStorage.getItem(KEY);
-    return raw ? JSON.parse(raw) : {};
+    if (!raw) return {};
+    const m = parse(raw);
+    if (!m || typeof m !== 'object' || Array.isArray(m)) return {};
+    const h = m._h;
+    delete m._h;
+    // Signature absente (ancienne version) acceptée ; signature fausse = fichier retouché, on l'ignore
+    if (h !== undefined && h !== sign(stringify(m))) return {};
+    const ids = new Set(ACHIEVEMENTS.map((a) => a.id));
+    return Object.fromEntries(Object.entries(m).filter(([k, v]) => ids.has(k) && v && typeof v === 'object'));
   } catch {
     return {};
   }
@@ -14,14 +23,15 @@ export function loadAchievements() {
 
 function saveAchievements(map) {
   try {
-    localStorage.setItem(KEY, JSON.stringify(map));
+    const json = stringify(map);
+    localStorage.setItem(KEY, json.length > 2 ? json.slice(0, -1) + ',"_h":' + stringify(sign(json)) + '}' : '{"_h":' + stringify(sign(json)) + '}');
   } catch {
     // ignore storage quota errors
   }
 }
 
 export function checkAchievements(s) {
-  if (!s) return [];
+  if (!s || s.hitman) return []; // vie condamnée par Hitman : plus aucun succès
   if (s.logement === 'rue' && !s.chezParents) s.flags.vecu_rue = true;
   const unlocked = loadAchievements();
   const newly = [];

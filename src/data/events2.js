@@ -98,7 +98,7 @@ export const EVENTS2 = [
     { t: 'Garder le contact', fx: { crime: 3, contact: 'receleur' }, r: 'Un nouveau contact t’attend dehors.' },
     { t: 'Déchirer la lettre', fx: { karma: 4 }, r: 'Tu veux repartir de zéro.' },
   ] },
-  { id: 'prison_amenagement', cat: 'Justice', where: 'prison', cond: (s) => s.justice.prison >= 2, txt: 'Ton avocat pense pouvoir obtenir un aménagement de peine : bracelet électronique.', ch: [
+  { id: 'prison_amenagement', cat: 'Justice', where: 'prison', cond: (s) => s.justice.prison >= 2 && !s.flags.perpetuite, txt: 'Ton avocat pense pouvoir obtenir un aménagement de peine : bracelet électronique.', ch: [
     { t: 'Monter le dossier (3 000 €)', c: (s) => s.money >= 3000, fx: { money: -3000 }, out: [{ p: (s) => 0.3 + st(s, 'karma') / 250, fx: (s) => ({ prisonAdd: -Math.max(1, s.justice.prison - 1) }), r: 'Accordé ! Tu finis ta peine avec un bracelet.' }, { p: 1, r: 'Refusé. Ton comportement ne plaide pas pour toi.' }] },
     { t: 'Faire ta peine', fx: { reputation: 4 }, r: 'Tu ne demandes rien à personne.' },
   ] },

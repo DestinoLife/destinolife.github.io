@@ -1,3 +1,4 @@
+import { rand } from './hitman.js';
 import { pick, chance } from './rng.js';
 import { ORIGINES, VILLES, MILIEUX, TRAITS, TALENTS, nameFor, surnameFor } from '../data/identity.js';
 import { randomLook, baseLook } from '../data/look.js';
@@ -19,7 +20,7 @@ export function randomConfig() {
     ville: pick(VILLES),
     milieu: pick(['precaire', 'modeste', 'modeste', 'moyenne', 'moyenne', 'aisee', 'riche']),
     look: randomLook(genre, origine),
-    traits: Object.keys(TRAITS).sort(() => Math.random() - 0.5).slice(0, 2),
+    traits: Object.keys(TRAITS).sort(() => rand() - 0.5).slice(0, 2),
     talent: pick(Object.keys(TALENTS)),
   };
 }

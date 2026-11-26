@@ -1,4 +1,5 @@
 // Systèmes V3 : addictions, maladies, confiance et destin des amis, Instapic, monde, foot, politique, blackjack, intro.
+import { rand } from './hitman.js';
 import { rnd, pick, chance, clamp, euros, weighted } from './rng.js';
 import { addLog, apply, die, newPerson, career, registerFx, tpl, g } from './core.js';
 import { ADDICTIONS, DISEASES, DESTINS, PARENT_JOBS, PAYS, SITUATIONS, EXPAT } from '../data/world2.js';
@@ -192,14 +193,15 @@ const FEED = [['Vacances 🌴', 'plage'], ['Soirée de folie', 'soiree'], ['Dima
 export function instaPost(s, type, legende) {
   if (!s.insta) return { r: 'Il faut avoir 12 ans.', err: true };
   if (s.annee.posts >= 3) return { r: 'Tu as déjà posté 3 fois cette année. Poster plus ne sert à rien : l’algorithme te pénalise.', err: true };
-  const T = POST_TYPES[type];
+  const T = Object.hasOwn(POST_TYPES, type) ? POST_TYPES[type] : null;
+  if (!T) return { r: '', err: true };
   s.annee.posts++;
   const base = 20 + Math.sqrt(s.insta.followers) * 6;
   const mult = T.base * (0.5 + s.stats.apparence / 100 + s.stats.notoriete / 60 + s.stats.charisme / 200) * (s.carriere?.id === 'influenceur' ? 2.5 : 1);
   const viral = chance(0.05 + s.stats.charisme / 2000);
   const fatigue = 1 / (1 + (s.annee.posts - 1) * 0.8);
-  const gain = Math.min(2000000, Math.round(base * mult * fatigue * (0.5 + Math.random() * 0.8) * (viral ? 6 : 1)));
-  const likes = Math.round((s.insta.followers + gain) * (0.08 + Math.random() * 0.12) * (viral ? 6 : 1));
+  const gain = Math.min(2000000, Math.round(base * mult * fatigue * (0.5 + rand() * 0.8) * (viral ? 6 : 1)));
+  const likes = Math.round((s.insta.followers + gain) * (0.08 + rand() * 0.12) * (viral ? 6 : 1));
   s.insta.followers += gain;
   s.insta.posts.unshift({ age: s.age, type, txt: legende || T.nom, likes, viral });
   if (s.insta.posts.length > 30) s.insta.posts.pop();
@@ -239,7 +241,7 @@ function footTick(s) {
   s.foot ??= { matchs: 0, buts: 0, selections: 0, saisons: [] };
   const lvl = s.carriere.niveau;
   const m = lvl === 0 ? rnd(5, 15) : rnd(18, 38);
-  const b = Math.round(m * (0.05 + s.stats.forme / 300 + lvl * 0.04) * (0.5 + Math.random()));
+  const b = Math.round(m * (0.05 + s.stats.forme / 300 + lvl * 0.04) * (0.5 + rand()));
   s.foot.matchs += m;
   s.foot.buts += b;
   s.foot.saisons.push({ age: s.age, club: CLUBS[lvl], m, b });
@@ -262,8 +264,8 @@ export function handValue(h) {
   return t;
 }
 export function bjStart(s, bet) {
-  bet = Math.round(bet);
-  if (bet <= 0 || bet > s.money) return { err: true, r: 'Mise invalide.' };
+  bet = Math.floor(bet);
+  if (!Number.isFinite(bet) || bet <= 0 || bet > s.money || s.age < 18 || s.justice.prison > 0) return { err: true, r: 'Mise invalide.' };
   if (bet > 500000) return { err: true, r: 'Limite de la table : 500 000 € par mise.' };
   s.money -= bet;
   useSubstance(s, 'jeu', 0.5);
@@ -272,11 +274,13 @@ export function bjStart(s, bet) {
   return st;
 }
 export function bjHit(s, st) {
+  if (!st || st.done) return st;
   st.p.push(card());
   if (handValue(st.p) > 21) return bjEnd(s, st);
   return st;
 }
 export function bjStand(s, st) {
+  if (!st || st.done) return st;
   while (handValue(st.d) < 17) st.d.push(card());
   return bjEnd(s, st);
 }
@@ -321,6 +325,13 @@ export function contextSms(s) {
 // Réponses rapides et réactions des proches.
 export const REPLIES = ['Ça va et toi ?', 'J’arrive 🏃', 'Pas maintenant', 'Je t’aime ❤️', 'Désolé…', 'On se voit ce soir ?', 'Tu peux me dépanner ?', 'Laisse-moi tranquille'];
 export function sendMessage(s, to, txt) {
+  if (!REPLIES.includes(txt)) return;
+  const rr = s.relations.find((x) => x.vivant && x.prenom === to);
+  if (txt === 'Tu peux me dépanner ?' && rr) {
+    // Une seule demande d'argent par proche et par an
+    if (s.relUsed[`${rr.id}:depanne`]) txt = 'Ça va et toi ?';
+    else s.relUsed[`${rr.id}:depanne`] = true;
+  }
   s.phone.msgs.push({ from: 'Moi', conv: to, mine: true, txt, age: s.age, t: s.t, read: true });
   const r = s.relations.find((x) => x.vivant && x.prenom === to);
   let reply = null;
@@ -402,7 +413,7 @@ export function life2Tick(s) {
   if (s.age >= 12 && !s.insta) {
     s.insta = { followers: rnd(20, 80), posts: [] };
   }
-  if (s.insta && s.carriere?.id === 'influenceur') s.insta.followers = Math.min(300000000, Math.round(s.insta.followers * (1.02 + Math.random() * 0.1)));
+  if (s.insta && s.carriere?.id === 'influenceur') s.insta.followers = Math.min(300000000, Math.round(s.insta.followers * (1.02 + rand() * 0.1)));
   if (s.justice.prison === 0) delete s.flags.tel_prison;
   s.annee.use = {};
   s.annee.posts = 0;

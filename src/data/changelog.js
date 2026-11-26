@@ -1,7 +1,19 @@
 // Notes de mise à jour affichées dans le jeu (même contenu que CHANGELOG.md).
-export const VERSION = 'v0.9.2';
+export const VERSION = 'v0.9.3';
 
 export const CHANGELOG = [
+  { v: 'v0.9.3', titre: 'Hitman', items: [
+    'Hitman, le nouvel anti-triche : injection dans la console, sauvegarde retouchée ou somme astronomique = « Hitman t’a détecté », saisie de tous tes avoirs et prison à perpétuité',
+    'Le mode développeur (?dev) n’est plus accessible en ligne : il permettait de se donner de l’argent depuis la console',
+    'Sauvegardes et succès signés : impossible de les modifier à la main ou de ressusciter un perso en recollant une vieille sauvegarde',
+    'Une seule partie ouverte à la fois : ouvrir le jeu dans un autre onglet met l’ancien en pause',
+    'Casino rééquilibré : la machine à sous ne fait plus gagner à coup sûr, le blackjack ne paie plus deux fois la même main',
+    'Loto limité à 5 tickets par an (jackpot 2 000 000 €)',
+    'Fini l’argent infini via les proches : une demande d’argent par personne et par an, y compris par SMS',
+    'Receleur : plus de bonus en revendant un bien acheté la même année',
+    'Héritage corrigé : les biens ne sont plus comptés deux fois, et la bourse est transmise',
+    'Divers : études impossibles avant l’âge, aucun achat ni placement en prison, succès « La Grande Évasion » réservé aux vraies évasions',
+  ] },
   { v: 'v0.9.2', titre: 'Création de perso', items: [
     'Création de perso repensée : tu choisis d’abord Homme ou Femme, puis tu pars d’une base neutre à personnaliser (plus de perso aléatoire imposé)',
     'Corrigé : en modifiant ton perso, un deuxième personnage s’empilait devant l’ancien (le foulard ou la corpulence semblaient ne pas changer)',

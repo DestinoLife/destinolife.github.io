@@ -1,3 +1,4 @@
+import { verifier, seal, rand } from './engine/hitman.js';
 import './style.css';
 import './style-v2.css';
 import './style-v3.css';
@@ -5,7 +6,7 @@ import './style-v4.css';
 import { icon, logo, logoMark } from './ui/icons.js';
 import { sceneSVG } from './render/scene.js';
 import { avatarSVG, miniAvatarSVG } from './render/avatar.js';
-import { createLife, tpl, jobTitle, salary, career, partnerOf, lienNom, childrenOf, g } from './engine/core.js';
+import { createLife, tpl, jobTitle, salary, career, partnerOf, lienNom, childrenOf, g, hitmanSanction } from './engine/core.js';
 import { randomConfig, baseConfig } from './engine/random.js';
 import { euros, pick } from './engine/rng.js';
 import { fmtDate, fmtHeure, tod, saison } from './engine/time.js';
@@ -19,7 +20,7 @@ import { ROLES } from './data/world.js';
 import { HOUSING, SCENE_NOM, originScene } from './data/housing.js';
 import { ORIGINES, VILLES, MILIEUX, TRAITS, TALENTS, STATUTS } from './data/identity.js';
 import { SKINS, HAIR_COLORS, EYES, HAIRSTYLES, BEARDS, BUILDS, STYLES, ACCS, FOULARDS } from './data/look.js';
-import { save, load, clearSave } from './engine/save.js';
+import { save, load, clearSave, saveIssue } from './engine/save.js';
 import { migrate, buyAsset, sellAsset, createBusiness, businessAction, networkAction, travel, flee, roulette, slots, moveCity, readAll, bestCar, patrimoine, ASSETS , bourseAction } from './engine/economy.js';
 import { checkAchievements, achievementsSummary } from './engine/achievements.js';
 import { guideHTML, guideSteps, positionGuide, hasSeenGuide, markGuideDone, achievementsModalHTML } from './ui/guide.js';
@@ -45,7 +46,7 @@ let C = null; // personnage en création
 let cTab = 'identite';
 let OV = null; // fenêtre ouverte : téléphone, casino, voyage, PC…
 let lastSheet = null, lastOvKey = '', lastModal = '';
-const dev = location.search.includes('dev');
+const dev = import.meta.env.DEV && location.search.includes('dev');
 
 // ---------- Monde (décor + perso) ----------
 const VB = '0 0 1000 560';
@@ -258,6 +259,7 @@ function refreshCreator() {
 
 // ---------- Jeu ----------
 function renderGameShell() {
+  claimTab();
   app.innerHTML = `<div class="game">
     <div class="stage">${worldHTML('rue', { tod: 'jour', meteo: 'soleil' }, null)}
       <div class="hud-tl glass" id="hudtl"></div><div class="hud-tr" id="hudtr"></div>
@@ -310,7 +312,7 @@ function updateGame() {
   document.getElementById('hudtl').innerHTML = `<div class="hud-place">${icon('pin', 15)} ${esc(ville)} · ${where}${S.cavale ? ' · <span style="color:var(--bad)">en cavale</span>' : ''}</div>
     <div class="hud-time"><span class="h">${fmtHeure(S.t)}</span><span class="hud-meteo">${icon(wIcon, 17)} ${m.temp} °C · ${wTxt}</span></div>
     <div class="hud-date">${fmtDate(S.t)} · ${saison(S.t)}</div>`;
-  const job = inPrison(S) ? `Détenu${S.id.genre === 'f' ? 'e' : ''} · ${S.justice.prison} an${S.justice.prison > 1 ? 's' : ''} restant${S.justice.prison > 1 ? 's' : ''}` : jobTitle(S) || (S.age < 3 ? 'Bébé' : S.age < 6 ? 'Maternelle' : S.etudes.cursus ? (S.etudes.cursus === 'ecole' ? (S.age < 11 ? 'Élève en primaire' : 'Élève au collège') : S.etudes.cursus === 'lycee' ? 'Lycéen' + (S.id.genre === 'f' ? 'ne' : '') : S.etudes.cursus === 'cap' ? 'En lycée pro' : gF(S, 'Étudiant', 'Étudiante')) : S.age < 16 ? 'Enfant' : 'Sans emploi');
+  const job = inPrison(S) && S.flags.perpetuite ? `Détenu${S.id.genre === 'f' ? 'e' : ''} · perpétuité` : inPrison(S) ? `Détenu${S.id.genre === 'f' ? 'e' : ''} · ${S.justice.prison} an${S.justice.prison > 1 ? 's' : ''} restant${S.justice.prison > 1 ? 's' : ''}` : jobTitle(S) || (S.age < 3 ? 'Bébé' : S.age < 6 ? 'Maternelle' : S.etudes.cursus ? (S.etudes.cursus === 'ecole' ? (S.age < 11 ? 'Élève en primaire' : 'Élève au collège') : S.etudes.cursus === 'lycee' ? 'Lycéen' + (S.id.genre === 'f' ? 'ne' : '') : S.etudes.cursus === 'cap' ? 'En lycée pro' : gF(S, 'Étudiant', 'Étudiante')) : S.age < 16 ? 'Enfant' : 'Sans emploi');
   const stars = S.justice.recherche ? `<span class="pill glass" title="Niveau de recherche"><span class="stars">${[1, 2, 3, 4, 5].map((i) => icon('star', 13, i <= S.justice.recherche ? 'on' : '')).join('')}</span></span>` : '';
   document.getElementById('hudtr').innerHTML = `<div class="id-card glass"><b>${esc(S.id.prenom)} ${esc(S.id.nom)}</b><span>${S.age} an${S.age > 1 ? 's' : ''} · ${esc(job)}</span></div>
     <div class="pills">${stars}<span class="pill glass ${S.money < 0 ? 'neg' : 'money'}" title="${S.age < 18 ? 'Argent de poche' : 'Compte en banque'}">${icon('euro', 15)} ${S.age < 18 ? 'Poche · ' : ''}${euros(S.money)}</span>${energieMax(S.age) ? `<span class="pill glass" title="Énergie : ${S.energie} action${S.energie > 1 ? 's' : ''} restante${S.energie > 1 ? 's' : ''} cette année"><span class="energy">${Array.from({ length: Math.max(energieMax(S.age), S.energie) }, (_, i) => `<i class="${i < S.energie ? 'on' : ''}"></i>`).join('')}</span></span>` : ''}</div>`;
@@ -346,11 +348,21 @@ function updateGame() {
   const unlocked = checkAchievements(S);
   unlocked.forEach((a) => toast(`🏆 Défi débloqué : ${a.nom} (+${a.pts} pts)`, 'ach'));
   save(S);
+  seal(S);
 }
 
+function hitmanHTML() {
+  return `<div class="hitman-wrap"><div class="hitman">
+    <svg class="hm-scope" viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="44"/><circle cx="60" cy="60" r="6"/><path d="M60 4v34M60 82v34M4 60h34M82 60h34"/></svg>
+    <div class="hm-k">HITMAN</div><h2>Hitman t’a détecté.</h2>
+    <p class="hm-raison">Anomalie : <b>${esc(OV.raison)}</b></p>
+    <p>Tricher a un prix. Tous tes avoirs sont saisis et tu es condamné${S.id.genre === 'f' ? 'e' : ''} à la <b>réclusion criminelle à perpétuité</b>. Aucune évasion, aucun aménagement de peine.</p>
+    <button class="btn primary" data-a="hitmanok">Aller en cellule</button></div></div>`;
+}
 function overlayHTML() {
   if (OV?.t === 'ach') return achievementsModalHTML(achievementsSummary());
   if (!OV || !S) return '';
+  if (OV.t === 'hitman') return hitmanHTML();
   if (OV.t === 'intro') return introHTML(S);
   if (OV.t === 'guide') return guideHTML(S, OV.step || 0);
   if (OV.t === 'tips')
@@ -516,7 +528,49 @@ function startLife(cfg) {
   toast(`Bienvenue au monde, ${cfg.prenom}.`, 'good');
 }
 
+// ---------- Hitman ----------
+function hitman(raison) {
+  hitmanSanction(S, raison);
+  OV = { t: 'hitman', raison };
+  tab = null;
+  screen = 'game';
+  renderGameShell();
+}
+function hitmanGuard() {
+  if (screen !== 'game' || !S) return false;
+  const r = verifier(S);
+  if (!r) return false;
+  hitman(r);
+  return true;
+}
+setInterval(() => !document.hidden && hitmanGuard(), 2000);
+
+// Une seule partie ouverte à la fois : l'onglet le plus ancien rend la main (sinon l'un écrase l'autre)
+const TAB_ID = rand().toString(36).slice(2);
+const chan = typeof BroadcastChannel === 'function' ? new BroadcastChannel('destino') : null;
+const claimTab = () => chan?.postMessage({ t: 'play', id: TAB_ID });
+chan?.addEventListener('message', (e) => {
+  if (e.data?.t !== 'play' || e.data.id === TAB_ID || screen !== 'game') return;
+  S = null;
+  OV = null;
+  seal(null);
+  screen = 'title';
+  renderTitle();
+  document.querySelector('.tagline')?.insertAdjacentHTML('afterend', '<p class="hint tab-lost">Ta partie a été reprise dans un autre onglet.</p>');
+});
+
+const PROTO = new Set(Object.getOwnPropertyNames(Object.prototype));
 function handle(a, v, el) {
+  if ([a, v, el?.dataset?.x, el?.dataset?.k].some((x) => typeof x === 'string' && PROTO.has(x))) return;
+  if (hitmanGuard()) return;
+  try {
+    return handle0(a, v, el);
+  } finally {
+    if (S && screen === 'game') seal(S);
+  }
+}
+
+function handle0(a, v, el) {
   if (S && busy(S) && ['act', 'apply', 'enroll', 'move', 'buy', 'relact', 'travel', 'flee', 'buyasset', 'openbiz', 'biz', 'net', 'city', 'cplay'].includes(a)) return toast('Réponds d’abord à l’événement en cours.', 'err');
   switch (a) {
     case 'new':
@@ -531,11 +585,16 @@ function handle(a, v, el) {
       return renderCreator();
     case 'random':
       return startLife(randomConfig());
-    case 'continue':
-      S = migrate3(migrate(load()));
+    case 'continue': {
+      const ls = load();
+      if (!ls) return renderTitle();
+      S = migrate3(migrate(ls));
       screen = 'game';
       tab = null;
+      const fraude = saveIssue() || verifier(S);
+      if (fraude) return hitman(fraude);
       return renderGameShell();
+    }
     case 'back':
       screen = 'title';
       return renderTitle();
@@ -558,17 +617,21 @@ function handle(a, v, el) {
         renderCreator();
         return toast('Choisis ton talent caché.', 'err');
       }
-      return startLife({ ...C, prenom: C.prenom.trim(), nom: C.nom.trim() });
+      return startLife({ ...C, prenom: C.prenom.trim().slice(0, 20), nom: C.nom.trim().slice(0, 24) });
     case 'closeall':
-      if (OV?.t === 'intro' || OV?.t === 'tips' || OV?.t === 'guide') return;
+      if (OV?.t === 'intro' || OV?.t === 'tips' || OV?.t === 'guide' || OV?.t === 'hitman') return;
       if (!tab && !OV) return;
       tab = null;
+      OV = null;
+      return updateGame();
+    case 'hitmanok':
       OV = null;
       return updateGame();
     case 'tipsoff':
       S.tipsOff = true;
       return updateGame();
     case 'train':
+      if (!Object.hasOwn(TRAIN, v)) return;
       S.trainDeVie = v;
       toast(`Train de vie : ${TRAIN[v].nom}. ${TRAIN[v].desc}`, 'good');
       return updateGame();
@@ -742,10 +805,12 @@ function handle(a, v, el) {
       return updateGame();
     }
     case 'bjhit':
+      if (!OV?.bj || OV.bj.done) return;
       OV.bj = bjHit(S, OV.bj);
       if (OV.bj.done) presentNext(S);
       return updateGame();
     case 'bjstand':
+      if (!OV?.bj || OV.bj.done) return;
       OV.bj = bjStand(S, OV.bj);
       presentNext(S);
       return updateGame();
@@ -865,7 +930,7 @@ document.addEventListener('keydown', (e) => {
     tab = null;
     updateGame();
   }
-  if (e.key === ' ' && e.target === document.body && !busy(S) && !OV) {
+  if (e.key === ' ' && !e.repeat && e.target === document.body && !busy(S) && !OV) {
     e.preventDefault();
     handle('age');
   }

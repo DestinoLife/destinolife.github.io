@@ -1,6 +1,7 @@
 // Événements v0.8 « Économie réelle » : imprévus d'entreprise, vie d'une start-up, conjoncture (krach, récession),
 // et côté illégal : guerre de territoire, enquête des stups, indic dans l'équipe.
 // Ils sont programmés par le moteur (economy.js), jamais tirés au hasard : w = 0.
+import { rand } from '../engine/hitman.js';
 import { rnd, chance } from '../engine/rng.js';
 
 const bz = (s) => s.business.find((b) => b.uid === s.mem.biz) || s.business[0];
@@ -28,7 +29,7 @@ export const EVENTS5 = [
     { t: 'Rembourser et s’excuser (5 000 €)', fx: (s) => (change(s, (b) => { b.rep -= 5; }), { money: -5000 }), r: 'L’affaire se calme en quelques jours.' },
     { t: 'Ignorer', fx: (s) => change(s, (b) => { b.rep -= 15; b.choc = 0.85; }), r: 'Les avis restent. Le chiffre d’affaires baisse.' },
   ] },
-  { id: 'biz_vol_gerant', w: 0, cat: 'Business', cond: has, pre: (s) => { setBiz(s); s.tmp.vol = Math.round((bz(s)?.ca || 100000) * (0.04 + Math.random() * 0.06)); }, txt: 'Ton comptable a trouvé un trou de {€vol} dans les caisses de {biz}. Ton gérant se servait depuis des mois.', ch: [
+  { id: 'biz_vol_gerant', w: 0, cat: 'Business', cond: has, pre: (s) => { setBiz(s); s.tmp.vol = Math.round((bz(s)?.ca || 100000) * (0.04 + rand() * 0.06)); }, txt: 'Ton comptable a trouvé un trou de {€vol} dans les caisses de {biz}. Ton gérant se servait depuis des mois.', ch: [
     { t: 'Porter plainte', h: 'Procédure longue', fx: (s) => ({ money: -s.tmp.vol }), out: [{ p: 0.5, fx: (s) => ({ money: Math.round(s.tmp.vol * 0.6) }), r: 'Il est condamné à te rembourser une partie.' }, { p: 1, r: 'Insolvable. Tu ne reverras jamais cet argent.' }] },
     { t: 'Le virer discrètement', fx: (s) => ({ money: -s.tmp.vol }), r: 'Tu perds l’argent, mais pas ton temps.' },
     { t: 'Le faire « rembourser » à ta façon', h: 'Illégal', c: (s) => s.stats.crime >= 25, fx: { crime: 3, reputation: 4 }, r: 'Il a tout rendu. Avec les intérêts.' },
@@ -50,7 +51,7 @@ export const EVENTS5 = [
     { t: 'Reconstruire ({€travaux})', c: (s) => s.money >= s.tmp.travaux || bz(s)?.assure, fx: (s) => (bz(s)?.assure ? (change(s, (b) => { b.choc = 0.6; }), { money: -5000 }) : (change(s, (b) => { b.choc = 0.6; }), { money: -s.tmp.travaux })), r: 'Six mois de fermeture, puis la réouverture.' },
     { t: 'Mettre la clé sous la porte', fx: (s) => { const b = bz(s); if (b) { s.business = s.business.filter((x) => x !== b); s.money += b.assure ? Math.round(b.investi * 0.6) : 0; } return { bonheur: -10 }; }, r: 'Tu fermes définitivement. Si tu étais assuré{e}, l’assurance te rembourse une partie.' },
   ] },
-  { id: 'biz_rachat', w: 0, cat: 'Business', cond: (s) => has(s) && (bz(s)?.benef || 0) > 0, pre: (s) => { setBiz(s); s.tmp.offre = Math.round(Math.max(bz(s).valo, bz(s).investi * 0.5) * (1.1 + Math.random() * 0.35)); }, txt: 'Un groupe veut racheter {biz}. Leur offre : {€offre}.', ch: [
+  { id: 'biz_rachat', w: 0, cat: 'Business', cond: (s) => has(s) && (bz(s)?.benef || 0) > 0, pre: (s) => { setBiz(s); s.tmp.offre = Math.round(Math.max(bz(s).valo, bz(s).investi * 0.5) * (1.1 + rand() * 0.35)); }, txt: 'Un groupe veut racheter {biz}. Leur offre : {€offre}.', ch: [
     { t: 'Accepter', fx: (s) => { s.business = s.business.filter((x) => x.uid !== s.mem.biz); return { money: s.tmp.offre }; }, r: 'Vendu ! Le virement arrive la semaine suivante.' },
     { t: 'Négocier plus haut', out: [{ p: 0.45, fx: (s) => { s.business = s.business.filter((x) => x.uid !== s.mem.biz); return { money: Math.round(s.tmp.offre * 1.2) }; }, r: 'Ils montent de 20 %. Marché conclu.' }, { p: 1, r: 'Ils se retirent. L’offre n’existe plus.' }] },
     { t: 'Refuser', r: 'Tu gardes ton bébé.' },
@@ -75,7 +76,7 @@ export const EVENTS5 = [
 
   // ---------- Start-up ----------
   { id: 'su_pivot', w: 0, cat: 'Start-up', cond: (s) => hasSU(s) && (bz(s)?.g ?? 0) < 0.15, pre: setBiz, txt: '{biz} stagne depuis des mois. Ton associé propose de pivoter : changer complètement de produit.', ch: [
-    { t: 'Pivoter', h: 'Nouveau départ, utilisateurs ÷ 2', fx: (s) => change(s, (b) => { b.q = Math.min(1, Math.random() ** 1.5 + 0.05); b.users = Math.round(b.users / 2); }), r: 'Nouveau produit, nouvelle chance. Personne ne sait si ça marchera.' },
+    { t: 'Pivoter', h: 'Nouveau départ, utilisateurs ÷ 2', fx: (s) => change(s, (b) => { b.q = Math.min(1, rand() ** 1.5 + 0.05); b.users = Math.round(b.users / 2); }), r: 'Nouveau produit, nouvelle chance. Personne ne sait si ça marchera.' },
     { t: 'Persévérer', r: 'Tu crois en ton idée. Tu continues.' },
     { t: 'Arrêter et récupérer la trésorerie', fx: (s) => { const b = bz(s); if (b) { s.business = s.business.filter((x) => x !== b); s.money += Math.round(Math.max(0, b.cash) * b.part / 100); } return { bonheur: -6 }; }, r: 'Tu fermes proprement. Ce qu’il reste en caisse est partagé entre associés.' },
   ] },
@@ -87,7 +88,7 @@ export const EVENTS5 = [
     { t: 'Lui donner 10 %', fx: (s) => change(s, (b) => { b.part = Math.round(b.part * 0.9 * 10) / 10; b.q = Math.min(1, b.q + 0.05); }), r: 'Il reste, et redouble d’efforts.' },
     { t: 'Le laisser partir', fx: (s) => change(s, (b) => { b.q = Math.max(0, b.q - 0.12); }), r: 'Le produit avance beaucoup moins vite sans lui.' },
   ] },
-  { id: 'su_rachat', w: 0, cat: 'Start-up', cond: (s) => hasSU(s) && (bz(s)?.g || 0) >= 0.25 && (bz(s)?.users || 0) > 20000, pre: (s) => { setBiz(s); const b = bz(s); s.tmp.offre = Math.round(b.valo * (0.9 + Math.random() * 0.5)); s.tmp.pour = Math.round(s.tmp.offre * b.part / 100); }, txt: 'Un géant de la tech veut racheter {biz} pour {€offre}. Avec tes parts, tu toucherais {€pour}.', ch: [
+  { id: 'su_rachat', w: 0, cat: 'Start-up', cond: (s) => hasSU(s) && (bz(s)?.g || 0) >= 0.25 && (bz(s)?.users || 0) > 20000, pre: (s) => { setBiz(s); const b = bz(s); s.tmp.offre = Math.round(b.valo * (0.9 + rand() * 0.5)); s.tmp.pour = Math.round(s.tmp.offre * b.part / 100); }, txt: 'Un géant de la tech veut racheter {biz} pour {€offre}. Avec tes parts, tu toucherais {€pour}.', ch: [
     { t: 'Accepter', fx: (s) => { s.business = s.business.filter((x) => x.uid !== s.mem.biz); return { money: s.tmp.pour, notoriete: 5 }; }, r: 'Exit ! Ta start-up rejoint un géant. Le virement a beaucoup de zéros.' },
     { t: 'Refuser : tu vises plus haut', r: 'Tu refuses. Le marché te donnera-t-il raison ?' },
   ] },
