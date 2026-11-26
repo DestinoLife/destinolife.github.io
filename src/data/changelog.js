@@ -1,7 +1,16 @@
 // Notes de mise à jour affichées dans le jeu (même contenu que CHANGELOG.md).
-export const VERSION = 'v0.9.3';
+export const VERSION = 'v0.9.4';
 
 export const CHANGELOG = [
+  { v: 'v0.9.4', titre: 'Hitman 2.0', items: [
+    'Hitman 2.0 : l’état du jeu est enfermé dans un coffre-fort. Toute modification venant de la console, d’un point d’arrêt ou d’un script est bloquée avant d’être appliquée, puis sanctionnée',
+    'Journal financier (onglet Biens) : chaque gain et chaque dépense est rattaché à l’action qui l’a causé. Le solde réel doit toujours égaler le solde attendu',
+    'Contrôles avant et après chaque action : ouvrir un onglet ne peut rien changer d’important, un achat ne peut jamais t’enrichir',
+    'Restauration automatique : en cas de triche, le dernier état valide est restauré avant la sanction',
+    'Sauvegardes encore plus sûres : enregistrées seulement après vérification, journal chaîné et scellé, validation stricte (biens, métiers, diplômes, entreprises, statistiques)',
+    'Code publié obfusqué : les clés de Hitman ne sont plus lisibles, sans aucun ralentissement du jeu',
+    'Les anciennes versions gardées hors ligne sont supprimées du cache',
+  ] },
   { v: 'v0.9.3', titre: 'Hitman', items: [
     'Hitman, le nouvel anti-triche : injection dans la console, sauvegarde retouchée ou somme astronomique = « Hitman t’a détecté », saisie de tous tes avoirs et prison à perpétuité',
     'Le mode développeur (?dev) n’est plus accessible en ligne : il permettait de se donner de l’argent depuis la console',

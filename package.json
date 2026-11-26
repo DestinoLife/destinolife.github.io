@@ -13,6 +13,8 @@
   },
   "devDependencies": {
     "@resvg/resvg-js": "^2.6.2",
+    "javascript-obfuscator": "^5.10.1",
+    "rollup-plugin-obfuscator": "^1.1.0",
     "vite": "^7.0.0"
   }
 }

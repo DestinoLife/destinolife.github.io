@@ -1,4 +1,4 @@
-import { verifier, seal, rand } from './engine/hitman.js';
+import { verifier, rand, protect, unprotect, begin, end, restore, takeViolation, setViolationHandler, setCommitHandler, rawOf } from './engine/hitman.js';
 import './style.css';
 import './style-v2.css';
 import './style-v3.css';
@@ -20,7 +20,7 @@ import { ROLES } from './data/world.js';
 import { HOUSING, SCENE_NOM, originScene } from './data/housing.js';
 import { ORIGINES, VILLES, MILIEUX, TRAITS, TALENTS, STATUTS } from './data/identity.js';
 import { SKINS, HAIR_COLORS, EYES, HAIRSTYLES, BEARDS, BUILDS, STYLES, ACCS, FOULARDS } from './data/look.js';
-import { save, load, clearSave, saveIssue } from './engine/save.js';
+import { save, load, clearSave, saveIssue, validerEtat } from './engine/save.js';
 import { migrate, buyAsset, sellAsset, createBusiness, businessAction, networkAction, travel, flee, roulette, slots, moveCity, readAll, bestCar, patrimoine, ASSETS , bourseAction } from './engine/economy.js';
 import { checkAchievements, achievementsSummary } from './engine/achievements.js';
 import { guideHTML, guideSteps, positionGuide, hasSeenGuide, markGuideDone, achievementsModalHTML } from './ui/guide.js';
@@ -302,6 +302,21 @@ function notifyNew() {
 
 function updateGame() {
   if (!S) return;
+  begin('render');
+  // L'affichage lit l'état des milliers de fois : il lit l'objet brut (sans passer par les contrôles du coffre-fort).
+  // Ses rares écritures (drapeaux d'affichage) restent couvertes par les contrôles de fin d'action.
+  const P = S;
+  S = rawOf(P);
+  try {
+    updateGame0();
+  } finally {
+    if (S === rawOf(P)) S = P;
+    const r = end();
+    if (r) queueMicrotask(() => hitmanGuard(r));
+  }
+}
+function updateGame0() {
+  if (!S) return;
   updateWorld();
   const sc = currentScene(S);
   const m = S.meteo;
@@ -347,10 +362,22 @@ function updateGame() {
   if (OV?.t === 'guide') requestAnimationFrame(() => positionGuide(S, OV.step));
   const unlocked = checkAchievements(S);
   unlocked.forEach((a) => toast(`🏆 Défi débloqué : ${a.nom} (+${a.pts} pts)`, 'ach'));
-  save(S);
-  seal(S);
 }
 
+// Journal financier tenu par Hitman : chaque mouvement d'argent est rattaché à l'action qui l'a causé
+const JOURNAL_NOM = {
+  age: 'Année écoulée (revenus, dépenses, impôts)', act: 'Activité', cplay: 'Casino', bjdeal: 'Blackjack', bjhit: 'Blackjack', bjstand: 'Blackjack',
+  buyasset: 'Achat d’un bien', sellasset: 'Vente d’un bien', sell: 'Vente', buy: 'Achat du logement', openbiz: 'Création d’entreprise', biz: 'Entreprise',
+  bourse: 'Bourse', relact: 'Proche', choose: 'Événement', choice: 'Événement', move: 'Logement', city: 'Déménagement', travel: 'Voyage', flee: 'Cavale',
+  net: 'Réseau', apply: 'Candidature', enroll: 'Études', sendmsg: 'Message', answer: 'Message', hitman: 'Saisie par Hitman', heir: 'Héritage',
+  cont: 'Suite d’un événement', write: 'Message', post: 'Réseaux sociaux', comment: 'Réseaux sociaux', expat: 'Expatriation', guard: 'Garde du corps', train: 'Train de vie',
+};
+function journalHTML() {
+  const j = (S.compta?.j || []).slice(-12).reverse();
+  if (!j.length) return '';
+  const ligne = (e) => `<dt>${e.age} ans · ${JOURNAL_NOM[e.a] || 'Action'}</dt><dd style="color:var(--${e.m >= 0 ? 'good' : 'bad'})">${e.m >= 0 ? '+' : ''}${euros(e.m)}${e.b ? ` <small>(bourse ${e.b > 0 ? '+' : ''}${euros(e.b)})</small>` : ''}</dd>`;
+  return `<div class="sec"><h3>Journal financier</h3><dl class="kv">${j.map(ligne).join('')}</dl><p class="hint">Chaque mouvement d’argent est justifié par l’action qui l’a causé. Une somme sans justification déclenche Hitman.</p></div>`;
+}
 function hitmanHTML() {
   return `<div class="hitman-wrap"><div class="hitman">
     <svg class="hm-scope" viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="44"/><circle cx="60" cy="60" r="6"/><path d="M60 4v34M60 82v34M4 60h34M82 60h34"/></svg>
@@ -447,7 +474,7 @@ function sheetHTML() {
       <div class="sec"><h3>Logement actuel</h3><div class="note">${S.chezParents ? 'Tu vis chez tes parents (gratuit).' : `${HOUSING[S.logement]?.nom}${S.proprio ? ' · propriétaire' : ''}`}</div></div>
       <div class="sec"><h3>Déménager</h3><div class="list">${housingOptions(S).map((h) => `<div class="li ${h.ok ? '' : 'off'}"><div class="grow"><b>${h.nom}</b><small>${h.ok ? [h.loyer ? `Loyer ${euros(h.loyer)}/an` : h.achat ? '' : 'Gratuit', h.achat ? `Achat ${euros(h.achat)}` : ''].filter(Boolean).join(' · ') : esc(h.why)}</small></div>
         ${h.ok && (h.loyer || !h.achat) ? `<button class="btn sm" data-a="move" data-v="${h.id}">${h.loyer ? 'Louer' : 'Y aller'}</button>` : ''}${h.ok && h.achat ? `<button class="btn sm ${S.money >= h.achat ? '' : 'off'}" data-a="buy" data-v="${h.id}">Acheter</button>` : ''}</div>`).join('')}</div></div>`;
-    return head('Biens et argent', `${S.age < 18 ? 'Argent de poche' : 'Compte'} : ${euros(S.money)}`) + `<div class="sheet-b">${biensHTML(S, housing)}${expatHTML(S)}</div>`;
+    return head('Biens et argent', `${S.age < 18 ? 'Argent de poche' : 'Compte'} : ${euros(S.money)}`) + `<div class="sheet-b">${biensHTML(S, housing)}${journalHTML()}${expatHTML(S)}</div>`;
   }
   return '';
 }
@@ -519,8 +546,9 @@ function relHTML() {
 
 // ---------- Actions ----------
 function startLife(cfg) {
-  S = migrate3(migrate(createLife(cfg)));
-  giveParentJobs(S);
+  const s = migrate3(migrate(createLife(cfg)));
+  giveParentJobs(s);
+  S = protect(s);
   OV = { t: 'intro' };
   tab = null;
   screen = 'game';
@@ -530,20 +558,30 @@ function startLife(cfg) {
 
 // ---------- Hitman ----------
 function hitman(raison) {
-  hitmanSanction(S, raison);
+  restore(); // retour au dernier état valide : la triche est annulée
+  takeViolation();
+  begin('hitman');
+  try {
+    hitmanSanction(S, raison);
+  } finally {
+    end();
+    takeViolation();
+  }
   OV = { t: 'hitman', raison };
   tab = null;
   screen = 'game';
   renderGameShell();
 }
-function hitmanGuard() {
+function hitmanGuard(pre) {
   if (screen !== 'game' || !S) return false;
-  const r = verifier(S);
+  const r = pre || takeViolation() || verifier(S);
   if (!r) return false;
   hitman(r);
   return true;
 }
-setInterval(() => !document.hidden && hitmanGuard(), 2000);
+setInterval(() => !document.hidden && hitmanGuard(), 1500);
+setViolationHandler(() => hitmanGuard());
+setCommitHandler((s, json) => save(s, json)); // sauvegarde uniquement après validation par Hitman
 
 // Une seule partie ouverte à la fois : l'onglet le plus ancien rend la main (sinon l'un écrase l'autre)
 const TAB_ID = rand().toString(36).slice(2);
@@ -553,7 +591,7 @@ chan?.addEventListener('message', (e) => {
   if (e.data?.t !== 'play' || e.data.id === TAB_ID || screen !== 'game') return;
   S = null;
   OV = null;
-  seal(null);
+  unprotect();
   screen = 'title';
   renderTitle();
   document.querySelector('.tagline')?.insertAdjacentHTML('afterend', '<p class="hint tab-lost">Ta partie a été reprise dans un autre onglet.</p>');
@@ -563,10 +601,16 @@ const PROTO = new Set(Object.getOwnPropertyNames(Object.prototype));
 function handle(a, v, el) {
   if ([a, v, el?.dataset?.x, el?.dataset?.k].some((x) => typeof x === 'string' && PROTO.has(x))) return;
   if (hitmanGuard()) return;
+  const enJeu = !!S && screen === 'game';
+  if (enJeu) begin(a);
   try {
     return handle0(a, v, el);
   } finally {
-    if (S && screen === 'game') seal(S);
+    // Contrôles après l'action : solde attendu, légitimité, journal financier
+    if (enJeu) {
+      const r = end();
+      if (r) hitmanGuard(r);
+    }
   }
 }
 
@@ -588,10 +632,11 @@ function handle0(a, v, el) {
     case 'continue': {
       const ls = load();
       if (!ls) return renderTitle();
-      S = migrate3(migrate(ls));
+      S = protect(migrate3(migrate(ls)));
       screen = 'game';
       tab = null;
-      const fraude = saveIssue() || verifier(S);
+      const inval = validerEtat(S);
+      const fraude = saveIssue() || verifier(S) || (inval && `Sauvegarde invalide (${inval})`);
       if (fraude) return hitman(fraude);
       return renderGameShell();
     }
@@ -730,7 +775,7 @@ function handle0(a, v, el) {
       const ns = continueAsChild(S, Number(v));
       if (ns) {
         migrate3(migrate(ns));
-        S = ns;
+        S = protect(ns);
         tab = null;
         renderGameShell();
         toast(`Tu continues avec ${S.id.prenom}.`, 'good');

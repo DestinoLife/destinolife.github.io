@@ -1,6 +1,18 @@
 # Notes de mise à jour de Destino
 
-Version actuelle : **v0.9.3**. Ces notes sont aussi visibles dans le jeu (écran titre, « Notes de mise à jour »).
+Version actuelle : **v0.9.4**. Ces notes sont aussi visibles dans le jeu (écran titre, « Notes de mise à jour »).
+
+## v0.9.4 · Hitman 2.0
+
+- Hitman 2.0 : l’état du jeu est enfermé dans un coffre-fort. Toute modification venant de la console, d’un point d’arrêt ou d’un script est bloquée avant d’être appliquée, puis sanctionnée
+- Journal financier (onglet Biens) : chaque gain et chaque dépense est rattaché à l’action qui l’a causé. Le solde réel doit toujours égaler le solde attendu
+- Contrôles avant et après chaque action : ouvrir un onglet ne peut rien changer d’important, un achat ne peut jamais t’enrichir
+- Restauration automatique : en cas de triche, le dernier état valide est restauré avant la sanction
+- Sauvegardes encore plus sûres : enregistrées seulement après vérification, journal chaîné et scellé, validation stricte (biens, métiers, diplômes, entreprises, statistiques)
+- Code publié obfusqué : les clés de Hitman ne sont plus lisibles, sans aucun ralentissement du jeu
+- Les anciennes versions gardées hors ligne sont supprimées du cache
+
+Architecture, tentatives de contournement, performances et limites : [SECURITY_AUDIT.md](SECURITY_AUDIT.md).
 
 ## v0.9.3 · Hitman
 

@@ -1,4 +1,114 @@
-# Audit de sécurité et anti-triche : Destino (v0.9.3, « Hitman »)
+# Audit de sécurité et anti-triche : Destino
+
+- **v0.9.4, Hitman 2.0** : coffre-fort d'état, journal financier, contrôles de légitimité, obfuscation. Voir la première partie.
+- **v0.9.3, Hitman 1** : audit complet du code (30 failles) et premières protections. Voir la seconde partie.
+
+---
+
+# Partie 1 : Hitman 2.0 (v0.9.4)
+
+## Pourquoi on pouvait encore modifier `money` en v0.9.3
+
+| Faille restante | Comment | Conséquence |
+|---|---|---|
+| **Point d'arrêt pendant une action** | Le sceau n'était vérifié qu'*entre* deux actions. On met l'exécution en pause dans les outils de développement (par exemple dans `bourseAction`), on tape `s.money = 5e8`, puis on reprend. | L'action se termine, et le sceau valide l'état truqué comme s'il était légitime. |
+| **Contrôle par plafond seulement** | En dehors du sceau, seule une somme supérieure à 1 milliard déclenchait Hitman. | Toute somme injectée sous ce plafond passait inaperçue. |
+| **Code lisible** | La clé de signature, la recette du hachage et le nom des entrées localStorage étaient en clair dans le bundle. | On pouvait recopier `sign()`, modifier la sauvegarde puis la re-signer. |
+| **Aucune justification** | Rien ne rattachait un gain à sa cause. | Une sauvegarde re-signée avec 50 M€ était indiscernable d'une vraie fortune. |
+| **Cache hors ligne** | Le service worker pouvait servir l'ancien bundle (avec `?dev`) hors connexion. | Le nom du cache passe à `v07`, ce qui purge l'ancienne version. |
+
+## Architecture de Hitman 2.0 ([src/engine/hitman.js](src/engine/hitman.js))
+
+Ce sont des couches **indépendantes** : contourner l'une ne suffit pas.
+
+1. **Coffre-fort (encapsulation de l'état).**
+   - L'état d'une vie n'est plus un objet libre : le jeu ne manipule qu'un `Proxy`, et l'objet réel reste enfermé dans le module.
+   - Chaque écriture (affectation, suppression, `defineProperty`, `setPrototypeOf`, méthodes de tableau) est interceptée.
+   - Le Proxy couvre l'argent, la bourse, l'argent sale, l'énergie, l'âge, toutes les statistiques, les diplômes, le métier, les entreprises, les biens, la justice, les compteurs (loto, demandes aux proches…) et l'événement en cours.
+2. **Légitimité de chaque écriture.**
+   - La pile d'appels de l'écriture doit venir des scripts du jeu (même origine) ou du navigateur.
+   - Une frame de la console, d'un point d'arrêt, d'un `eval`, d'un extrait DevTools ou d'une extension rend l'écriture étrangère : **elle n'est pas appliquée**, et Hitman intervient.
+   - Ce qui se trouve *sous* le point d'entrée de l'action (l'écouteur de clic et ce qui l'a déclenché) n'est pas jugé. Un clic déclenché par une extension d'accessibilité reste donc légitime.
+   - La falsification des piles (`Error.stackTraceLimit`, `Error.prepareStackTrace`) est elle-même détectée.
+3. **Gestionnaire central des transactions et journal financier.**
+   - Chaque variation d'argent, de bourse et d'argent sale passe par le coffre-fort.
+   - Elle est rattachée à l'action du joueur qui l'a causée, puis journalisée : action, âge, montants, solde.
+   - Le journal est **chaîné** : chaque ligne scelle la précédente, avec une clé distincte de celle des sauvegardes.
+   - Il est visible en jeu, dans l'onglet *Biens → Journal financier*.
+4. **Contrôles avant et après chaque action** (`begin`/`end`) :
+   - **solde attendu = solde réel** (solde de départ + variations journalisées) ;
+   - une action d'interface pure (onglet, téléphone, mise affichée…) ne doit changer **aucune** donnée sensible ;
+   - un achat ne doit jamais enrichir.
+5. **Contrôles d'intégrité indépendants** (toutes les 1,5 s et avant chaque action) :
+   - des valeurs témoins (copie hors de l'état des champs sensibles) ;
+   - une empreinte complète de l'objet brut ;
+   - les fonctions natives (`Math.random`, `JSON`, `Error`) restent intactes ;
+   - des bornes de cohérence.
+6. **Restauration automatique.** En cas d'anomalie, le dernier état validé est restauré en place : la triche est annulée. Puis vient la sanction (saisie et perpétuité).
+7. **Sauvegardes : signature et validation stricte.** On n'enregistre **que des états validés** : la sauvegarde a lieu après les contrôles de fin d'action. Au chargement, la sauvegarde est refusée dans ces cas :
+   - signature fausse ou supprimée ;
+   - vie déjà terminée ;
+   - journal chaîné cassé, solde du journal différent du solde réel, ou journal supprimé d'une vie qui en avait un ;
+   - types ou bornes impossibles ;
+   - identifiants inconnus (bien, entreprise, métier, diplôme).
+8. **Aléatoire.** Le jeu n'utilise que `rand()`, capturé au chargement. Remplacer `Math.random` est sans effet, détecté, puis réparé.
+9. **Obfuscation du build** ([vite.config.js](vite.config.js)). Le code source reste lisible. Dans le bundle publié, Hitman, la sauvegarde et les succès sont obfusqués :
+   - chaînes chiffrées (RC4) et découpées ;
+   - noms renommés ;
+   - clés d'objets transformées.
+   
+   Dans le bundle, on ne trouve plus `destino.save.v1`, la graine du hachage ni les clés.
+
+## Tentatives de contournement (toutes reproduites dans `npm run anticheat`)
+
+| Test | Tentative | Résultat |
+|---|---|---|
+| HM-2 | `p.money = 1e8`, stats, énergie, diplôme depuis la console | Bloqué (valeur inchangée) et détecté |
+| HM-2b | Écriture pendant une action (simule un point d'arrêt) | Bloquée, action refusée |
+| HM-2c | Objets imbriqués, `push`, `delete`, `defineProperty` (getter), `setPrototypeOf`, `Object.assign`, métier, peine, compteurs (11 attaques) | Les 11 sont bloquées et détectées |
+| HM-2d | Modifier l'objet brut sans passer par le Proxy | Détecté (témoins, puis empreinte complète) et restauré |
+| HM-2e | `Error.stackTraceLimit = 0` ou faux `prepareStackTrace` pour tromper la pile | Détecté et réparé |
+| HM-2f | Action déclenchée par un script ou une extension, mais écritures faites par les règles du jeu | **Pas** de faux positif |
+| HM-3 / 3b | Gain journalisé et rattaché à l'action ; argent apparu dans une action d'interface ou lors d'un achat | Journal exact ; anomalies détectées |
+| HM-4 | Sauvegarde retouchée, signature supprimée, vie ressuscitée | Détecté |
+| HM-4b | **Tricheur qui connaît la clé** : modifie l'argent et re-signe ; modifie aussi le solde du journal ; supprime le journal | Les 3 sont détectés (sceau du journal, liste des vies journalisées) |
+| HM-4c | Bien, métier, diplôme ou entreprise inventés ; stat 999 ; énergie 1e6 ; peine négative | Refusés |
+| HM-7 | 40 vies honnêtes jouées à travers le coffre-fort : environ 3 200 années, une quinzaine d'héritages, une vingtaine de variations de plus de 1 M€ (casino, ventes, bourse, entreprises) | **0 faux positif.** Sauvegarde et rechargement valides tout au long |
+
+Dans le navigateur (build de développement et build obfusqué), ces cas ont été vérifiés :
+
+- environ 1 000 clics de jeu sans aucune détection ni erreur ;
+- `destino.S.money = 5e7` depuis la console : écriture bloquée, Hitman immédiat ;
+- sauvegarde retouchée et `Math.random` remplacé : détectés.
+
+## Performances
+
+Banc d'essai : 60 clics d'onglet à 12 ans, même machine.
+
+| Build | Médiane par clic |
+|---|---|
+| v0.9.3 en ligne | 22,7 ms |
+| v0.9.4 sans obfuscation | 23,6 ms |
+| v0.9.4 obfusqué (réglé) | 23,4 ms |
+
+- **Coût du coffre-fort** : 1,3 ms par action du moteur (mesuré en Node).
+- **Pas d'impact sur les 60 FPS** : aucune vérification ne tourne image par image.
+- **Ce qu'on a écarté** :
+  - L'aplatissement du flux de contrôle et l'obfuscation de tout le jeu triplaient le temps d'un clic (43 ms). Ils sont retirés.
+  - Le hachage a été réécrit pour que l'obfuscation n'ajoute rien dans sa boucle.
+
+## Limites (honnêtes)
+
+- **Code modifié avant son exécution** (*Local Overrides* de DevTools, proxy local) : l'attaquant exécute *son* code sous la bonne URL, et aucune protection locale ne peut s'en apercevoir. L'obfuscation rend seulement ce travail long.
+- **Variable locale modifiée pendant une pause** (par exemple le multiplicateur d'une machine à sous) : l'écriture finale vient alors du code du jeu. Les règles de légitimité (un achat n'enrichit pas, un onglet ne change rien…) en attrapent une partie, mais pas tout.
+- **Objet brut pendant une action** : un attaquant qui pose un point d'arrêt *dans* le Proxy de Hitman y accède. Les modifications faites entre deux actions sont attrapées par les témoins et l'empreinte. Celles faites pendant une action ne le sont que si elles cassent le solde attendu ou une règle.
+- **Re-signature complète** d'une sauvegarde (signature, journal et liste des vies) : c'est possible pour qui désobfusque entièrement le bundle.
+
+Seule une validation serveur ferme ces portes (voir « Vers une validation serveur »). Le journal financier chaîné et le découpage `begin(action)` / `end()` en sont déjà la forme : un serveur rejouera chaque action et comparera son journal à celui du client.
+
+---
+
+# Partie 2 : audit et Hitman 1 (v0.9.3)
 
 Audit réalisé le 26/11/2026 sur la v0.9.2, puis corrigé en v0.9.3.
 Méthode : trois audits indépendants (économie et casino, sauvegarde et interface, règles de jeu et aléatoire). Chaque faille suspectée a été reproduite en Node dans un environnement isolé avant d'être classée. Les failles non reproduites sont listées comme telles.
