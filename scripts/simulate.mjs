@@ -7,6 +7,8 @@ import { pick, chance } from '../src/engine/rng.js';
 import { migrate3, giveParentJobs, instaPost, friendService, bjStart, bjHit, bjStand, expatriate, POST_TYPES, EXPAT, sendMessage, REPLIES } from '../src/engine/life2.js';
 import { answer, writeTo, topicsFor } from '../src/engine/messages.js';
 import { instaComment, instaFeed } from '../src/engine/life2.js';
+import { suggestions, adopterAmbition, abandonnerAmbition } from '../src/engine/goals.js';
+import { AMBITIONS } from '../src/data/ambitions.js';
 import { migrate, buyAsset, sellAsset, createBusiness, businessAction, networkAction, travel, flee, roulette, slots, moveCity, findContact, startNetwork, ASSETS, BUSINESS, DESTS, MISSIONS } from '../src/engine/economy.js';
 
 const N = Number(process.argv[2] || 300);
@@ -16,6 +18,39 @@ console.warn = (...a) => warns.push(a.join(' '));
 
 const stats = { vies: 0, ages: [], causes: {}, metiers: {}, prison: 0, events: {}, maxMoney: 0, gens: 0, unresolved: 0 };
 
+// v0.10 : cohérence des PNJ, de la famille, des ambitions et de la dynastie
+const v10 = { mariagesPnj: 0, naissancesPnj: 0, petitsEnfants: 0, ambFinies: 0, ambAbandon: 0, viesAvecAmb: 0, relMax: 0, gensMax: 0 };
+function coherence(s) {
+  const ids = s.relations.map((r) => r.id);
+  if (new Set(ids).size !== ids.length) warns.push(`Identifiants de PNJ en double (gén. ${s.gen})`);
+  if (ids.some((id) => id >= s.uid)) warns.push('Identifiant de PNJ ≥ uid');
+  for (const r of s.relations) {
+    if (!r.vivant) continue;
+    if (['mere', 'pere'].includes(r.lien) && r.age < s.age + 14) warns.push(`Parent trop jeune : ${r.lien} ${r.age} ans pour ${s.age} ans`);
+    if (r.lien === 'grandparent' && r.age < s.age + 28) warns.push(`Grand-parent trop jeune : ${r.age} ans pour ${s.age} ans`);
+    if (r.lien === 'enfant' && r.age > s.age - 14) warns.push(`Enfant trop âgé : ${r.age} ans pour ${s.age} ans`);
+    if (r.lien === 'petitenfant' && r.age > s.age - 28) warns.push(`Petit-enfant trop âgé : ${r.age} ans pour ${s.age} ans`);
+    if (r.couple?.id != null) {
+      const o = s.relations.find((x) => x.id === r.couple.id);
+      if (o?.vivant && o.couple?.id !== r.id) warns.push('Couple de PNJ asymétrique');
+    }
+    if (r.sen && Object.values(r.sen).some((v) => !Number.isFinite(v))) warns.push('Sentiment NaN');
+    if ((r.souv?.length || 0) > 6) warns.push('Mémoire de PNJ non bornée');
+  }
+  for (const l of s.liens || []) if (!ids.includes(l.a) || !ids.includes(l.b)) warns.push('Lien entre PNJ orphelin');
+  // Aucun mort ne doit écrire après son décès
+  const year = (t) => new Date(t).getUTCFullYear();
+  for (const r of s.relations) {
+    if (r.vivant || !r.dec || s.relations.some((x) => x.vivant && x.prenom === r.prenom)) continue;
+    const homo = s.relations.filter((x) => x.prenom === r.prenom); if (homo.some((x) => !x.dec)) continue; const fin = Math.max(...homo.map((x) => x.dec)); const bad = s.phone.msgs.find((m) => m.from === r.prenom && !m.mine && !m.role && year(m.t) > fin); if (bad) warns.push(`Message d’un PNJ décédé : ${r.lien} | ${bad.txt.slice(0, 70)}`);
+  }
+  const act = s.amb?.act || [];
+  if (act.length > 3 || new Set(act.map((a) => a.id)).size !== act.length || act.some((a) => !AMBITIONS[a.id])) warns.push('Ambitions incohérentes');
+  if (s.dyn && s.dyn.gens.length !== Math.min(12, s.gen - 1)) warns.push(`Dynastie : ${s.dyn.gens.length} archives pour la génération ${s.gen}`);
+  v10.relMax = Math.max(v10.relMax, s.relations.length);
+  v10.gensMax = Math.max(v10.gensMax, s.gen);
+}
+
 function resolve(s) {
   let guard = 0;
   while (busy(s) && guard++ < 50) {
@@ -23,6 +58,7 @@ function resolve(s) {
       stats.events[s.current.id] = (stats.events[s.current.id] || 0) + 1;
       if (/\{[^}]*\}/.test(s.current.txt)) warns.push(`Texte non remplacé dans ${s.current.id}: ${s.current.txt}`);
       const ch = choicesView(s).filter((c) => c.ok);
+      for (const x of ch) if (/{[^}]*}/.test(x.t + x.h)) warns.push(`Choix non remplacé dans ${s.current.id}: ${x.t} ${x.h}`);
       if (!ch.length) {
         warns.push(`Aucun choix possible : ${s.current.id}`);
         s.current = null;
@@ -44,6 +80,11 @@ for (let i = 0; i < N; i++) {
   while (years++ < 140) {
     resolve(s);
     if (!s.vivant) {
+      v10.ambFinies += s.amb?.fini?.length || 0;
+      v10.ambAbandon += s.amb?.ab || 0;
+      if (s.amb?.fini?.length) v10.viesAvecAmb++;
+      v10.mariagesPnj += s.relations.filter((r) => r.couple?.m).length;
+      v10.petitsEnfants += s.relations.filter((r) => r.lien === 'petitenfant').length;
       const kid = s.relations.find((r) => r.lien === 'enfant' && r.vivant);
       stats.ages.push(s.age);
       stats.causes[s.mort.cause] = (stats.causes[s.mort.cause] || 0) + 1;
@@ -54,6 +95,9 @@ for (let i = 0; i < N; i++) {
       }
       break;
     }
+    if (chance(0.15)) { const sg = suggestions(s); if (sg.length) adopterAmbition(s, pick(sg).id); }
+    if (chance(0.02) && s.amb?.act?.length) abandonnerAmbition(s, pick(s.amb.act).id);
+    coherence(s);
     // quelques actions au hasard
     for (let k = 0; k < 3; k++) {
       if (busy(s)) resolve(s);
@@ -116,6 +160,10 @@ for (let i = 0; i < N; i++) {
 }
 
 console.warn = origWarn;
+const ev = (k) => stats.events[k] || 0;
+console.log(`v0.10 · ambitions accomplies : ${v10.ambFinies} (${v10.viesAvecAmb} vies sur ${stats.vies + stats.gens} en ont au moins une), abandonnées : ${v10.ambAbandon}`);
+console.log(`v0.10 · PNJ mariés à la mort du joueur : ${v10.mariagesPnj} · petits-enfants : ${v10.petitsEnfants} · relations max : ${v10.relMax} · génération max : ${v10.gensMax}`);
+console.log(`v0.10 · initiatives : emploi ${ev('pnj_emploi')}, prêt ${ev('pnj_pret')}, retour ${ev('pnj_retour')}, mariage ${ev('pnj_mariage')}, chômage ${ev('pnj_chomage')}, réconciliation ${ev('pnj_reconcil')}, jalousie ${ev('pnj_jaloux')}, mentor ${ev('pnj_mentor')}, brouille ${ev('pnj_brouille')}, choix d’ambition ${ev('ambition_choix')}`);
 const avg = stats.ages.reduce((a, b) => a + b, 0) / Math.max(1, stats.ages.length);
 console.log(`Vies simulées : ${stats.vies} (+${stats.gens} générations) · âge moyen au décès : ${avg.toFixed(1)}`);
 console.log('Causes :', Object.entries(stats.causes).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k, v]) => `${k} (${v})`).join(', '));

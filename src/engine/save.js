@@ -2,6 +2,7 @@
 import { sign, stringify, parse, comptaOk } from './hitman.js';
 import { ASSETS, BUSINESS } from '../data/world.js';
 import { CAREERS, DIPLOMES } from '../data/careers.js';
+import { AMBITIONS } from '../data/ambitions.js';
 
 const KEY = 'destino.save.v1';
 const MARK = 'destino.hm'; // présent dès qu'une sauvegarde signée a été écrite sur ce navigateur
@@ -73,5 +74,8 @@ export function validerEtat(s) {
   for (const b of s.biens || []) if (!b || !own(ASSETS, b.id) || !num(b.valeur, 0, 1e9)) return 'patrimoine';
   for (const b of s.business || []) if (!b || !own(BUSINESS, b.type) || (b.valo != null && !num(b.valo, -1e9, 1e9))) return 'entreprise';
   if (!num(s.justice.prison, 0, 1000)) return 'peine de prison';
+  // v0.10 : ambitions connues et en nombre limité, dettes des proches bornées
+  if (s.amb && (!Array.isArray(s.amb.act) || s.amb.act.length > 3 || s.amb.act.some((a) => !own(AMBITIONS, a?.id)))) return 'ambition';
+  for (const r of s.relations || []) if (r?.dette != null && !num(r.dette, 0, 1e7)) return 'dette d’un proche';
   return null;
 }

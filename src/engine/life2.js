@@ -6,6 +6,7 @@ import { ADDICTIONS, DISEASES, DESTINS, PARENT_JOBS, PAYS, SITUATIONS, EXPAT } f
 import { ORIGINES, MILIEUX, TALENTS } from '../data/identity.js';
 import { HOUSING } from '../data/housing.js';
 import { fmtDate } from './time.js';
+import { npcTick, migrateNpc, familleElargie } from './npc.js';
 
 export function migrate3(s) {
   s.addic ??= { tabac: 0, alcool: 0, cannabis: 0, coke: 0, jeu: 0 };
@@ -17,6 +18,7 @@ export function migrate3(s) {
   s.annee.use ??= {};
   s.annee.posts ??= 0;
   s.relations.forEach((r) => (r.conf ??= rnd(40, 70)));
+  migrateNpc(s);
   return s;
 }
 
@@ -377,8 +379,10 @@ export function introLines(s) {
   return lines.filter(Boolean);
 }
 // Métiers des parents à la création.
+// Début d'une nouvelle vie : métiers des parents, puis famille élargie (grands-parents, oncles, tantes, cousins)
 export function giveParentJobs(s) {
   s.relations.filter((r) => r.lien === 'mere' || r.lien === 'pere').forEach((r) => (r.job = pick(PARENT_JOBS[s.milieu])[r.genre === 'f' ? 1 : 0]));
+  familleElargie(s);
 }
 
 // ---------- Expatriation ----------
@@ -408,6 +412,7 @@ export function life2Tick(s) {
   diseaseTick(s);
   if (!s.vivant) return;
   friendsTick(s);
+  npcTick(s);
   footTick(s);
   worldNews(s);
   if (s.age >= 12 && !s.insta) {

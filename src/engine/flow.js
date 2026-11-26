@@ -15,6 +15,8 @@ import { worldTick, migrate, patrimoine, eco } from './economy.js';
 import { life2Tick, migrate3, DISEASES, friendService } from './life2.js';
 import { messagesTick, runPlan } from './messages.js';
 import { energieMax } from '../data/unlocks.js';
+import { transmettreFamille, legsGrandParent, souvenir, blesse, sen, trait, bilanSouvenirs } from './npc.js';
+import { goalsTick, checkGoals } from './goals.js';
 const DISEASE_NOM = new Proxy({}, { get: (_, k) => DISEASES[k]?.nom || 'Maladie' });
 
 export const busy = (s) => !!(s.current || s.result);
@@ -164,6 +166,7 @@ export function choose(s, i) {
   const next = res.next !== undefined ? res.next : c.next;
   const days = res.days ?? c.days ?? 0;
   if (r) addLog(s, r);
+  if (s.vivant) checkGoals(s);
   if (days > 0 && s.vivant) advanceTime(s, days, res.hour || c.hour);
   s.current = null;
   if (next && s.vivant) s.queue.unshift(next);
@@ -199,6 +202,7 @@ export function ageUp(s) {
   justiceTick(s);
   health(s);
   family(s);
+  if (s.vivant) goalsTick(s);
   if (s.vivant) pickYearEvents(s);
   if (s.vivant && s.logement === 'rue' && !s.chezParents && s.relations.some((r) => r.vivant && r.lien === 'ami' && (r.conf ?? 0) >= 60) && chance(0.5)) s.queue.unshift('ami_heberge');
   messagesTick(s);
@@ -433,9 +437,11 @@ function family(s) {
     const p = r.age < 55 ? 0.002 : r.age < 70 ? 0.012 : r.age < 80 ? 0.05 : r.age < 90 ? 0.14 : 0.35;
     if (!chance(p)) continue;
     r.vivant = false;
+    r.dec = new Date(s.t).getUTCFullYear();
     s.mem.deuil = `${r.prenom}`;
     addLog(s, `Décès de ${r.prenom} (${r.age} ans).`);
-    s.stats.bonheur = clamp(s.stats.bonheur - (r.rel > 60 ? 15 : 6));
+    const elargi = ['grandparent', 'oncle', 'cousin', 'neveu', 'ex'].includes(r.lien);
+    s.stats.bonheur = clamp(s.stats.bonheur - (elargi ? (r.rel > 60 ? 8 : 2) : r.rel > 60 ? 15 : 6));
     if (r.lien === 'mere' || r.lien === 'pere') {
       const brut = Math.round(MILIEUX[s.milieu].heritage * (0.6 + rand() * 0.8) / Math.max(1, parentsOf(s).length + 1));
       // Droits de succession (ligne directe, simplifiés) : 100 000 € d'abattement, puis 20 % jusqu'à 1,8 M€, 40 % au-delà
@@ -448,8 +454,15 @@ function family(s) {
       }
       if (s.chezParents && !parentsOf(s).length) s.chezParents = s.age < 18;
     }
+    if (r.lien === 'grandparent') {
+      const legs = legsGrandParent(s, r);
+      if (legs > 0) {
+        s.money += legs;
+        addLog(s, `${r.prenom} te laisse ${euros(legs)} en héritage.`);
+      }
+    }
     if (r.lien === 'partenaire' || r.lien === 'conjoint') r.lien = 'ex';
-    s.queue.push('deuil');
+    if (!elargi || r.rel > 60) s.queue.push('deuil');
   }
   const p = partnerOf(s);
   if (p) p.rel = clamp(p.rel - rnd(0, 5));
@@ -597,6 +610,7 @@ export function relActions(s, r) {
   if (r.lien === 'partenaire' && s.age >= 18) list.push(['mariage', 'Demander en mariage']);
   if (['partenaire', 'conjoint'].includes(r.lien) && s.age >= 18 && s.age <= 50) list.push(['enfant', 'Avoir un enfant']);
   if (['partenaire', 'conjoint'].includes(r.lien)) list.push(['rompre', g(s, 'Rompre', 'Rompre')]);
+  if (sen(r, 'ranc') >= 25) list.push(['excuses', 'Présenter des excuses']);
   list.push(['dispute', 'Se disputer']);
   return list.map(([a, t]) => ({ a, t, ok: !used(a) && !inPrison(s) && !(a === 'cadeau' && s.money < 150) }));
 }
@@ -608,14 +622,17 @@ export function relAction(s, rid, a) {
   s.relUsed[`${r.id}:${a}`] = true;
   s.avec = r.lien === 'contact' ? [] : [r.id];
   let out = '';
-  if (a === 'temps') {
+  if (a === 'temps' && sen(r, 'ranc') >= 50) {
+    r.rel = clamp(r.rel + rnd(0, 3));
+    out = `${r.prenom} reste froid${r.genre === 'f' ? 'e' : ''}. La rancune est tenace.`;
+  } else if (a === 'temps') {
     r.rel = clamp(r.rel + rnd(4, 12));
     r.conf = clamp((r.conf ?? 50) + rnd(1, 3));
     s.stats.bonheur = clamp(s.stats.bonheur + rnd(1, 4));
     out = `Bon moment avec ${r.prenom}.`;
   } else if (a === 'argent') {
     const base = { precaire: 50, modeste: 200, moyenne: 800, aisee: 3000, riche: 25000 }[s.milieu];
-    if (r.rel > 45 && chance(0.6)) {
+    if (r.rel > 45 && sen(r, 'ranc') < 50 && chance(clamp(0.6 + bilanSouvenirs(r) * 0.03, 0.2, 0.85))) {
       const m = Math.round(base * (0.5 + rand()));
       s.money += m;
       r.rel = clamp(r.rel - 4);
@@ -627,15 +644,19 @@ export function relAction(s, rid, a) {
   } else if (a === 'cadeau') {
     s.money -= 150;
     r.rel = clamp(r.rel + rnd(8, 15));
+    souvenir(s, r, 'Tu lui as offert un cadeau.', 1);
+    if (['mere', 'pere', 'fratrie', 'enfant', 'grandparent', 'petitenfant'].includes(r.lien)) s.cpt.aide = (s.cpt.aide || 0) + 1;
     out = `${r.prenom} adore ton cadeau.`;
   } else if (a === 'dispute') {
     r.rel = clamp(r.rel - rnd(10, 22));
     r.conf = clamp((r.conf ?? 50) - rnd(3, 8));
     s.stats.bonheur = clamp(s.stats.bonheur - 3);
+    blesse(s, r, 12, 'Vous vous êtes violemment disputés.');
     out = `Grosse dispute avec ${r.prenom}.`;
   } else if (a === 'mariage') {
     if (chance(r.rel / 110)) {
       apply(s, { marier: true, bonheur: 15, money: -6000 });
+      souvenir(s, r, 'Vous vous êtes mariés.', 3);
       out = `${r.prenom} a dit oui ! Le mariage coûte 6 000 €.`;
     } else {
       r.rel = clamp(r.rel - 15);
@@ -671,11 +692,23 @@ export function relAction(s, rid, a) {
     s.relations = s.relations.filter((x) => x !== r);
     if (s.reseau?.fournisseur === r.id) s.reseau.fournisseur = null;
     out = `${r.prenom} est supprimé de tes contacts.`;
+  } else if (a === 'excuses') {
+    if (chance(clamp(0.45 + s.stats.charisme / 300 - (trait(r, 'rancunier') ? 0.2 : 0) + (trait(r, 'chaleureux') ? 0.15 : 0), 0.1, 0.9))) {
+      r.sen.ranc = Math.max(0, r.sen.ranc - 40);
+      r.rel = clamp(r.rel + rnd(6, 12));
+      souvenir(s, r, 'Tu as su t’excuser.', 1);
+      out = `${r.prenom} accepte tes excuses.`;
+    } else {
+      r.sen.ranc = clamp(r.sen.ranc + 5);
+      out = `${r.prenom} n’est pas prêt${r.genre === 'f' ? 'e' : ''} à te pardonner.`;
+    }
   } else if (a === 'rompre') {
+    blesse(s, r, 30, `Tu l’as quitté${r.genre === 'f' ? 'e' : ''}.`);
     apply(s, { rupture: true, bonheur: -8 });
     out = `C’est fini avec ${r.prenom}.`;
   }
   addLog(s, out);
+  checkGoals(s);
   return { r: out };
 }
 
@@ -696,7 +729,7 @@ export function continueAsChild(s, rid) {
   const other = partnerOf(s) || s.relations.find((r) => r.lien === 'ex' && r.vivant);
   if (other) ns.relations.push({ ...other, lien: other.genre === 'f' ? 'mere' : 'pere', rel: rnd(50, 85) });
   childrenOf(s).filter((x) => x.vivant && x.id !== rid).forEach((x) => ns.relations.push({ ...x, lien: 'fratrie', rel: rnd(40, 80) }));
-  ns.uid = Math.max(...ns.relations.map((r) => r.id), 0) + 1;
+  transmettreFamille(s, ns, c);
   ns.money = part;
   if (s.biens?.length) ns.biens = s.biens.map((b) => ({ ...b, uid: ns.uid++ }));
   if (s.business?.length) ns.business = s.business.map((b) => ({ ...b, uid: ns.uid++, hist: [...(b.hist || [])] }));

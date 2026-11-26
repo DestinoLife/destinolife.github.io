@@ -430,6 +430,8 @@ export function travel(s, id) {
   s.energie--;
   s.money -= d.prix;
   s.voyage = { ville: d.ville, pays: d.pays, scene: d.scene, id: d.id };
+  s.cpt = s.cpt || { voyages: 0, aide: 0 };
+  s.cpt.voyages = (s.cpt.voyages || 0) + 1;
   s.lieu = null;
   s.stats.bonheur = clamp(s.stats.bonheur + rnd(10, 18));
   s.stats.sante = clamp(s.stats.sante + 2);

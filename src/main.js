@@ -36,6 +36,8 @@ import { migrate3, giveParentJobs, instaPost, sendMessage, bjStart, bjHit, bjSta
 import { carSVG } from './render/scene.js';
 import { advanceTime } from './engine/flow.js';
 import { SKINS as SK } from './data/look.js';
+import { pnjDetailHTML, arbreHTML, ambitionsHTML, bilanHTML, ligneProche } from './ui/family.js';
+import { adopterAmbition, abandonnerAmbition } from './engine/goals.js';
 
 const app = document.getElementById('app');
 let S = null; // vie en cours
@@ -359,10 +361,15 @@ function updateGame0() {
   const mk = S.current ? S.current.id : S.result ? 'r' : '';
   if (mk && mk === lastModal) document.querySelector('#modal .modal')?.classList.add('still');
   lastSheet = tab; lastOvKey = OV ? `${OV.t}|${OV.app}|${OV.conv}|${OV.itab}` : ''; lastModal = mk;
-  if (OV?.t === 'guide') requestAnimationFrame(() => positionGuide(S, OV.step));
+  if (OV?.t === 'guide') requestAnimationFrame(() => OV?.t === 'guide' && positionGuide(S, OV.step || 0));
   const unlocked = checkAchievements(S);
   unlocked.forEach((a) => toast(`🏆 Défi débloqué : ${a.nom} (+${a.pts} pts)`, 'ach'));
+  // Ambitions accomplies depuis le dernier affichage (même vie uniquement)
+  const ka = `${S.birthT}|${S.gen}`, nf = S.amb?.fini?.length || 0;
+  if (ambVues.k === ka && nf > ambVues.n) S.amb.fini.slice(ambVues.n).forEach((x) => toast(`✨ Ambition accomplie : ${x.nom}`, 'good'));
+  ambVues = { k: ka, n: nf };
 }
+let ambVues = { k: '', n: 0 };
 
 // Journal financier tenu par Hitman : chaque mouvement d'argent est rattaché à l'action qui l'a causé
 const JOURNAL_NOM = {
@@ -403,6 +410,7 @@ function overlayHTML() {
   if (OV.t === 'casino') return casinoHTML(S, OV);
   if (OV.t === 'voyage' || OV.t === 'cavale') return travelHTML(S, OV.t);
   if (OV.t === 'pc') return pcHTML(S, OV.uid);
+  if (OV.t === 'arbre') return arbreHTML(S, miniAv);
   return '';
 }
 
@@ -426,7 +434,7 @@ function deathHTML() {
   const deathY = new Date(m.t).getUTCFullYear();
   return `<div class="death"><div class="card glass">${logoMark(44, 'dl')}
     <h1>${esc(S.id.prenom)} ${esc(S.id.nom)}</h1><p class="cause">${birthY} – ${deathY} · ${esc(m.cause)}</p>
-    <dl class="kv"><dt>Âge</dt><dd>${m.age} ans</dd><dt>Patrimoine</dt><dd>${euros(S.money + patrimoine(S))}</dd><dt>Dernier métier</dt><dd>${esc(jobTitle(S) || '—')}</dd><dt>Casier</dt><dd>${S.justice.casier.length ? `${S.justice.casier.length} mention${S.justice.casier.length > 1 ? 's' : ''}` : 'Vierge'}</dd><dt>Enfants</dt><dd>${childrenOf(S).length}</dd><dt>Génération</dt><dd>${S.gen}</dd></dl>
+    <dl class="kv"><dt>Âge</dt><dd>${m.age} ans</dd><dt>Patrimoine</dt><dd>${euros(S.money + patrimoine(S))}</dd><dt>Dernier métier</dt><dd>${esc(jobTitle(S) || '—')}</dd><dt>Casier</dt><dd>${S.justice.casier.length ? `${S.justice.casier.length} mention${S.justice.casier.length > 1 ? 's' : ''}` : 'Vierge'}</dd><dt>Enfants</dt><dd>${childrenOf(S).length}</dd><dt>Génération</dt><dd>${S.gen}</dd>${bilanHTML(S)}</dl>
     <div class="menu">${kids.map((k) => `<button class="btn primary" data-a="heir" data-v="${k.id}">${icon('play', 16)} Continuer avec ${esc(k.prenom)} (${k.age} ans)</button>`).join('')}
     <button class="btn" data-a="new">${icon('user', 16)} Nouvelle vie</button><button class="btn" data-a="random">${icon('dice', 16)} Vie aléatoire</button></div><button class="ver" data-a="bug">Signaler un bug</button></div></div>`;
 }
@@ -450,6 +458,7 @@ function sheetHTML() {
       <div class="sec"><h3>État</h3><div class="bars">${bar('Bonheur', st.bonheur, '#ffd36e')}${bar('Santé', st.sante, '#4fd18b')}${bar('Intelligence', st.intel, '#6fb4ff')}${bar('Apparence', st.apparence, '#c59bff')}</div></div>
       <div class="sec"><h3>Compétences</h3><div class="bars">${bar('Forme physique', st.forme, '#5ff5d0')}${bar('Talent artistique', st.art, '#ff9f5a')}${bar('Charisme', st.charisme, '#ff6fa1')}${bar('Savoir-faire criminel', st.crime, '#ff5470')}</div></div>
       <div class="sec"><h3>Réputation</h3><div class="bars">${bar('Réputation de rue', st.reputation, '#ff6fa1')}${bar('Karma', st.karma, '#9a7bff')}${bar('Notoriété', st.notoriete, '#ffd36e')}</div></div>
+      ${ambitionsHTML(S)}
       ${healthHTML(S)}
       <div class="sec"><h3>Justice</h3><dl class="kv"><dt>Niveau de recherche</dt><dd>${S.justice.recherche}/5${S.justice.motif && S.justice.recherche ? ` · ${esc(S.justice.motif)}` : ''}</dd><dt>Casier judiciaire</dt><dd>${S.justice.casier.length ? '' : 'Vierge'}</dd></dl>
         ${S.justice.casier.length ? `<div class="list" style="margin-top:8px">${S.justice.casier.slice(-6).reverse().map((c) => `<div class="li"><div class="grow"><b>${esc(c.motif)}</b><small>${c.age} ans · ${esc(c.peine)}</small></div></div>`).join('')}</div>` : ''}</div>
@@ -529,16 +538,20 @@ function proHTML() {
 }
 
 function relHTML() {
-  const order = ['conjoint', 'partenaire', 'enfant', 'mere', 'pere', 'fratrie', 'ami', 'ex'];
-  const rels = [...S.relations].filter((r) => r.lien !== 'candidat' && r.lien !== 'contact').sort((a, b) => order.indexOf(a.lien) - order.indexOf(b.lien) || b.vivant - a.vivant);
+  const order = ['conjoint', 'partenaire', 'enfant', 'petitenfant', 'mere', 'pere', 'fratrie', 'ami', 'ex'];
+  const ELARGIE = ['grandparent', 'oncle', 'cousin', 'neveu'];
+  const rels = [...S.relations].filter((r) => r.lien !== 'candidat' && r.lien !== 'contact' && !ELARGIE.includes(r.lien)).sort((a, b) => order.indexOf(a.lien) - order.indexOf(b.lien) || b.vivant - a.vivant);
   const dating = ACTIVITIES.find((a) => a.id === 'dating');
-  let h = canDo(S, dating) === true ? `<button class="btn sm" data-a="act" data-v="dating">${icon('heart', 16)} Faire des rencontres</button>` : '';
-  h += `<div class="list">${rels.map((r) => {
+  let h = `<div class="rel-top">${canDo(S, dating) === true ? `<button class="btn sm" data-a="act" data-v="dating">${icon('heart', 16)} Faire des rencontres</button>` : ''}<button class="btn sm" data-a="arbre">${icon('users', 16)} Arbre familial</button></div>`;
+  const carte = (r) => {
     const open = openRel === r.id;
     const acts = open ? relActions(S, r) : [];
-    return `<div><div class="li ${r.vivant ? '' : 'dead'}" data-a="openrel" data-v="${r.id}" style="cursor:pointer"><div class="av">${miniAv(r.look, r.genre, r.id)}</div><div class="grow"><b>${esc(r.prenom)} ${esc(r.nom)}</b><small>${lienNom(r)} · ${r.vivant ? `${r.age} ans` : 'Décédé' + (r.genre === 'f' ? 'e' : '')}${r.destin ? ` · ${esc(destinLabel(r))}` : ''}${r.job ? ` · ${esc(r.job)}` : ''}</small>${r.vivant ? `<div class="duo"><span>Affection</span><div class="mini-bar"><i style="width:${r.rel}%;background:${r.rel > 60 ? 'var(--good)' : r.rel > 30 ? 'var(--warn)' : 'var(--bad)'}"></i></div><span>Confiance</span><div class="mini-bar"><i style="width:${r.conf ?? 50}%;background:#6fb4ff"></i></div></div>` : ''}</div>${r.vivant ? icon('chevron', 16) : ''}</div>
-      ${open && acts.length ? `<div class="rel-acts">${acts.map((a) => `<button class="btn sm ${a.ok ? '' : 'off'}" data-a="relact" data-v="${r.id}" data-x="${a.a}" ${a.ok ? '' : 'disabled'}>${a.t}</button>`).join('')}</div>` : ''}</div>`;
-  }).join('') || '<div class="note">Personne pour l’instant.</div>'}</div>`;
+    return `<div><div class="li ${r.vivant ? '' : 'dead'}" data-a="openrel" data-v="${r.id}" style="cursor:pointer"><div class="av">${miniAv(r.look, r.genre, r.id)}</div><div class="grow"><b>${esc(r.prenom)} ${esc(r.nom)}</b><small>${lienNom(r)} · ${r.vivant ? `${r.age} ans` : 'Décédé' + (r.genre === 'f' ? 'e' : '')}${r.destin ? ` · ${esc(destinLabel(r))}` : ''}${ligneProche(r)}</small>${r.vivant ? `<div class="duo"><span>Affection</span><div class="mini-bar"><i style="width:${r.rel}%;background:${r.rel > 60 ? 'var(--good)' : r.rel > 30 ? 'var(--warn)' : 'var(--bad)'}"></i></div><span>Confiance</span><div class="mini-bar"><i style="width:${r.conf ?? 50}%;background:#6fb4ff"></i></div></div>` : ''}</div>${icon('chevron', 16)}</div>
+      ${open ? pnjDetailHTML(S, r) : ''}${open && acts.length ? `<div class="rel-acts">${acts.map((a) => `<button class="btn sm ${a.ok ? '' : 'off'}" data-a="relact" data-v="${r.id}" data-x="${a.a}" ${a.ok ? '' : 'disabled'}>${a.t}</button>`).join('')}</div>` : ''}</div>`;
+  };
+  h += `<div class="list">${rels.map(carte).join('') || '<div class="note">Personne pour l’instant.</div>'}</div>`;
+  const elargie = S.relations.filter((r) => ELARGIE.includes(r.lien) && r.vivant).sort((a, b) => ELARGIE.indexOf(a.lien) - ELARGIE.indexOf(b.lien) || b.age - a.age);
+  if (elargie.length) h += `<div class="sec"><h3>Famille élargie (${elargie.length})</h3><div class="list">${elargie.map(carte).join('')}</div></div>`;
   const pros = S.relations.filter((r) => r.lien === 'contact' && r.vivant);
   h += `<div class="sec"><h3>Contacts pro (${pros.length})</h3><div class="list">${pros.map((r) => `<div><div class="li" data-a="openrel" data-v="${r.id}" style="cursor:pointer"><div class="av">${miniAv(r.look, r.genre, r.id)}</div><div class="grow"><b>${esc(r.prenom)} ${esc(r.nom)}</b><small>${ROLES[r.role].nom} · tarif ×${r.tarif} · ${ROLES[r.role].desc}</small></div>${icon('chevron', 16)}</div>${openRel === r.id ? `<div class="rel-acts">${relActions(S, r).map((a) => `<button class="btn sm ${a.ok ? '' : 'off'}" data-a="relact" data-v="${r.id}" data-x="${a.a}" ${a.ok ? '' : 'disabled'}>${a.t}</button>`).join('')}</div>` : ''}</div>`).join('') || '<div class="note">Aucun contact pro. Onglet Crime : « Chercher un contact ».</div>'}</div></div>`;
   return h;
@@ -761,6 +774,16 @@ function handle0(a, v, el) {
     case 'buy': {
       const r = moveTo(S, v, a === 'buy');
       toast(r.r, r.err ? 'err' : 'good');
+      return updateGame();
+    }
+    case 'arbre':
+      tab = null;
+      OV = { t: 'arbre' };
+      return updateGame();
+    case 'ambpick':
+    case 'ambdrop': {
+      const r = a === 'ambpick' ? adopterAmbition(S, v) : abandonnerAmbition(S, v);
+      if (r.r) toast(r.r, r.err ? 'err' : r.good ? 'good' : undefined);
       return updateGame();
     }
     case 'openrel':

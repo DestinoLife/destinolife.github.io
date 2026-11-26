@@ -142,7 +142,7 @@ function flag(raison) {
 const SENSIBLES = ['money', 'sale', 'bourse'];
 // Pendant une action, seules les écritures sur les données sensibles passent le contrôle de pile (coûteux) ;
 // hors action, TOUTE écriture est contrôlée (c'est là qu'agit la console).
-const LIBRES = new Set(['relations', 'phone', 'log', 'mem', 'seen', 'tmp', 'knownActs', 'wasLocked', 'plans', 'newTabs', 'lastMsg', 'avec']);
+const LIBRES = new Set(['relations', 'phone', 'log', 'mem', 'seen', 'tmp', 'knownActs', 'wasLocked', 'plans', 'newTabs', 'lastMsg', 'avec', 'liens', 'npcQ']);
 const TOP = new NWeakMap(); // objet brut → clé de premier niveau qui le contient
 const topOf = (t, k) => (t === root ? k : get(TOP, t));
 function guardWrite(t, k, why) {
@@ -297,7 +297,7 @@ export function comptaOk(s) {
 export const journal = () => (root?.compta?.j || []).slice();
 
 // Actions d'interface pures : elles ne doivent rien changer d'important
-const UI_ONLY = new Set(['tab', 'ctab', 'closeall', 'itab', 'compose', 'phoneconv', 'pc', 'ach', 'changelog', 'bug', 'hitmanok', 'tipsoff', 'phoneclose', 'guide', 'guidenext', 'guideskip', 'cbet', 'cgame', 'cpick']);
+const UI_ONLY = new Set(['tab', 'ctab', 'closeall', 'itab', 'compose', 'phoneconv', 'pc', 'ach', 'changelog', 'bug', 'hitmanok', 'tipsoff', 'phoneclose', 'guide', 'guidenext', 'guideskip', 'cbet', 'cgame', 'cpick', 'arbre']);
 // Achats : ils ne doivent jamais enrichir
 const DEPENSES = new Set(['buyasset', 'openbiz', 'city']);
 

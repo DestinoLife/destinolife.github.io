@@ -1,7 +1,19 @@
 // Notes de mise à jour affichées dans le jeu (même contenu que CHANGELOG.md).
-export const VERSION = 'v0.9.4';
+export const VERSION = 'v0.10';
 
 export const CHANGELOG = [
+  { v: 'v0.10', titre: 'Relations & Dynasties', items: [
+    'Tes proches vivent leur vie sans toi : métier, chômage, reconversion, couple, mariage, divorce, enfants, fortune qui monte ou qui chute, déménagement',
+    'Chaque proche a sa personnalité (ambitieux, jaloux, rancunier, généreux, fêtard…) et se souvient de ce que tu as fait pour lui, ou contre lui',
+    'Admiration, rancune et jalousie : un proche peut t’en vouloir des années, t’admirer, ou raconter partout que ta réussite n’est pas propre. Nouvelle action « Présenter des excuses »',
+    'Initiatives des proches : un ancien ami devenu patron t’embauche quand tu es au chômage, un cousin te demande un prêt (et te rembourse… ou pas), invitations aux mariages, réconciliations, demandes de conseils',
+    'Tes amis se rencontrent entre eux : ils deviennent amis, se mettent en couple, se brouillent, et te demandent de choisir ton camp',
+    'Famille élargie : grands-parents, oncles, tantes, cousins, neveux et petits-enfants, avec un arbre familial (onglet Relations)',
+    'Dynasties : en continuant avec un enfant, toute la famille change de place dans l’arbre (tes frères deviennent ses oncles, ses enfants restent les siens, son conjoint te suit). Les générations passées sont archivées et le prestige du nom compte',
+    'Ambitions de vie (onglet Vie) : devenir propriétaire, se marier, renouer avec un parent, voir du pays, être heureux… Trois à la fois, abandon sans pénalité. Une vie ordinaire peut être une vie réussie',
+    'Écran de fin : bilan de ta vie, ambitions accomplies et dynastie',
+    'Correctifs : tests de casino rendus exacts (ils échouaient parfois en ligne), erreur en passant très vite le guide',
+  ] },
   { v: 'v0.9.4', titre: 'Hitman 2.0', items: [
     'Hitman 2.0 : l’état du jeu est enfermé dans un coffre-fort. Toute modification venant de la console, d’un point d’arrêt ou d’un script est bloquée avant d’être appliquée, puis sanctionnée',
     'Journal financier (onglet Biens) : chaque gain et chaque dépense est rattaché à l’action qui l’a causé. Le solde réel doit toujours égaler le solde attendu',

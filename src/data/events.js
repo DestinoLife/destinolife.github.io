@@ -12,6 +12,7 @@ import { EVENTS3 } from './events3.js';
 import { EVENTS4 } from './events4.js';
 import { EVENTS5 } from './events5.js';
 import { EVENTS6 } from './events6.js';
+import { EVENTS7 } from './events7.js';
 
 const P = (s) => s.justice.prison > 0;
 const job = (s, id) => s.carriere?.id === id;
@@ -591,5 +592,5 @@ function arrive(s, extra) {
   return extra;
 }
 
-EVENTS.push(...EVENTS2, ...EVENTS3, ...EVENTS4, ...EVENTS5, ...EVENTS6);
+EVENTS.push(...EVENTS2, ...EVENTS3, ...EVENTS4, ...EVENTS5, ...EVENTS6, ...EVENTS7);
 export const EV = Object.fromEntries(EVENTS.map((e) => [e.id, e]));

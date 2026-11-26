@@ -2,6 +2,7 @@ import { rnd, pick, chance, clamp, euros } from './rng.js';
 import { CAREERS, dipRank } from '../data/careers.js';
 import { nameFor, surnameFor, MILIEUX } from '../data/identity.js';
 import { randomLook, childLook } from '../data/look.js';
+import { LIENS_V10 } from '../data/npc.js';
 
 export const STATS = ['bonheur', 'sante', 'intel', 'apparence', 'forme', 'art', 'crime', 'charisme', 'reputation', 'karma', 'notoriete'];
 export const isF = (s) => s.id.genre === 'f';
@@ -31,7 +32,7 @@ export function addLog(s, txt) {
 // ---------- Relations ----------
 export const LIENS = {
   mere: ['Mère', 'Mère'], pere: ['Père', 'Père'], fratrie: ['Frère', 'Sœur'], ami: ['Ami', 'Amie'],
-  partenaire: ['Copain', 'Copine'], conjoint: ['Mari', 'Femme'], enfant: ['Fils', 'Fille'], ex: ['Ex', 'Ex'],
+  partenaire: ['Copain', 'Copine'], conjoint: ['Mari', 'Femme'], enfant: ['Fils', 'Fille'], ex: ['Ex', 'Ex'], ...LIENS_V10,
 };
 export const lienNom = (r) => (LIENS[r.lien] || ['Proche', 'Proche'])[r.genre === 'f' ? 1 : 0];
 
@@ -50,7 +51,7 @@ export function newPerson(s, lien, o = {}) {
   return {
     id: s.uid++, lien, genre,
     prenom: o.prenom || uniqueName(s, origine, genre),
-    nom: o.nom || (['mere', 'pere', 'fratrie', 'enfant'].includes(lien) ? s.id.nom : surnameFor(origine)),
+    nom: o.nom || (['mere', 'pere', 'fratrie', 'enfant', 'petitenfant'].includes(lien) ? s.id.nom : surnameFor(origine)),
     age: o.age ?? s.age, rel: o.rel ?? rnd(55, 85), conf: o.conf ?? rnd(40, 70), vivant: true, depuis: s.age,
     look: o.look || randomLook(genre, origine),
   };
