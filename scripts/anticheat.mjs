@@ -49,28 +49,31 @@ test('ECO-1', 'machine à sous : espérance exacte < 1', () => {
     tot += mult;
     n++;
   }
-  // Et on vérifie par simulation que le moteur paie bien ce barème
+  // Et on vérifie que le moteur paie bien ce barème, combinaison par combinaison (déterministe, sans bruit statistique)
   const s = vie(30, 1e9);
-  let mise = 0, gain = 0;
   for (let i = 0; i < 60000; i++) {
-    const avant = s.money;
-    eco.slots(s, 100);
-    mise += 100;
-    gain += s.money - avant + 100;
+    const r = eco.slots(s, 100);
+    const [a, b, c] = r.reels;
+    const attendu = a === b && b === c ? (a === '7' ? 50 : a === 'BAR' ? 20 : 10) : a === b || b === c || a === c ? 1 : 0;
+    if (r.mult !== attendu) return `${r.reels.join(' ')} payé ×${r.mult} au lieu de ×${attendu}`;
   }
-  const evSim = gain / mise;
-  return tot / n < 1 && evSim < 1 ? true : `EV exacte ${(tot / n).toFixed(3)}, simulée ${evSim.toFixed(3)}`;
+  return tot / n < 1 ? true : `EV exacte ${(tot / n).toFixed(3)}`;
 });
-test('ECO-1b', 'roulette : espérance < 1 pour chaque pari', () => {
+test('ECO-1b', 'roulette : espérance < 1 pour chaque pari (calcul exact sur les 37 cases)', () => {
+  // Exact et déterministe : on relève le multiplicateur que le moteur applique à chaque case (0 à 36),
+  // puis on fait la moyenne. Une estimation par tirages aléatoires échouait parfois en CI (bruit sur le plein).
   const s = vie(30, 1e9);
   for (const choix of ['rouge', 'noir', 'pair', 'impair', 'vert', '17']) {
-    let gain = 0;
-    for (let i = 0; i < 40000; i++) {
-      const avant = s.money;
-      eco.roulette(s, 100, choix);
-      gain += s.money - avant + 100;
+    const mult = new Map();
+    for (let i = 0; i < 20000 && mult.size < 37; i++) {
+      const r = eco.roulette(s, 100, choix);
+      if (r.err) return `pari ${choix} refusé : ${r.r}`;
+      if (mult.has(r.n) && mult.get(r.n) !== r.mult) return `case ${r.n} : multiplicateur variable`;
+      mult.set(r.n, r.mult);
     }
-    if (gain / (40000 * 100) >= 1.02) return `pari ${choix} : EV ${(gain / 4e6).toFixed(3)}`;
+    if (mult.size < 37) return `pari ${choix} : seulement ${mult.size} cases tirées`;
+    const ev = [...mult.values()].reduce((a, b) => a + b, 0) / 37;
+    if (ev >= 1) return `pari ${choix} : EV ${ev.toFixed(3)}`;
   }
   return true;
 });
