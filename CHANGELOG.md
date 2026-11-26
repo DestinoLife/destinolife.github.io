@@ -1,6 +1,21 @@
 # Notes de mise à jour de Destino
 
-Version actuelle : **v0.12**. Ces notes sont aussi visibles dans le jeu (écran titre, « Notes de mise à jour »).
+Version actuelle : **v0.13**. Ces notes sont aussi visibles dans le jeu (écran titre, « Notes de mise à jour »).
+
+## v0.13 · Business Tycoon
+
+Quatrième étape vers la v1.0 ([ROADMAP_V1.md](ROADMAP_V1.md)). Audit d’équilibrage : `npm run business-audit`.
+
+- Chaque entreprise a enfin son propre modèle : on ne gère plus un restaurant comme un label ou une salle de sport
+- Compte de résultat détaillé chaque année : ventes, chiffre d’affaires, coûts variables, loyer, salaires et chaque dépense propre au secteur
+- Politique de prix pour chaque commerce : bas, marché ou élevé. Des prix trop hauts pour la qualité offerte abîment la réputation
+- Restaurant : fournisseurs (discount, locaux, haut de gamme), chef, hygiène et contrôles sanitaires, critiques gastronomiques. Snack : emplacement, livraison, fournisseurs
+- Magasin : taille et style des collections, invendus soldés, boutique en ligne. Garage : devis honnêtes ou gonflés (litiges), lots de voitures d’occasion, formation
+- Salle de sport : abonnés qui restent ou partent, équipement qui s’use, coachs. Label : artistes signés au talent inconnu, tubes et flops, promotion, fins de contrat
+- Start-up : modèle de revenus (freemium, abonnement, publicité)
+- Nouveaux secteurs : hôtel (occupation, rénovation, plateformes de réservation), agence immobilière (mandats, commission, négociateurs), boîte de nuit (programmation, sécurité, DJ star, incidents) et club sportif (effectif, montées et relégations, sponsors)
+- Équilibrage vérifié par un audit automatique : aucune stratégie ne gagne partout, chaque secteur est viable bien géré et peut faire faillite mal géré
+- Correctifs : un ami devenu contact puis supprimé laissait un lien fantôme, et les messages des proches sont désormais rattachés à leur auteur
 
 ## v0.12 · Compétences & Carrières
 

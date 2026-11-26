@@ -30,6 +30,11 @@ export const BUSINESS = {
   salle: { nom: 'Salle de sport', prix: 120000, base: 190000, mb: 0.6, fixe: 84000, marge: 0.2, lav: 40000, emp: 5, scene: 'stade', desc: 'Abonnements récurrents' },
   kebab: { nom: 'Snack / kebab', prix: 35000, base: 110000, mb: 0.5, fixe: 41000, marge: 0.14, lav: 45000, emp: 3, scene: 'rue', desc: 'Cash, beaucoup de cash' },
   label: { nom: 'Label de musique', prix: 150000, base: 140000, mb: 0.62, fixe: 62000, marge: 0.25, lav: 30000, emp: 5, scene: 'studio', desc: 'Signe des artistes', cond: (s) => s.carriere?.id === 'rappeur' || s.stats.notoriete >= 50 || 'Il faut être connu dans la musique.' },
+  // v0.13 : nouveaux secteurs, chacun avec son propre modèle (src/engine/sectors.js)
+  hotel: { nom: 'Hôtel', prix: 450000, base: 0, mb: 0, fixe: 190000, marge: 0.1, lav: 80000, emp: 12, scene: 'villa', desc: 'Chambres, occupation, avis' },
+  agence: { nom: 'Agence immobilière', prix: 80000, base: 0, mb: 0, fixe: 70000, marge: 0.15, lav: 40000, emp: 3, scene: 'bureau', desc: 'Mandats, commissions, négociateurs' },
+  boite: { nom: 'Boîte de nuit', prix: 250000, base: 0, mb: 0, fixe: 230000, marge: 0.1, lav: 120000, emp: 10, scene: 'casino', desc: 'Programmation, DJ, sécurité' },
+  club: { nom: 'Club sportif', prix: 400000, base: 0, mb: 0, fixe: 40000, marge: 0.05, lav: 60000, emp: 25, scene: 'stade', desc: 'Effectif, divisions, sponsors' },
   startup: { nom: 'Start-up tech', prix: 30000, base: 0, marge: 0, lav: 25000, emp: 3, scene: 'bureau', desc: 'Utilisateurs, levées de fonds, licorne ?', startup: true },
 };
 

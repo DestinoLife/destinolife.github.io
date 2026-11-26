@@ -2,7 +2,8 @@
 import { icon } from './icons.js';
 import { euros } from '../engine/rng.js';
 import { fmtHeure } from '../engine/time.js';
-import { ASSETS, BUSINESS, ROLES, MISSIONS, destsFor, patrimoine, contactsOf, eco, ECO, bizValue } from '../engine/economy.js';
+import { ASSETS, BUSINESS, ROLES, MISSIONS, destsFor, patrimoine, contactsOf, eco, ECO, bizValue, MODELES } from '../engine/economy.js';
+import { SECTEURS, PRIX } from '../engine/sectors.js';
 import { lienNom } from '../engine/core.js';
 import { relActions, impot, legalIncome } from '../engine/flow.js';
 import { messagesHTML, instaHTML, actusHTML, blackjackHTML, destinLabel } from './overlays3.js';
@@ -71,8 +72,17 @@ export function bizCard(b, compact) {
   const stats = B.startup
     ? `<dl class="kv"><dt>Ta part</dt><dd>${Math.round(b.part ?? 100)} %${b.tour ? ` · ${b.tour} levée${b.tour > 1 ? 's' : ''}` : ''}</dd><dt>Croissance</dt><dd style="color:${(b.g || 0) >= 0.2 ? 'var(--good)' : (b.g || 0) < 0.05 ? 'var(--bad)' : 'inherit'}">${b.annees ? `${(b.g || 0) >= 0 ? '+' : ''}${Math.round((b.g || 0) * 100)} %/an` : '—'}</dd><dt>Utilisateurs</dt><dd>${(b.users || 0).toLocaleString('fr-FR')}</dd><dt>Revenu mensuel</dt><dd>${euros(b.mrr || 0)}</dd><dt>Dépenses mensuelles</dt><dd>${euros(b.burn || 0)}</dd><dt>Trésorerie</dt><dd style="color:${b.cash < 50000 ? 'var(--bad)' : 'inherit'}">${euros(b.cash || 0)}</dd><dt>Autonomie</dt><dd>${b.burn > b.mrr ? `${Math.max(0, Math.floor((b.cash || 0) / (b.burn - b.mrr)))} mois` : 'Rentable'}</dd><dt>Valorisation</dt><dd>${euros(b.valo)}</dd></dl>`
     : `<dl class="kv"><dt>Chiffre d’affaires</dt><dd>${euros(b.ca)}</dd><dt>Bénéfice annuel</dt><dd style="color:${b.benef >= 0 ? 'var(--good)' : 'var(--bad)'}">${euros(b.benef)}</dd><dt>Employés</dt><dd>${b.emp}</dd><dt>Réputation</dt><dd>${b.rep}/100</dd><dt>Valeur de revente</dt><dd>${euros(b.valo)}</dd>${b.pertes ? `<dt>Années de pertes</dt><dd style="color:var(--bad)">${b.pertes} · liquidation à 3</dd>` : ''}<dt>Assurance</dt><dd>${b.assure ? 'Oui' : 'Non'}</dd></dl>`;
+  const S = SECTEURS[b.type];
+  const chip = (x, t, on, titre) => `<button class="chip ${on ? 'on' : ''}" data-a="biz" data-v="${b.uid}" data-x="${x}"${titre ? ` title="${esc(titre)}"` : ''}>${t}</button>`;
+  // v0.13 : indicateurs du secteur, compte de résultat détaillé et décisions propres au secteur
+  const secteur = compact || !S || !b.sx ? '' : `<dl class="kv sx-kpis">${S.kpis(b).map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
+    ${b.detail ? `<div class="lbl" style="margin:10px 0 4px">Compte de résultat de l’an dernier</div><dl class="kv pnl"><dt>Ventes</dt><dd>${(b.detail.ventes || 0).toLocaleString('fr-FR')} ${S.unite}${b.detail.extra ? ` · ${esc(b.detail.extra)}` : ''}</dd><dt>Chiffre d’affaires</dt><dd>${euros(b.ca)}</dd>${b.detail.lignes.map(([k, v]) => `<dt>${esc(k)}</dt><dd style="color:var(--bad)">−${euros(v)}</dd>`).join('')}<dt><b>Bénéfice</b></dt><dd style="color:${b.benef >= 0 ? 'var(--good)' : 'var(--bad)'}"><b>${euros(b.benef)}</b></dd></dl>` : '<p class="hint">Premier compte de résultat à la fin de l’année.</p>'}
+    <div class="lbl" style="margin:10px 0 4px">Décisions</div>
+    ${S.noPrix ? '' : `<div class="chips">${Object.entries(PRIX).map(([k, P]) => chip(`prix:${k}`, P.nom, (b.px || 1) === P.k)).join('')}</div>`}
+    ${S.decisions(b).map((d) => d.choix ? `<div class="sx-row"><small>${d.nom}</small><div class="chips">${d.choix.map(([k, t]) => chip(`sx:${d.id}:${k}`, t, d.val === k)).join('')}</div></div>` : `<div class="chips">${chip(`sx:${d.id}`, `${d.nom}${d.cout ? ` (${euros(d.cout)})` : ''}`, false, d.off || d.aide)}</div>`).join('')}`;
+  const modele = compact || !B.startup ? '' : `<div class="lbl" style="margin:10px 0 4px">Modèle de revenus</div><div class="chips">${Object.entries(MODELES).map(([k, M]) => chip(`modele:${k}`, M.nom, (b.modele || 'freemium') === k)).join('')}</div>`;
   const acts = compact ? '' : `<div class="chips">${[['investir', `Agrandir (${euros(Math.round(B.prix * 0.6 * b.niveau))})`], ['marketing', `Marketing (${euros(8000 * b.niveau)})`], ...(B.lav ? [['blanchir', 'Blanchir']] : []), ...(B.startup ? [['lever', 'Lever des fonds'], ['pc', 'Ouvrir le PC']] : []), ['vendre', `Vendre (~${euros(bizValue(b))})`]].map(([a, t]) => `<button class="chip" data-a="${a === 'pc' ? 'pc' : 'biz'}" data-v="${b.uid}" data-x="${a}">${t}</button>`).join('')}</div>`;
-  return `<div class="biz"><div class="biz-h"><b>${esc(b.nom)}</b><small>${B.nom} · niv. ${b.niveau} · ${b.annees} an${b.annees > 1 ? 's' : ''}</small></div>${stats}${hist.length > 1 ? `<div class="lbl" style="margin:8px 0 4px">${B.startup ? 'Croissance des utilisateurs' : 'Bénéfice par année'}</div>${spark(hist, B.startup ? '#5ff5d0' : '#ffd36e')}` : ''}${acts}</div>`;
+  return `<div class="biz"><div class="biz-h"><b>${esc(b.nom)}</b><small>${B.nom} · niv. ${b.niveau} · ${b.annees} an${b.annees > 1 ? 's' : ''}</small></div>${stats}${hist.length > 1 ? `<div class="lbl" style="margin:8px 0 4px">${B.startup ? 'Croissance des utilisateurs' : 'Bénéfice par année'}</div>${spark(hist, B.startup ? '#5ff5d0' : '#ffd36e')}` : ''}${secteur}${modele}${acts}</div>`;
 }
 
 export function pcHTML(S, uid) {

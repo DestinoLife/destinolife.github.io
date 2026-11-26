@@ -527,6 +527,51 @@ test('CP-5', 'négociations répétées : salaire plafonné', () => {
   return s.carriere.mult <= 1.8 && validerEtat(bad) === 'compétence' ? true : `mult ${s.carriere.mult}, validation ${validerEtat(bad)}`;
 });
 
+// ---------- v0.13 Business : modèles sectoriels, pas de stratégie universelle, pas d'argent gratuit ----------
+const gainSecteur = (type, acts, n = 40, ans = 6) => {
+  let tot = 0;
+  for (let i = 0; i < n; i++) {
+    const s = vie(30, 5e6);
+    s.stats.notoriete = 60;
+    eco.createBusiness(s, type, 'Test');
+    const b = s.business[0];
+    const m0 = s.money;
+    for (const a of acts) eco.businessAction(s, b.uid, a);
+    for (let y = 0; y < ans && s.business.length; y++) { s.age++; eco.businessTick(s); s.queue = []; }
+    tot += s.money - m0 + (s.business[0]?.valo || 0);
+  }
+  return tot / n;
+};
+test('BZ-1', 'chaque secteur tourne 6 ans avec un compte de résultat cohérent', () => {
+  for (const t of Object.keys(eco.BUSINESS)) {
+    const s = vie(30, 5e6);
+    s.stats.notoriete = 60;
+    eco.createBusiness(s, t, 'Test');
+    for (let y = 0; y < 6 && s.business.length; y++) { s.age++; eco.businessTick(s); s.queue = []; }
+    const b = s.business[0];
+    if (b && (!Number.isFinite(b.ca) || !Number.isFinite(b.benef) || !Number.isFinite(b.valo))) return `${t} : valeurs invalides`;
+    if (b && !eco.BUSINESS[t].startup && b.detail && b.benef !== b.ca - b.detail.lignes.reduce((x, l) => x + l[1], 0)) return `${t} : bénéfice ≠ CA − coûts`;
+  }
+  return true;
+});
+test('BZ-2', 'aucune politique de prix universelle (snack : bas > haut ; restaurant : marché > bas)', () => {
+  const kb = gainSecteur('kebab', ['prix:bas']), kh = gainSecteur('kebab', ['prix:haut']);
+  const rm = gainSecteur('resto', []), rb = gainSecteur('resto', ['prix:bas']);
+  return kb > kh && rm > rb ? true : `kebab bas ${Math.round(kb)} / haut ${Math.round(kh)}, resto marché ${Math.round(rm)} / bas ${Math.round(rb)}`;
+});
+test('BZ-3', 'décisions payantes refusées sans argent, transferts de joueurs limités', () => {
+  const s = vie(30, 5e6);
+  eco.createBusiness(s, 'club', 'FC Test');
+  const b = s.business[0];
+  const m0 = s.money;
+  eco.businessAction(s, b.uid, 'sx:vendre_joueur');
+  const r2 = eco.businessAction(s, b.uid, 'sx:vendre_joueur');
+  const pauvre = vie(30, 100);
+  pauvre.business.push({ ...b, uid: 999, sx: { ...b.sx } });
+  const r3 = eco.businessAction(pauvre, 999, 'sx:recruter');
+  return r2.err && s.money - m0 <= 40000 * 4 && r3.err && pauvre.money === 100 ? true : `second transfert ${r2.r}, gain ${s.money - m0}, recrutement à crédit ${r3.r}`;
+});
+
 // ---------- Faux positifs : des vies honnêtes, jouées à travers le coffre-fort, ne déclenchent jamais Hitman ----------
 test('HM-7', 'aucun faux positif sur 40 vies (héritages, ventes, casino, bourse, entreprises)', () => {
   const t0 = performance.now();

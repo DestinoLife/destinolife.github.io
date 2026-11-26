@@ -289,3 +289,10 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 @media (max-width: 520px) {
   .skill-list { grid-template-columns: 1fr; }
 }
+
+/* ---------- v0.13 : gestion sectorielle des entreprises ---------- */
+.biz .sx-kpis { margin-top: 8px; font-size: 12px; }
+.biz .pnl { font-size: 12px; padding: 8px 10px; border-radius: 10px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--line); }
+.biz .sx-row small { display: block; margin: 6px 0 4px; font-size: 11px; color: var(--faint); }
+.biz .chips + .chips { margin-top: 6px; }
+.biz .chip { height: 30px; font-size: 12px; }

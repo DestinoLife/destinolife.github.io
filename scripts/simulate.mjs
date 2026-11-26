@@ -11,6 +11,7 @@ import { suggestions, adopterAmbition, abandonnerAmbition } from '../src/engine/
 import { AMBITIONS } from '../src/data/ambitions.js';
 import { souscrire, simuler } from '../src/engine/credit.js';
 import { seFormer, niveau } from '../src/engine/skills.js';
+import { SECTEURS, PRIX } from '../src/engine/sectors.js';
 import { FILIERES, SKILLS, CAP_AN, METIER_REQUIS } from '../src/data/skills.js';
 import { livret, livretEnfant, basculerAssurance, travaux, rembourserAnticipe, dette, patrimoineNet, CREDITS } from '../src/engine/bank.js';
 import { migrate, buyAsset, sellAsset, createBusiness, businessAction, networkAction, travel, flee, roulette, slots, moveCity, findContact, startNetwork, ASSETS, BUSINESS, DESTS, MISSIONS } from '../src/engine/economy.js';
@@ -104,7 +105,7 @@ function coherence(s) {
   const year = (t) => new Date(t).getUTCFullYear();
   for (const r of s.relations) {
     if (r.vivant || !r.dec || s.relations.some((x) => x.vivant && x.prenom === r.prenom)) continue;
-    const homo = s.relations.filter((x) => x.prenom === r.prenom); if (homo.some((x) => !x.dec)) continue; const fin = Math.max(...homo.map((x) => x.dec)); const bad = s.phone.msgs.find((m) => m.from === r.prenom && !m.mine && !m.role && year(m.t) > fin); if (bad) warns.push(`Message d’un PNJ décédé : ${r.lien} | ${bad.txt.slice(0, 70)}`);
+    const homo = s.relations.filter((x) => x.prenom === r.prenom); if (homo.some((x) => !x.dec)) continue; const fin = Math.max(...homo.map((x) => x.dec)); const exact = s.phone.msgs.find((m) => m.rid === r.id && year(m.t) > r.dec); if (exact) warns.push(`Message d’un PNJ décédé (identifiant) : ${r.lien} | ${exact.txt.slice(0, 60)}`); const bad = s.phone.msgs.find((m) => m.from === r.prenom && m.rid == null && !m.mine && !m.role && year(m.t) > fin); if (bad) warns.push(`Message d’un PNJ décédé : ${r.lien} | ${bad.txt.slice(0, 70)}`);
   }
   const act = s.amb?.act || [];
   if (act.length > 3 || new Set(act.map((a) => a.id)).size !== act.length || act.some((a) => !AMBITIONS[a.id])) warns.push('Ambitions incohérentes');
@@ -182,7 +183,15 @@ for (let i = 0; i < N; i++) {
         if (k < 0.15) buyAsset(s, pick(Object.keys(ASSETS)));
         else if (k < 0.22 && s.biens.length) sellAsset(s, pick(s.biens).uid);
         else if (k < 0.35) createBusiness(s, pick(Object.keys(BUSINESS)));
-        else if (k < 0.5 && s.business.length) businessAction(s, pick(s.business).uid, pick(['investir', 'marketing', 'blanchir', 'lever', 'vendre']));
+        else if (k < 0.5 && s.business.length) {
+          const b = pick(s.business);
+          const S = SECTEURS[b.type];
+          if (S && b.sx && Math.random() < 0.6) {
+            const d = pick(S.decisions(b));
+            businessAction(s, b.uid, Math.random() < 0.25 ? `prix:${pick(Object.keys(PRIX))}` : d.choix ? `sx:${d.id}:${pick(d.choix)[0]}` : `sx:${d.id}`);
+          } else businessAction(s, b.uid, pick(['investir', 'marketing', 'blanchir', 'lever', 'vendre', 'modele:pub', 'modele:abonnement']));
+          if (!Number.isFinite(b.ca) || !Number.isFinite(b.benef)) warns.push(`Entreprise NaN : ${b.type}`);
+        }
         else if (k < 0.6) { if (!s.reseau) startNetwork(s); else networkAction(s, pick(['guetteur', 'vendeur', 'virer', ...MISSIONS.map((m) => m.id)])); }
         else if (k < 0.66) findContact(s);
         else if (k < 0.72 && s.reseau) { const f = s.relations.find((x) => x.role === 'fournisseur'); if (f) networkAction(s, 'fournisseur', f.id); }

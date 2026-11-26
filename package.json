@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "sim": "node scripts/simulate.mjs",
     "anticheat": "node scripts/anticheat.mjs",
-    "og": "node scripts/og-image.mjs"
+    "og": "node scripts/og-image.mjs",
+    "business-audit": "node scripts/business-audit.mjs"
   },
   "devDependencies": {
     "@resvg/resvg-js": "^2.6.2",

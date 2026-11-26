@@ -4,6 +4,9 @@ import { rnd, pick, chance, clamp, euros } from './rng.js';
 import { addLog, apply, newPerson, career, tpl, registerFx } from './core.js';
 import { ASSETS, BUSINESS, ROLES, DESTS, MISSIONS } from '../data/world.js';
 import { migrateBank, resteSur, solderSur } from './bank.js';
+import { SECTEURS, PRIX, decisionSecteur } from './sectors.js';
+// Start-up : modèle de revenus (v0.13)
+export const MODELES = { freemium: { nom: 'Freemium', mrr: 0.9, g: 0 }, abonnement: { nom: 'Abonnement payant', mrr: 1.6, g: -0.12 }, pub: { nom: 'Gratuit avec publicité', mrr: 0.5, g: 0.1 } };
 import { nameFor, surnameFor, ORIGINES, VILLES } from '../data/identity.js';
 
 const gauss = () => (rand() + rand() + rand() - 1.5) / 1.5;
@@ -173,6 +176,7 @@ export function createBusiness(s, type, nom) {
   if (s.money < B.prix) return { r: `Il te faut ${euros(B.prix)}.`, err: true };
   s.money -= B.prix;
   const b = { uid: s.uid++, type, nom: nom || `${B.nom} ${s.id.nom}`, niveau: 1, rep: 45 + rnd(0, 10), emp: B.emp, ca: 0, benef: 0, valo: Math.round(B.prix * 0.6), investi: B.prix, annees: 0, hist: [], lave: 0, pertes: 0 };
+  SECTEURS[type]?.init(b);
   if (B.startup) {
     const q = Math.min(1, Math.max(0, rand() ** 1.8 + (s.stats.intel - 50) / 400));
     Object.assign(b, { q, users: 1500, mrr: 0, burn: 9000, cash: 110000, valo: 30000, part: 100, tour: 0, g: 0 });
@@ -186,6 +190,17 @@ export function businessAction(s, uid, act) {
   const b = s.business.find((x) => x.uid === uid);
   if (!b) return { r: '', err: true };
   const B = BUSINESS[b.type];
+  // v0.13 : décisions propres au secteur, positionnement prix, modèle de revenus d'une start-up
+  const [a0, a1, a2] = String(act).split(':');
+  if (a0 === 'sx') return decisionSecteur(s, b, a1, a2);
+  if (a0 === 'prix' && !B.startup && Object.hasOwn(PRIX, a1)) {
+    b.px = PRIX[a1].k;
+    return { r: `${PRIX[a1].nom} chez ${b.nom}.`, good: true };
+  }
+  if (a0 === 'modele' && B.startup && Object.hasOwn(MODELES, a1)) {
+    b.modele = a1;
+    return { r: `Nouveau modèle : ${MODELES[a1].nom.toLowerCase()}.`, good: true };
+  }
   const pay = (c) => {
     if (s.money < c) return false;
     s.money -= c;
@@ -271,7 +286,7 @@ function faillite(s, b, txt) {
 
 const BIZ_EVENTS = ['biz_assurance', 'biz_concurrent', 'biz_bad_buzz', 'biz_vol_gerant', 'biz_prudhommes', 'biz_greve', 'biz_compta', 'biz_incendie', 'biz_rachat', 'biz_controle', 'biz_hygiene', 'biz_fournisseur'];
 const SU_EVENTS = ['su_pivot', 'su_faille', 'su_cto', 'su_rachat'];
-function businessTick(s) {
+export function businessTick(s) {
   const E = eco(s);
   for (const b of [...s.business]) {
     const B = BUSINESS[b.type];
@@ -283,9 +298,9 @@ function businessTick(s) {
     b.lave = 0;
     if (B.startup) {
       const pot = 40000 + b.q * b.q * 2500000;
-      b.g = Math.round(((-0.15 + b.q * 1.45 + (b.rep - 50) / 300 + (s.stats.intel - 50) / 400 + gauss() * 0.3) * (0.7 + 0.3 * E.mult)) * 100) / 100;
+      b.g = Math.round(((-0.15 + (MODELES[b.modele]?.g || 0) + b.q * 1.45 + (b.rep - 50) / 300 + (s.stats.intel - 50) / 400 + gauss() * 0.3) * (0.7 + 0.3 * E.mult)) * 100) / 100;
       b.users = Math.max(50, Math.round(b.users * (1 + b.g * Math.max(0, 1 - b.users / pot))));
-      b.mrr = Math.round(b.users * 0.9);
+      b.mrr = Math.round(b.users * (MODELES[b.modele]?.mrr ?? 0.9));
       b.burn = Math.round(6000 + b.emp * 3800 + b.users * 0.12);
       b.cash += (b.mrr - b.burn) * 12;
       b.ca = b.mrr * 12;
@@ -295,10 +310,23 @@ function businessTick(s) {
       b.rep = clamp(b.rep + rnd(-5, 4));
       if (b.cash < 0) { faillite(s, b, `${b.nom} fait faillite : plus de trésorerie.`); continue; }
     } else {
-      const demande = (0.6 + b.rep / 125) * E.mult * (0.85 + rand() * 0.3) * (b.choc || 1);
+      const S = SECTEURS[b.type];
+      if (S) {
+        // Modèle sectoriel : ventes, capacité et chaque coût sont visibles dans le compte de résultat
+        if (!b.sx) S.init(b);
+        const r = S.annee(s, b, E);
+        if (b.assure) r.lignes.push(['Assurance multirisque', Math.round(b.investi * 0.015)]);
+        b.ca = Math.round(r.ca);
+        b.benef = b.ca - r.lignes.reduce((t, l) => t + l[1], 0);
+        b.detail = { ventes: r.ventes, cap: r.cap, lignes: r.lignes, extra: r.extra || '' };
+        // Rapport qualité-prix : des prix au-dessus de la qualité offerte abîment la réputation, l'inverse la renforce
+        if (!S.noPrix) b.rep = clamp(Math.round(b.rep + ((b.qual ?? 50) - 50 * (b.px || 1)) / 4));
+      } else {
+        const demande = (0.6 + b.rep / 125) * E.mult * (0.85 + rand() * 0.3) * (b.choc || 1);
+        b.ca = Math.round(B.base * b.niveau ** 0.8 * demande);
+        b.benef = Math.round(b.ca * B.mb - B.fixe * b.niveau ** 0.95 * (b.salaires || 1) - (b.assure ? b.investi * 0.015 : 0));
+      }
       b.choc = 1;
-      b.ca = Math.round(B.base * b.niveau ** 0.8 * demande);
-      b.benef = Math.round(b.ca * B.mb - B.fixe * b.niveau ** 0.95 * (b.salaires || 1) - (b.assure ? b.investi * 0.015 : 0));
       const moy = [...b.hist.slice(-2).map((h) => h.benef), b.benef].reduce((t, v) => t + v, 0) / (Math.min(2, b.hist.length) + 1);
       b.valo = Math.max(0, Math.round(b.investi * 0.3 + Math.max(0, moy) * 3.5 * E.val ** 0.5));
       b.rep = clamp(Math.round(b.rep + (50 - b.rep) * 0.12 + rnd(-4, 3)));

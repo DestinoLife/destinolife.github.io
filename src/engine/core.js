@@ -283,7 +283,7 @@ const FX = {
     addLog(s, 'Retour au pays : {pays}.');
   },
   sms: (s, v) => {
-    s.phone.msgs.push({ from: tpl(v.from, s), role: v.role || '', txt: tpl(v.txt, s), age: s.age, t: s.t, read: true });
+    s.phone.msgs.push({ from: tpl(v.from, s), role: v.role || '', txt: tpl(v.txt, s), age: s.age, t: s.t, read: true, ...(Number.isInteger(v.rid) ? { rid: v.rid } : {}) });
   },
   sale: (s, v) => (s.sale = Math.max(0, s.sale + v)),
   avec: (s, v) => (s.avec = [].concat(v)),

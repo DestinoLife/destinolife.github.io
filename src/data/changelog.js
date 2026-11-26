@@ -1,7 +1,19 @@
 // Notes de mise à jour affichées dans le jeu (même contenu que CHANGELOG.md).
-export const VERSION = 'v0.12';
+export const VERSION = 'v0.13';
 
 export const CHANGELOG = [
+  { v: 'v0.13', titre: 'Business Tycoon', items: [
+    'Chaque entreprise a enfin son propre modèle : on ne gère plus un restaurant comme un label ou une salle de sport',
+    'Compte de résultat détaillé chaque année : ventes, chiffre d’affaires, coûts variables, loyer, salaires et chaque dépense propre au secteur',
+    'Politique de prix pour chaque commerce : bas, marché ou élevé. Des prix trop hauts pour la qualité offerte abîment la réputation',
+    'Restaurant : fournisseurs (discount, locaux, haut de gamme), chef, hygiène et contrôles sanitaires, critiques gastronomiques. Snack : emplacement, livraison, fournisseurs',
+    'Magasin : taille et style des collections, invendus soldés, boutique en ligne. Garage : devis honnêtes ou gonflés (litiges), lots de voitures d’occasion, formation',
+    'Salle de sport : abonnés qui restent ou partent, équipement qui s’use, coachs. Label : artistes signés au talent inconnu, tubes et flops, promotion, fins de contrat',
+    'Start-up : modèle de revenus (freemium, abonnement, publicité)',
+    'Nouveaux secteurs : hôtel (occupation, rénovation, plateformes de réservation), agence immobilière (mandats, commission, négociateurs), boîte de nuit (programmation, sécurité, DJ star, incidents) et club sportif (effectif, montées et relégations, sponsors)',
+    'Équilibrage vérifié par un audit automatique : aucune stratégie ne gagne partout, chaque secteur est viable bien géré et peut faire faillite mal géré',
+    'Correctifs : un ami devenu contact puis supprimé laissait un lien fantôme, et les messages des proches sont désormais rattachés à leur auteur',
+  ] },
   { v: 'v0.12', titre: 'Compétences & Carrières', items: [
     'Compétences (onglet Carrière) : 22 compétences en 7 domaines (informatique, musique, business, sport, social, finance, métiers), du niveau « notions » à « maître »',
     'Elles progressent avec les études, les activités et le travail, au plus 160 points par an et par compétence : impossible de tout maxer en répétant la même action',

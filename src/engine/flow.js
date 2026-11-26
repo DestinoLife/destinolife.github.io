@@ -714,6 +714,7 @@ export function relAction(s, rid, a) {
     }
   } else if (a === 'supprimer') {
     s.relations = s.relations.filter((x) => x !== r);
+    s.liens = (s.liens || []).filter((l) => l.a !== r.id && l.b !== r.id);
     if (s.reseau?.fournisseur === r.id) s.reseau.fournisseur = null;
     out = `${r.prenom} est supprimé de tes contacts.`;
   } else if (a === 'excuses') {

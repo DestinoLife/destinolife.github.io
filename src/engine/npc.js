@@ -144,7 +144,7 @@ function note(s, r, txt) {
   if (PROCHES.includes(r.lien) || r.rel >= 45) addLog(s, txt);
 }
 function sms(s, r, txt) {
-  if (r.vivant && r.rel >= 35) apply(s, { sms: { from: r.prenom, txt } });
+  if (r.vivant && r.rel >= 35) apply(s, { sms: { from: r.prenom, txt, rid: r.id } });
 }
 
 function naissancePnj(s, r) {

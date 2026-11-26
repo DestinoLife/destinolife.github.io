@@ -99,7 +99,7 @@ export function validerEtat(s) {
   if (s.etudes?.niveau != null && !DIPLOMES.includes(s.etudes.niveau)) return 'diplôme';
   if (s.carriere && !own(CAREERS, s.carriere.id)) return 'métier';
   for (const b of s.biens || []) if (!b || !own(ASSETS, b.id) || !num(b.valeur, 0, 1e9)) return 'patrimoine';
-  for (const b of s.business || []) if (!b || !own(BUSINESS, b.type) || (b.valo != null && !num(b.valo, -1e9, 1e9))) return 'entreprise';
+  for (const b of s.business || []) if (!b || !own(BUSINESS, b.type) || (b.valo != null && !num(b.valo, -1e9, 1e9)) || (b.px != null && !num(b.px, 0.8, 1.25))) return 'entreprise';
   if (!num(s.justice.prison, 0, 1000)) return 'peine de prison';
   // v0.10 : ambitions connues et en nombre limité, dettes des proches bornées
   if (s.amb && (!Array.isArray(s.amb.act) || s.amb.act.length > 3 || s.amb.act.some((a) => !own(AMBITIONS, a?.id)))) return 'ambition';

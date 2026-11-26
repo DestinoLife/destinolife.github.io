@@ -69,6 +69,8 @@ function anciensCollegues(s) {
   if (ex.length > 6) {
     const garder = new Set(ex.sort((a, b) => b.rel - a.rel).slice(0, 6));
     s.relations = s.relations.filter((r) => r.lien !== 'excollegue' || garder.has(r));
+    const ids = new Set(s.relations.map((r) => r.id));
+    s.liens = (s.liens || []).filter((l) => ids.has(l.a) && ids.has(l.b));
   }
 }
 export function choisirEmployeur(id, sauf) {
